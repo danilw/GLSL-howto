@@ -57,13 +57,13 @@ vec4 mainImage(vec2 fragCoord) {
 
 int main() {
 
-    for (int i = 0; i < 200; i = i + 10)//200msec=2 sec
+    for (int i = 0; i < 2000; i = i + 100)//2000msec=2 sec
     {
-        iDate.w = i;
+        iDate.w = i/1000.0;
         vec4 fragColor;
         vec2 fragCoord(0, 0); //x=0, y=0
         fragColor = mainImage(fragCoord);
-        std::cout << "msec: " << iDate.w << std::endl;
+        std::cout << "sec: " << iDate.w << std::endl;
         std::cout << "frag coord: " << fragCoord << std::endl;
         std::cout << "frag color: " << fragColor << std::endl;
         fragCoord = vec2(0, 250); //x=0, y=250px
