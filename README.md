@@ -2,4 +2,4 @@
 ___
 *list:*
 
-**basic glsl math** - very basic glsl math to C code translation
+**basic glsl math** - very basic glsl math to C code translation, C code return steep by steep GLSL color for coordinate
