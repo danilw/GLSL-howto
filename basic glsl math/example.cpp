@@ -1,7 +1,7 @@
 #include "glslmath.h"
 #include <math.h>
 
-//example shader
+//example shader https://www.shadertoy.com/view/4llSzS
 
 /*
 void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
