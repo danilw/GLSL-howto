@@ -7,3 +7,5 @@ ___
 **basic hit perf** - faster way to detect "rendering zone" if this hit you position
 
 **removing IF basic** - simple removing IF from code, save 1%-5% GPU time on example code
+
+**art** using TWGL (javascript webgl) fragment shader with textures, [live](https://danilw.github.io/GLSL-howto/anart/glsl/art.html)
