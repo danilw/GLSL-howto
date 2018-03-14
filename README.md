@@ -11,3 +11,5 @@ ___
 **art** using TWGL (javascript webgl) fragment shader with textures, [live](https://danilw.github.io/GLSL-howto/anart/glsl/art.html)
 
 **art2** plain with 3d in fragment shader [live](https://danilw.github.io/GLSL-howto/anart2/art2.html)
+
+**nanogui** github.com/wjakob/nanogui fork I make build for WASM (GLES port with WASM fixes) [live](https://danilw.github.io/GLSL-howto/nanogui/nanogui.html) (source code few weeks latter)
