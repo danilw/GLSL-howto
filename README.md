@@ -12,4 +12,6 @@ ___
 
 **art2** plain with 3d in fragment shader [live](https://danilw.github.io/GLSL-howto/anart2/art2.html)
 
-**nanogui** (source code few weeks latter) github.com/wjakob/nanogui fork I make build for WASM (GLES port with WASM fixes) [live](https://danilw.github.io/GLSL-howto/nanogui/nanogui.html)
+**nanogui**  [nanogui](https://github.com/wjakob/nanogui) fork I make build for WASM (GLES port with fixes) [live](https://danilw.github.io/GLSL-howto/nanogui/nanogui.html)
+
+(source code few weeks latter)
