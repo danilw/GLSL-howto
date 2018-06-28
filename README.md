@@ -21,7 +21,7 @@ ___
 ### Graphic
 
 **space_ship_obj**
-![ship_obj](https://danilw.github.io/GLSL-howto/space_ship_obj/yt.png)](https://youtu.be/q00V55R6oGM)
+[![ship_obj](https://danilw.github.io/GLSL-howto/space_ship_obj/yt.png)](https://youtu.be/q00V55R6oGM)
 
 **goglsl**
 ![goglsl](https://danilw.github.io/GLSL-howto/goglsl/goglsl.png)
