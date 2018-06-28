@@ -16,7 +16,12 @@ ___
 
 **goglsl**  [live](https://danilw.github.io/GLSL-howto/goglsl/goglsl.html) game project (Getting Over ...GLSL?) using many shaders and frame buffers at same time [source](https://github.com/danilw/getting-over-glsl)
 
+**space_ship_obj** creating very simple object in GLSL, on shadertoy [mask](https://www.shadertoy.com/view/XdGBWy) [colored](https://www.shadertoy.com/view/4dGBWy)
 
 ### Graphic
+
+**space_ship_obj**
+![ship_obj](https://danilw.github.io/GLSL-howto/space_ship_obj/yt.png)](https://youtu.be/q00V55R6oGM)
+
 **goglsl**
 ![goglsl](https://danilw.github.io/GLSL-howto/goglsl/goglsl.png)
