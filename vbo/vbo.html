@@ -1,0 +1,185 @@
+<html>
+    <head>
+        <title>vbo</title>
+        <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+        <script type = "glsl" id = "standard-vs">precision mediump float;
+            attribute vec4 a_Position;
+            attribute vec4 a_Color;
+            varying vec4 color;
+            void main() {
+            gl_Position = a_Position;
+            gl_PointSize=5.;
+            }
+        </script>
+        <script type = "glsl" id = "standard-frag">precision mediump float;
+            varying vec4 color;
+            uniform float time;
+            float rand(vec2 co){
+            return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+            }
+
+            void main( void ) {
+            vec2 position = ( gl_FragCoord.xy / 800. ) + time / 4.0;
+            float color = rand(position);
+            gl_FragColor = vec4( vec3( color, color, color), 1.0 );
+
+            }
+        </script>
+    </head>
+    <style>
+        #fx { position: relative; margin: 0 auto; width: 1000px; height: 500px; border: 1px solid gray; }
+        #gl { width: 800px; height: 800px; }
+    </style>
+    <body style = "background: #202020; padding: 32px;">
+        <canvas id = "gl" width = "800" height = "800"></canvas>
+
+        <script type = "text/javascript">
+            "use strict";
+            var width = 800;
+            var height = 800;
+            function InitializeShader(gl, source_vs, source_frag, fv, ff)
+            {
+                var ErrorMessage = "Initializing Shader Program: <" + fv + ">, <" + ff + ">";
+
+                var shader_vs = gl.createShader(gl.VERTEX_SHADER);
+                var shader_frag = gl.createShader(gl.FRAGMENT_SHADER);
+
+                gl.shaderSource(shader_vs, source_vs);
+                gl.shaderSource(shader_frag, source_frag);
+
+                gl.compileShader(shader_vs);
+                gl.compileShader(shader_frag);
+
+                var error = false;
+                if (!gl.getShaderParameter(shader_vs, gl.COMPILE_STATUS)) {
+                    ErrorMessage += gl.getShaderInfoLog(shader_vs);
+                    error = true;
+                }
+                if (!gl.getShaderParameter(shader_frag, gl.COMPILE_STATUS)) {
+                    ErrorMessage += gl.getShaderInfoLog(shader_frag);
+                    error = true;
+                }
+                var program = gl.createProgram();
+
+                var ret = gl.getProgramInfoLog(program);
+
+                if (ret != "")
+                    ErrorMessage += ret;
+                gl.attachShader(program, shader_vs);
+                gl.attachShader(program, shader_frag);
+                if (gl.linkProgram(program) == 0) {
+                    ErrorMessage += "\r\ngl.linkProgram(program) failed with error code 0.";
+                    error = true;
+                }
+
+                if (error) {
+                    console.log(ErrorMessage + ' ...failed to initialize shader.');
+                    return false;
+                } else {
+                    console.log(ErrorMessage + ' ...shader successfully created.');
+                    return program;
+                }
+            }
+            document.addEventListener("DOMContentLoaded", function (event) {
+                var canvas = document.getElementById('gl');
+                var gl = canvas.getContext("webgl2");
+                var cont = false;
+                var ext = null;
+                var extt = false;
+                var copg = true;
+                if (!gl) {
+                    console.log('webgl2 not supported, trying webgl with ANGLE');
+                    gl = canvas.getContext("webgl");
+                    if (!gl) {
+                        console.log('webgl not suported');
+                        return;
+                    }
+                    var extx = gl.getExtension('ANGLE_instanced_arrays');
+                    if (!extx) {
+                        console.log('webgl not suported');
+                        return;
+                    } else {
+                        ext = extx;
+                        extt = true;
+                        console.log('continue using webgl ANGLE');
+                        cont = true;
+                    }
+                } else {
+                    console.log('continue with webgl2');
+                    cont = true;
+                }
+                if (cont) {
+                    var t = gl.drawElementsInstanced;
+                    if (!t) {
+                        var extx = gl.getExtension('ANGLE_instanced_arrays');
+                        if (!extx) {
+                            console.log('webgl not suported');
+                            return;
+                        } else {
+                            ext = extx;
+                            extt = true;
+                            console.log('continue using webgl ANGLE');
+                        }
+                    }
+                    var vs = document.getElementById("standard-vs").innerHTML;
+                    var fs = document.getElementById("standard-frag").innerHTML;
+
+                    var Shader = InitializeShader(gl, vs, fs);
+                    var vertices = new Float32Array([
+                        -1.0, 1.0, 0.0,
+                        -1.0, -1.0, 0.0,
+                        1.0, -1.0, 0.0,
+                        1.0, 1.0, 0.0,
+                    ]);
+                    var indices = [0, 1, 2, 2, 3, 0];
+                    var vertexbuffer = gl.createBuffer();
+                    var indexbuffer = gl.createBuffer();
+                    gl.bindBuffer(gl.ARRAY_BUFFER, vertexbuffer);
+                    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+                    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+                    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexbuffer);
+                    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+                    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+                    gl.bindBuffer(gl.ARRAY_BUFFER, vertexbuffer);
+                    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexbuffer);
+                    gl.viewport(0, 0, width, height);
+                    var coords = gl.getAttribLocation(Shader, "a_Position");
+                    gl.vertexAttribPointer(coords, 3, gl.FLOAT, false, 0, 0);
+                    gl.enableVertexAttribArray(coords);
+                    gl.useProgram(Shader);
+                    gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+                    var timex = 0;
+                    var loopx = 10;
+                    var T = setInterval(function () {
+                        if (!copg)
+                            return;
+                        if (!gl)
+                            return;
+                        timex++;
+                        if (timex > 10000)
+                            timex = 0;
+                        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+                        gl.clear(gl.COLOR_BUFFER_BIT);
+                        gl.useProgram(Shader);
+                        gl.uniform1f(gl.getUniformLocation(Shader, "time"), timex / 60.);
+                        if (extt)
+                            ext.drawElementsInstancedANGLE(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0, loopx);
+                        else
+                            gl.drawElementsInstanced(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0, loopx);
+                        if (timex > 200)
+                            if (confirm('Last loop: ' + loopx + ' Next loop:' + (loopx * 10) + ' Continue?'))
+                            {
+                                copg = true;
+                                loopx *= 10;
+                                timex = 0;
+                            } else {
+                                copg = false;
+                            }
+                    }, 0);
+                }
+            });
+
+        </script>
+
+    </body>
+</html>
