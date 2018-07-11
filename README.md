@@ -18,6 +18,8 @@ ___
 
 **space_ship_obj** creating very simple object in GLSL, on shadertoy [mask](https://www.shadertoy.com/view/XdGBWy) [colored](https://www.shadertoy.com/view/4dGBWy)
 
+**vbo**  [live](https://danilw.github.io/GLSL-howto/vbo/vbo.html) testing some bug in OpenGL
+
 ### Graphic
 
 **space_ship_obj**
