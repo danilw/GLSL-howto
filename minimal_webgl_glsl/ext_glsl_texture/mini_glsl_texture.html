@@ -1,0 +1,193 @@
+<html>
+    <head>
+        <title>Minimal GLSL texture</title>
+        <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+    </head>
+    <body style = "background: #202020; padding: 32px;">
+        <canvas id = "gl" width = "800" height = "600"></canvas>
+        <script type = "text/javascript">
+            "use strict";
+            var width = 800;
+            var height = 600;
+            var gl = null;
+            var Shader = null;
+            var shadersloaded = false;
+            function LoadShader(filenameVertexShader, filenameFragmentShader, index)
+            {
+                var filename_vs = filenameVertexShader;
+                var filename_fs = filenameFragmentShader;
+
+                var v = "";
+                var f = "";
+                var xmlhttp = new XMLHttpRequest();
+                xmlhttp.onreadystatechange = function () {
+                    if (xmlhttp.readyState == XMLHttpRequest.DONE) {
+                        if (xmlhttp.status == 200) {
+                            v = xmlhttp.responseText;
+                            var xmlhttp2 = new XMLHttpRequest();
+                            xmlhttp2.onreadystatechange = function () {
+                                if (xmlhttp2.readyState == XMLHttpRequest.DONE)
+                                    if (xmlhttp2.status == 200) {
+                                        f = xmlhttp2.responseText;
+                                        Shader = InitializeShader(v, f, filenameVertexShader, filenameFragmentShader);
+                                        shadersloaded = true;
+                                    }
+                            };
+                            xmlhttp2.open("GET", filename_fs, true);
+                            xmlhttp2.send();
+                        }
+                    }
+                };
+                xmlhttp.open("GET", filename_vs, true);
+                xmlhttp.send();
+            }
+            function InitializeShader(source_vs, source_frag, fv, ff)
+            {
+                var ErrorMessage = "Initializing Shader Program: <" + fv + ">, <" + ff + ">";
+                var shader_vs = gl.createShader(gl.VERTEX_SHADER);
+                var shader_frag = gl.createShader(gl.FRAGMENT_SHADER);
+                gl.shaderSource(shader_vs, source_vs);
+                gl.shaderSource(shader_frag, source_frag);
+                gl.compileShader(shader_vs);
+                gl.compileShader(shader_frag);
+                var error = false;
+                if (!gl.getShaderParameter(shader_vs, gl.COMPILE_STATUS)) {
+                    ErrorMessage += gl.getShaderInfoLog(shader_vs);
+                    error = true;
+                }
+                if (!gl.getShaderParameter(shader_frag, gl.COMPILE_STATUS)) {
+                    ErrorMessage += gl.getShaderInfoLog(shader_frag);
+                    error = true;
+                }
+                var program = gl.createProgram();
+                var ret = gl.getProgramInfoLog(program);
+                if (ret != "")
+                    ErrorMessage += ret;
+                gl.attachShader(program, shader_vs);
+                gl.attachShader(program, shader_frag);
+                if (gl.linkProgram(program) == 0) {
+                    ErrorMessage += "\r\ngl.linkProgram(program) failed with error code 0.";
+                    error = true;
+                }
+                if (error) {
+                    console.log(ErrorMessage + ' ...failed to initialize shader.');
+                    return false;
+                } else {
+                    console.log(ErrorMessage + ' ...shader successfully created.');
+                    return program;
+                }
+            }
+            var Texture = function (fn) {
+                var that = this;
+                var root = this;
+                this.filename = fn;
+                this.width = 0;
+                this.height = 0;
+                this.image = null;
+                this.texture = gl.createTexture();
+                this.load = function (filename) {
+                    that.image = new Image();
+                    that.image.onload = function (event) {
+                        var file = fn.split("/");
+                        that.width = this.width;
+                        that.height = this.height;
+                        gl.bindTexture(gl.TEXTURE_2D, that.texture);
+                        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, that.image);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                        //gl.generateMipmap(gl.TEXTURE_2D);
+                        gl.bindTexture(gl.TEXTURE_2D, null);
+                        console.log("Loaded texture (" + that.width + "x" + that.height + ") filename = " + file[file.length - 1]);
+                    };
+                    that.image.src = filename;
+                    return that;
+                };
+                if (fn != undefined && fn != "" && fn != null)
+                    this.load(fn);
+                else
+                    console.log("Unable to load texture. Filename '" +
+                            fn + "' is undefined or null.");
+            }
+            var atmpt = 10;
+            var catmpt = 0;
+            function waiting() {
+                catmpt++;
+                console.log('waiting for shaders loading');
+                setTimeout(function () {
+                    if (catmpt < atmpt) {
+                        if (!shadersloaded)
+                            waiting();
+                        else
+                            launchwebgl();
+                    } else
+                        console.log('failed loading shaders');
+                }, 500);
+
+            }
+            document.addEventListener("DOMContentLoaded", function (event) {
+                var canvas = document.getElementById('gl');
+                gl = canvas.getContext("webgl2");
+                if (!gl) {
+                    console.log('webgl2 not supported, trying webgl');
+                    gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl") || canvas.getContext("moz-webgl") || canvas.getContext("webkit-3d");
+                    if (!gl) {
+                        console.log('webgl not suported');
+                        return;
+                    } else {
+                        console.log('continue using webgl');
+                    }
+                } else {
+                    console.log('continue with webgl2');
+                }
+                LoadShader("vs.glsl", "fs.glsl");
+                waiting();
+            });
+            function launchwebgl() {
+                var vertices = new Float32Array([
+                    -1.0, 1.0, 0.0,
+                    -1.0, -1.0, 0.0,
+                    1.0, -1.0, 0.0,
+                    1.0, 1.0, 0.0,
+                ]);
+                var indices = [0, 1, 2, 2, 3, 0];
+                var vertexbuffer = gl.createBuffer();
+                var indexbuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, vertexbuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+                gl.bindBuffer(gl.ARRAY_BUFFER, null);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexbuffer);
+                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+                gl.bindBuffer(gl.ARRAY_BUFFER, vertexbuffer);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexbuffer);
+                gl.viewport(0, 0, width, height);
+                var coords = gl.getAttribLocation(Shader, "a_Position");
+                gl.vertexAttribPointer(coords, 3, gl.FLOAT, false, 0, 0);
+                gl.enableVertexAttribArray(coords);
+                var texturex1 = new Texture("texture1.jpg");
+                var texturex2 = new Texture("texture2.jpg");
+                var timex = 0;
+                var loopx = 10;
+                var T = setInterval(function () {
+                    if (!gl)
+                        return;
+                    timex++;
+                    if (timex > 60000)
+                        timex = 0;
+                    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+                    gl.clear(gl.COLOR_BUFFER_BIT);
+                    gl.useProgram(Shader);
+                    gl.uniform1f(gl.getUniformLocation(Shader, "u_time"), timex / 60.);
+                    gl.uniform2f(gl.getUniformLocation(Shader, "u_resolution"), width, height);
+                    gl.activeTexture(gl.TEXTURE0);
+                    gl.bindTexture(gl.TEXTURE_2D, texturex1.texture);
+                    gl.uniform1i(gl.getUniformLocation(Shader, 'u_texture1'), 0);
+                    gl.activeTexture(gl.TEXTURE1);
+                    gl.bindTexture(gl.TEXTURE_2D, texturex2.texture);
+                    gl.uniform1i(gl.getUniformLocation(Shader, 'u_texture2'), 1);
+                    gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+                }, 0);
+            }
+        </script>
+    </body>
+</html>
