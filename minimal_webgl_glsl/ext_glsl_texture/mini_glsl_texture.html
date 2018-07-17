@@ -12,6 +12,8 @@
             var gl = null;
             var Shader = null;
             var shadersloaded = false;
+            var texturex1 = null;
+            var texturex2 = null;
             function LoadShader(filenameVertexShader, filenameFragmentShader, index)
             {
                 var filename_vs = filenameVertexShader;
@@ -81,6 +83,7 @@
                 var that = this;
                 var root = this;
                 this.filename = fn;
+                this.isload = false;
                 this.width = 0;
                 this.height = 0;
                 this.image = null;
@@ -98,6 +101,7 @@
                         //gl.generateMipmap(gl.TEXTURE_2D);
                         gl.bindTexture(gl.TEXTURE_2D, null);
                         console.log("Loaded texture (" + that.width + "x" + that.height + ") filename = " + file[file.length - 1]);
+                        that.isload = true;
                     };
                     that.image.src = filename;
                     return that;
@@ -118,11 +122,23 @@
                         if (!shadersloaded)
                             waiting();
                         else
-                            launchwebgl();
+                            {catmpt=0;loadtextures();}
                     } else
                         console.log('failed loading shaders');
                 }, 500);
-
+            }
+            function waitingtextures() {
+                catmpt++;
+                console.log('waiting for textures loading');
+                setTimeout(function () {
+                    if (catmpt < atmpt) {
+                        if ((!texturex1.isload)||(!texturex2.isload))
+                            waitingtextures();
+                        else
+                            launchwebgl();
+                    } else
+                        console.log('failed loading textures');
+                }, 500);
             }
             document.addEventListener("DOMContentLoaded", function (event) {
                 var canvas = document.getElementById('gl');
@@ -142,6 +158,12 @@
                 LoadShader("vs.glsl", "fs.glsl");
                 waiting();
             });
+            function loadtextures() {
+				texturex1 = new Texture("texture1.jpg");
+                texturex2 = new Texture("texture2.jpg");
+                waitingtextures();
+			}
+            
             function launchwebgl() {
                 var vertices = new Float32Array([
                     -1.0, 1.0, 0.0,
@@ -164,8 +186,6 @@
                 var coords = gl.getAttribLocation(Shader, "a_Position");
                 gl.vertexAttribPointer(coords, 3, gl.FLOAT, false, 0, 0);
                 gl.enableVertexAttribArray(coords);
-                var texturex1 = new Texture("texture1.jpg");
-                var texturex2 = new Texture("texture2.jpg");
                 var timex = 0;
                 var loopx = 10;
                 var T = setInterval(function () {
