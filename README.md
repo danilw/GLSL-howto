@@ -22,6 +22,8 @@ ___
 
 **minimal_webgl_glsl**  [live_mini](https://danilw.github.io/GLSL-howto/minimal_webgl_glsl/mini_glsl_viewer.html) and [live_ext](https://danilw.github.io/GLSL-howto/minimal_webgl_glsl/ext_glsl_texture/mini_glsl_texture.html) minimal GLSL viewer for WebGL without using any js-lib, *ext* version with texture loader and shader file loader
 
+**WebGL-image-slider** [link to repo](https://github.com/danilw/WebGL-image-slider/)
+
 ### Graphic
 
 **space_ship_obj**
