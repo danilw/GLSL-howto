@@ -24,6 +24,8 @@ ___
 
 **WebGL-image-slider** [link to repo](https://github.com/danilw/WebGL-image-slider/)
 
+**GLSL random codding** emblem [animated](https://danilw.github.io/GLSL-howto/emblem_ax/ani_3/ani_y.html)
+
 ### Graphic
 
 **space_ship_obj**
