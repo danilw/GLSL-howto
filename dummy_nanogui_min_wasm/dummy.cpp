@@ -371,7 +371,6 @@ public:
                 printf("Exiting fullscreen..\n"); EMSCRIPTEN_RESULT ret = emscripten_exit_fullscreen();
             }
 
-
         });
         b3->setFixedSize(Eigen::Vector2i(63, 30));
 
@@ -491,7 +490,7 @@ public:
     virtual bool keyboardEvent(int key, int scancode, int action, int modifiers) {
         if (Screen::keyboardEvent(key, scancode, action, modifiers))
             return true;
-        
+
         //DO NOT USE IN WASM
         /*if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
             std::cout << "Exit(ESC) called" << std::endl;
@@ -552,8 +551,8 @@ public:
     double numFrames = 0;
     double fps = 60;
 
-    Eigen::Vector2f osize = Eigen::Vector2f(1280, 720);
-    bool scrch = true;
+    Eigen::Vector2i osize = Eigen::Vector2i(1280, 720);
+    bool scrch = true; //screen resolution changed
 
     virtual void drawContents() {
         using namespace nanogui;
@@ -579,7 +578,7 @@ public:
         Vector2i tsxz2 = size();
         debugw->set_text_on_id("original fb", to_string(tsxz2[0]), to_string(tsxz2[1]), 1);
         bool ifc = isfullscreen();
-        debugw->set_text_on_id("is fullscreen", ifc?"true":"false", "----", 2);
+        debugw->set_text_on_id("is fullscreen", ifc ? "true" : "false", "----", 2);
 
 
 
@@ -600,7 +599,11 @@ public:
                 fb1.blittexture();
          */
 
-
+        //fix first black frame after resize
+        if(scrch){
+            pause_fb.bindtexture(tsxz, 0);
+            nvfxaa_fb.bindtexture(tsxz, 0);
+        }
 
         if (paused) {
             pause_fb.bind();
@@ -660,8 +663,8 @@ public:
             if (!paused)resetx = true;
         }
 
-        scrch = (!(((osize - screenSize).norm() == 0)));
-        osize = screenSize;
+        scrch = (!(((osize - tsxz).norm() == 0)));
+        osize = tsxz;
     }
 private:
 
