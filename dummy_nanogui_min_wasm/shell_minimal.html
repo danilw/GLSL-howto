@@ -214,7 +214,8 @@
                         var canvas = document.getElementById('canvas');
 
                         onResize(canvas, function (Width, Height) {
-                            GLFW.onCanvasResize(Width, Height);
+                            if(!(typeof GLFW === 'undefined'))GLFW.onCanvasResize(Width, Height);
+                            else console.log("waiting wasm initialization");
                             //console.log("RESIZE! " + Width + " " + Height);
                         });
                         if (!text)
