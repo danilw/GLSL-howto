@@ -99,6 +99,7 @@ bool GLShader::init(const std::string &name,
                     const std::string &fragment_str,
                     const std::string &geometry_str) {
     std::string defines;
+    for(int i=0;i<1024;i++)U_ID[i]=-1; /// THIS IS MAY BE BUGGED RANDOMLY ON WASM-target BUILD
     for (auto def : mDefinitions)
         defines += std::string("#define ") + def.first + std::string(" ") + def.second + "\n";
 
@@ -172,8 +173,18 @@ void GLShader::setUniform(const std::string &name, const GLUniformBuffer &buf, b
     glUniformBlockBinding(mProgramShader, blockIndex, buf.getBindingPoint());
 }
 
-GLint GLShader::uniform(const std::string &name, bool warn) const {
-    GLint id = glGetUniformLocation(mProgramShader, name.c_str());
+GLint GLShader::uniform(const std::string &name, int U_id, bool warn) {
+		GLint id=-1;
+		if(U_id==-1){
+			id = glGetUniformLocation(mProgramShader, name.c_str());
+        }else{
+			if(U_ID[U_id]!=-1){
+				id=U_ID[U_id];
+			}else{
+				U_ID[U_id]=glGetUniformLocation(mProgramShader, name.c_str());
+				id=U_ID[U_id];
+			}
+		}
     if (id == -1 && warn)
         std::cerr << mName << ": warning: did not find uniform " << name << std::endl;
     return id;
@@ -461,6 +472,17 @@ void GLFramebuffer::blit() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+void GLFramebuffer::copyto(GLuint out) {
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, mFramebuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, out);
+
+    glBlitFramebuffer(0, 0, mSize.x(), mSize.y(), 0, 0, mSize.x(), mSize.y(),
+                      GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	
+}
+	
 void GLFramebuffer::blittexture() {
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, mFramebuffer);
@@ -469,7 +491,6 @@ void GLFramebuffer::blittexture() {
     glDrawBuffers(1, &buf);
     */
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    
     
 }
 

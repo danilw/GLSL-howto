@@ -59,8 +59,8 @@ Theme::Theme(NVGcontext *ctx) {
     mWindowTitleUnfocused             = Color(202, 230);
     mWindowTitleFocused               = Color(232, 230);
 
-    mWindowHeaderGradientTop          = Color(7,71,186, 230);
-    mWindowHeaderGradientBot          = Color(7,71,186, 230);// Color(0,21,65, 230);
+    mWindowHeaderGradientTop          = Color(51,51,71, 230);
+    mWindowHeaderGradientBot          = Color(61,61,92, 230);// Color(0,21,65, 230);
     mWindowHeaderSepTop               = Color(80, 155);
     mWindowHeaderSepBot               = Color(80, 155);
 

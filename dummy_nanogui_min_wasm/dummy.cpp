@@ -24,16 +24,16 @@
 #include <iostream>
 #include <string>
 #include <emscripten.h>
-#include <chrono>
 #include <random>
 #include "emscripten/html5.h"
+#include <cmath>
 
 // Includes for the GLTexture class.
 #include <cstdint>
 #include <memory>
 #include <utility>
 
-//#include "Box2D/Box2D.h"
+#include "Box2D/Box2D.h"
 
 
 #if defined(__GNUC__)
@@ -64,6 +64,23 @@ using std::string;
 using std::vector;
 using std::pair;
 using std::to_string;
+
+//random
+std::random_device rd;
+std::mt19937 rng(rd());
+
+//support drawing types
+#define B_TRI 0
+#define B_RECT 1
+#define B_CIRCLE 2
+
+
+#define B_TRI_vertexCount 32//1 //single triangle
+#define B_RECT_vertexCount 2 //two triangles
+#define B_CIRCLE_vertexCount 32 //many triangles
+
+bool animonce = true;
+float animtime = 15 + 8 + 2;
 
 class GLTexture {
 public:
@@ -196,12 +213,12 @@ float angle2d(float cx, float cy, float ex, float ey) {
 }
 
 
-
-
 //------------------------
+//only debug window on screen
 
 class debug_table {
 public:
+
     static const int c_max = 100;
     nanogui::Window *dwindow;
     nanogui::Button *closeb;
@@ -245,21 +262,24 @@ public:
         btns->setLayout(new BoxLayout(Orientation::Horizontal, Alignment::Middle, 0, 6));
         closeb = new Button(btns, "Close");
         closeb->setCallback([&] {
+
             dwindow->setVisible(false);
         });
         //dwindow->center();
         dwindow->setPosition(Vector2i(0, 200));
-        dwindow->setVisible(true);
+        dwindow->setVisible(false);
 
 
 
     }
 
     void switch_visible() {
+
         dwindow->setVisible(!dwindow->visible());
     }
 
     void set_text_on_id(const std::string &value1, const std::string &value2, const std::string &value3, int i) {
+
         r1[i]->setCaption(value1);
         r2[i]->setCaption(value2);
         r3[i]->setCaption(value3);
@@ -269,12 +289,14 @@ public:
 private:
 
     void setsize(nanogui::Label *val) {
+
         val->setFontSize(25);
         val->setColor(nanogui::Color(204, 255, 255, 255));
         val->setFixedSize(Eigen::Vector2i(580 / 3, 20));
     }
 
     void setsize1(nanogui::Label *val) {
+
         val->setColor(nanogui::Color(255, 51, 0, 255));
         val->setFixedSize(Eigen::Vector2i(580 / 3, 20));
     }
@@ -284,7 +306,10 @@ private:
 
 //globals to make lambda work
 nanogui::CheckBox *cb;
-nanogui::CheckBox *aacb;
+nanogui::CheckBox *fps_ch;
+nanogui::CheckBox *fxaa_box;
+nanogui::CheckBox *filtering;
+nanogui::CheckBox *p_on_tab;
 nanogui::Button *b;
 nanogui::Button *b1;
 nanogui::Button *b2;
@@ -296,29 +321,26 @@ nanogui::Window *window1;
 debug_table *debugw; //debug window
 nanogui::TextBox *nametext;
 nanogui::Button *nc;
+nanogui::ComboBox *qs;
+nanogui::ComboBox *qz;
 
-bool paused = false;
-bool resetx = true;
-bool fxaa = true;
-bool isend = false;
-float pto = 0;
-float ptime = 0;
-bool antxtstate = true;
-int indexfx[8] = {0};
-Eigen::Vector2f umouse;
-int plhp = 0;
-const int maxhp = 23;
+nanogui::TextBox *res_display;
+nanogui::IntBox<int> *max_fb_size_w; //max size of screen
+nanogui::IntBox<int> *fps_edit;
+nanogui::Label *fps_r;
 
 class Ccgm : public nanogui::Screen {
 public:
 
-    Ccgm() : nanogui::Screen(Eigen::Vector2i(1366, 768), "NanoGUI Test", /*resizable*/true, /*fullscreen*/false, /*colorBits*/8,
+    Ccgm() : nanogui::Screen(Eigen::Vector2i(1366, 768), "game", /*resizable*/true, /*fullscreen*/false, /*colorBits*/8,
     /*alphaBits*/8, /*depthBits*/24, /*stencilBits*/8,
     /*nSamples*/0, /*glMajor*/3, /*glMinor*/0) {
         using namespace nanogui;
-        window1 = new Window(this, "Menu");
+        hidecanvas();
+        window1 = new Window(this, "Menu / Settings");
+        window1->setFixedSize(Vector2i(350, 410));
         initall();
-        settextures();
+        //settextures();
         setBackground(Vector4f(0, 0, 0, 1));
 
         b = new Button(this, "Menu");
@@ -331,6 +353,7 @@ public:
             } else {
             }
         });
+
         b->setFixedSize(Eigen::Vector2i(63, 30));
         b1 = this->add<Button>("Pause");
         b1->setBackgroundColor(Color(0, 0, 205, 155));
@@ -339,8 +362,9 @@ public:
         b1->setFixedSize(Eigen::Vector2i(63, 30));
         b1->setCallback([&] {
             paused = !paused;
-            if (paused)pto = glfwGetTime();
-            else {
+            if (paused) {
+                pto = glfwGetTime();
+            } else {
                 ptime = ptime + glfwGetTime() - pto;
                         pto = 0;
             }
@@ -387,21 +411,27 @@ public:
         b1->setVisible(false);
         b2->setVisible(false);
         b3->setVisible(false);
-        b4->setVisible(true);
+
+        b4->setVisible(false);
+        //b4->setVisible(true);
 
         window1->setPosition(Vector2i(425, 300));
         GridLayout *layout =
                 new GridLayout(Orientation::Horizontal, 2,
-                Alignment::Middle, 15, 5);
+                Alignment::Middle, 5, 5);
         layout->setColAlignment({Alignment::Maximum, Alignment::Fill});
+        layout->setRowAlignment({Alignment::Maximum, Alignment::Fill});
         layout->setSpacing(0, 10);
-        window1->setLayout(layout);
+        window1->setLayout(new BoxLayout(Orientation::Vertical, Alignment::Fill, 0, 0));
 
-        new Label(window1, "Hide Menu buttons :", "sans-bold");
+        Widget *wcontent = new Widget(window1);
+        wcontent->setLayout(layout);
 
-        cb = new CheckBox(window1, "");
+        new Label(wcontent, "Hide Menu buttons :", "sans-bold");
+
+        cb = new CheckBox(wcontent, "");
         cb->setFontSize(16);
-        cb->setChecked(false);
+        cb->setChecked(true);
         cb->setCallback([&](bool state) {
             if (!state) {
                 b->setVisible(true);
@@ -415,77 +445,105 @@ public:
                 b3->setVisible(false);
             }
         });
+
         b->setVisible(!cb->checked());
         b1->setVisible(!cb->checked());
         b2->setVisible(!cb->checked());
         b3->setVisible(!cb->checked());
-        new Label(window1, "FXAA (on/off) :", "sans-bold");
+        new Label(wcontent, "Bloom with FXAA (on/off) :", "sans-bold");
 
-        aacb = new CheckBox(window1, "");
-        aacb->setFontSize(16);
-        aacb->setChecked(true);
-        aacb->setCallback([&](bool state) {
-            fxaa = state;
-        });
-        new Label(window1, "Control :", "sans-bold");
-        new Label(window1, "Use mouse :)", "sans-bold");
+        fxaa_box = new CheckBox(wcontent, "");
+        fxaa_box->setFontSize(16);
+        fxaa_box->setChecked(false);
+
+        new Label(wcontent, "Quality :", "sans-bold");
+        qs = new ComboBox(wcontent,{"Minimal", "Lowest", "Low", "Medium", "Best"});
+        qs->setSelectedIndex(2);
+        qs->setTooltip("Minimal will disable all post-processing.");
+
+        new Label(wcontent, "Current resolution :", "sans-bold");
+        res_display = new TextBox(wcontent);
+        res_display->setEditable(false);
+        res_display->setValue("1366 x 768");
+        res_display->setTooltip("Screen 1366 x 768");
+
+        new Label(wcontent, "Resolution Scale :", "sans-bold");
+        qz = new ComboBox(wcontent,{"x3 Minimal", "x2 Lowest", "x1.5 Low", "x1 Medium", "x0.5 Best"});
+        qz->setSelectedIndex(3);
+        qz->setTooltip("Set lowest for better FPS. Base on current screen size.");
+        new Label(wcontent, "Max resolution :", "sans-bold");
+        max_fb_size_w = new IntBox<int>(wcontent);
+        max_fb_size_w->setEditable(true);
+        max_fb_size_w->setValue(max_fb_size);
+        max_fb_size_w->setUnits("px");
+        max_fb_size_w->setDefaultValue("1");
+        max_fb_size_w->setFormat("[1-9][0-9]*");
+        max_fb_size_w->setSpinnable(true);
+        max_fb_size_w->setMinValue(10);
+        max_fb_size_w->setValueIncrement(1);
+        max_fb_size_w->setFontSize(18);
+        new Label(wcontent, "FPS autodetection :", "sans-bold");
+        Widget *vals = new Widget(wcontent);
+        vals->setLayout(new BoxLayout(Orientation::Horizontal, Alignment::Middle, 0, 6));
+        fps_edit = new IntBox<int>(vals);
+        fps_edit->setEditable(false);
+        fps_edit->setValue(60);
+        fps_edit->setUnits("fps");
+        fps_edit->setDefaultValue("60");
+        fps_edit->setFormat("[1-9][0-9]*");
+        fps_edit->setSpinnable(true);
+        fps_edit->setMinValue(10);
+        fps_edit->setValueIncrement(1);
+        fps_edit->setFontSize(18);
+
+        fps_edit->setTooltip("uncheck to edit");
+        fps_ch = new CheckBox(vals, "");
+        fps_ch->setFontSize(16);
+        fps_ch->setChecked(true);
+        fps_ch->setCallback([&](bool state) {
+            if (!state) {
+                fps_edit->setEditable(true);
+            } else {
+                fps_edit->setValue(60);
+                fps_edit->setEditable(false);
+            }
+        }
+        );
+        fps_r = new Label(vals, "100", "sans-bold");
+        fps_r->setTooltip("FPS now");
+        fps_r->setColor(Color(255, 153, 0, 255));
+
+        new Label(wcontent, "Filtering linear :", "sans-bold");
+
+        filtering = new CheckBox(wcontent, "");
+        filtering->setFontSize(16);
+        filtering->setChecked(true);
+        filtering->setTooltip("Uncheck for better FPS.");
+
+        new Label(wcontent, "Pause when hiden :", "sans-bold");
+
+        p_on_tab = new CheckBox(wcontent, "");
+        p_on_tab->setFontSize(16);
+        p_on_tab->setChecked(true);
+        p_on_tab->setTooltip("for Webbrowsers only.");
+
+        new Label(wcontent, "Control :", "sans-bold");
+        new Label(wcontent, "mouse/keyboard", "sans-bold");
 
         performLayout();
         window1->setVisible(false);
+        init_glsl_s();
 
-
-        //fb1.inittexture(Vector2i(1280, 720), true); //linear
-        pause_fb.inittexture(Vector2i(1280, 720));
-        nvfxaa_fb.inittexture(Vector2i(1280, 720));
-
-        main_screen.initFromFiles("main_screen", "shaders/mainv.glsl", "shaders/main_screen.glsl");
-        pause_sh.initFromFiles("pause_sh", "shaders/mainv.glsl", "shaders/pause.glsl");
-        nvfxaa_sh.initFromFiles("mvfxaa_sh", "shaders/mainv.glsl", "shaders/nv_fxaa.glsl");
-
-
-        MatrixXu indices(3, 2); /* Draw 2 triangles */
-        indices.col(0) << 0, 1, 2;
-        indices.col(1) << 2, 3, 0;
-
-        MatrixXf positions(3, 4);
-        positions.col(0) << -1, -1, 0;
-        positions.col(1) << 1, -1, 0;
-        positions.col(2) << 1, 1, 0;
-        positions.col(3) << -1, 1, 0;
-        Vector2f screenSize = size().cast<float>();
-        /*
-                fb1.bind();
-                mShader.bind();
-                mShader.uploadIndices(indices);
-                mShader.uploadAttrib("position", positions);
-                mShader.setUniform("u_resolution", screenSize);
-                fb1.release();
-         */
-        pause_fb.bind();
-        pause_sh.bind();
-        pause_sh.uploadIndices(indices);
-        pause_sh.uploadAttrib("position", positions);
-        pause_sh.setUniform("u_resolution", screenSize);
-        pause_fb.release();
-
-        nvfxaa_fb.bind();
-        nvfxaa_sh.bind();
-        nvfxaa_sh.uploadIndices(indices);
-        nvfxaa_sh.uploadAttrib("position", positions);
-        nvfxaa_sh.setUniform("u_resolution", screenSize);
-        nvfxaa_fb.release();
-
-
-        main_screen.bind();
-        main_screen.uploadIndices(indices);
-        main_screen.uploadAttrib("position", positions);
-        main_screen.setUniform("u_resolution", screenSize);
     }
 
     ~Ccgm() {
 
         //mShader.free();
     }
+
+    //left+right control movement to keep move when one of key released
+    bool ka = false;
+    bool kd = false;
 
     virtual bool keyboardEvent(int key, int scancode, int action, int modifiers) {
         if (Screen::keyboardEvent(key, scancode, action, modifiers))
@@ -498,21 +556,69 @@ public:
             return true;
         }*/
         if (key == GLFW_KEY_P && action == GLFW_PRESS) {
+            (b1->callback())();
+            return true;
+        }
 
+
+        if (((key == GLFW_KEY_A) || (key == GLFW_KEY_LEFT)) && action == GLFW_PRESS) {
+            //ka=false;
+            kd = true;
+            //boxhelper->wheel->SetMotorSpeed(3);
+
+            return true;
+        }
+
+        if (((key == GLFW_KEY_A) || (key == GLFW_KEY_LEFT)) && action == GLFW_RELEASE) {
+            kd = false;
+            /*if (!ka)
+                boxhelper->wheel->SetMotorSpeed(0);
+            else
+                boxhelper->wheel->SetMotorSpeed(-3);*/
+
+            return true;
+        }
+
+        if (((key == GLFW_KEY_D) || (key == GLFW_KEY_RIGHT)) && action == GLFW_PRESS) {
+            ka = true;
+            //boxhelper->wheel->SetMotorSpeed(-3);
+
+            return true;
+        }
+
+        if (((key == GLFW_KEY_D) || (key == GLFW_KEY_RIGHT)) && action == GLFW_RELEASE) {
+            ka = false;
+            /*if (!kd)
+                boxhelper->wheel->SetMotorSpeed(0);
+            else
+                boxhelper->wheel->SetMotorSpeed(3);*/
+
+            return true;
+        }
+
+        if (((key == GLFW_KEY_SPACE) || (key == GLFW_KEY_W)) && action == GLFW_PRESS) {
+            //boxhelper->jumpx = true;
             return true;
         }
 
         return false;
     }
 
+    Eigen::Vector2f oumouse_p = Eigen::Vector2f(0, 0);
+
     virtual bool mouseMotionEvent(const Eigen::Vector2i &p, const Eigen::Vector2i &rel, int button, int modifiers) {
         if (Screen::mouseMotionEvent(p, rel, button, modifiers)) {
             return true;
         }
+        Eigen::Vector2i tsxz = size();
         //if ((button & (1 << GLFW_MOUSE_BUTTON_1)) != 0) {
-        umouse = Eigen::Vector2f(p[0], p[1]);
+        if (!paused) {
+            oumouse_p = p.cast<float>();
+        }
+        
         if (cb->checked()) {
             if (p[0] < 130 && p[1] < 80) {
+                fadestop = true;
                 b->setVisible(true);
                 b1->setVisible(true);
                 b2->setVisible(true);
@@ -529,7 +635,6 @@ public:
         //}
         return false;
     }
-    float ffm = false;
 
     virtual bool mouseButtonEvent(const Eigen::Vector2i &p, int button, bool down, int modifiers) {
         if (Screen::mouseButtonEvent(p, button, down, modifiers))
@@ -537,55 +642,111 @@ public:
         ffm = button == GLFW_MOUSE_BUTTON_1 && down;
         if (ffm) {
 
+            std::uniform_int_distribution<int> uni(0, 2);
+            int cx = uni(rng);
+
+            std::uniform_int_distribution<int> uni2(0, 8);
+            int cx2 = uni2(rng);
+
+            if (window1->visible())window1->setVisible(false);
         }
         return false;
     }
 
-    virtual void draw(NVGcontext *ctx) {
+    virtual void draw(NVGcontext * ctx) {
 
         /* Draw the user interface */
         Screen::draw(ctx);
     }
 
-    double frameRateSmoothing = 1.0;
-    double numFrames = 0;
-    double fps = 60;
+    void FPS(double time) {
+        numFrames++;
+        if (time - lastFpsTime > frameRateSmoothing) {
 
-    Eigen::Vector2i osize = Eigen::Vector2i(1280, 720);
-    bool scrch = true; //screen resolution changed
+            fps = (int) (numFrames / (time - lastFpsTime));
+            numFrames = 0;
+            lastFpsTime = time;
+        }
+    }
+
+
+    float antime = 0;
 
     virtual void drawContents() {
         using namespace nanogui;
+        bool resize_to_copy = false; //if framebuffer size not same to screen size(when option zoom enabled)
+        int c_u_id = 0; //uniform index to store without calling glGetUniformLocation every time
 
-        std::chrono::duration<double> delta = std::chrono::duration_cast<std::chrono::duration<double>> (std::chrono::high_resolution_clock::now() - lastFpsTime);
-        numFrames++;
-        if (delta.count() > frameRateSmoothing) {
-            fps = (int) (numFrames / delta.count());
-            fps = fps < 30 ? 30 : fps;
-            numFrames = 0;
-            lastFpsTime = std::chrono::high_resolution_clock::now();
-        }
-
-        if (resetx)ptime = glfwGetTime();
-        updateallUnioforms();
+        reset_x();
         Vector2i tsxz = size();
-        if ((int) (tsxz[1]*(float) 16 / 9) != tsxz[0]) {
-            tsxz[0] = (int) (tsxz[1]*(float) 16 / 9);
+        Vector2i tsxz_orig = tsxz;
+
+        //resize to 16/9
+        if ((int) (tsxz[0]*(float) 9 / 16) < tsxz[1]) {
+            tsxz[1] = (int) (tsxz[0]*(float) 9 / 16);
         }
+        tsxz_orig = tsxz;
+        //Vector2i tmpval=Vector2i(1,1);
+        scale_calc_all(tsxz, tsxz.cast<float>());
+        resize_to_copy = (tsxz[0] != tsxz_orig[0]) || (tsxz[1] != tsxz_orig[1]);
+        if ((qz->selectedIndex() > 3)&&((tsxz[0] > tsxz_orig[0]) || (tsxz[1] > tsxz_orig[1]))) {
+            glViewport(0, 0, tsxz[0] - 0.01, tsxz[1] - 0.01); //WebGL or WASM...maybe bug, without -0.01 does not work
+        } else {
+            //if (qz->selectedIndex() <= 3) {
+            glViewport(0, 0, tsxz_orig[0], tsxz_orig[1]);
+            //}
+        }
+        Eigen::Vector2i tsxz_t = tsxz_orig;
+        umouse = scale_calc_all(tsxz_t, oumouse_p);
+        res_display->setValue(to_string(tsxz[0]) + " x " + to_string(tsxz[1]));
+        res_display->setTooltip("Screen " + to_string(tsxz_orig[0]) + " x " + to_string(tsxz_orig[1]));
+
+        /*
+                debugw->set_text_on_id("orig fb", to_string(tsxz_orig[0]), to_string(tsxz_orig[1]), 0);
+                debugw->set_text_on_id("resized fb", to_string(tsxz[0]), to_string(tsxz[1]), 1);
+                debugw->set_text_on_id("mouse", to_string(umouse[0]), to_string(umouse[1]), 2);
+
+                bool ifc = isfullscreen();
+                debugw->set_text_on_id("is fullscreen", ifc ? "true" : "false", "----", 3);
+
+                debugw->set_text_on_id("fps", to_string(fps), "--", 5);
+
+                debugw->set_text_on_id("box2d numobj", to_string(boxhelper->numobj), "--", 7);
+                debugw->set_text_on_id("box2d onscr_obj", to_string(boxhelper->num_onscr_obj), "--", 8);
 
 
-        debugw->set_text_on_id("resized fb", to_string(tsxz[0]), to_string(tsxz[1]), 0);
-        Vector2i tsxz2 = size();
-        debugw->set_text_on_id("original fb", to_string(tsxz2[0]), to_string(tsxz2[1]), 1);
-        bool ifc = isfullscreen();
-        debugw->set_text_on_id("is fullscreen", ifc ? "true" : "false", "----", 2);
+                for (int i = 0; i < boxhelper->numobj; i++) {
+                    if (i > 70)break;
+                    debugw->set_text_on_id("box2d " + to_string(i),
+                            "x " + to_string((int) boxhelper->s_bodyes[i].x) + " y " +
+                            to_string((int) boxhelper->s_bodyes[i].y), to_string((int) boxhelper->m_bodyes[i].angle), 10 + i);
+                }
+         */
+        FPS(glfwGetTime());
+        double loctime = glfwGetTime() - ptime - ex_pause_skip_time;
 
+        if (paused) {
+            loctime = pto - ptime - ex_pause_skip_time;
+        } else if ((p_on_tab->checked())&&(loctime - endframetime > FPSmin)) {
+            ex_pause_skip_time += loctime - endframetime - (float) 1 / 60;
+            loctime = glfwGetTime() - ptime - ex_pause_skip_time;
+        }
+        if (animonce)animonce = !(loctime >= animtime);
+        if ((!animonce)&&(loctime < animtime))antime = animtime;
+        loctime += antime;
+
+        update_vals(loctime);
+
+        //debugw->set_text_on_id("time", to_string(loctime), "----", 4);
 
 
         Vector2f screenSize = tsxz.cast<float>();
+        Vector2f screenSize_orig = tsxz_orig.cast<float>();
         glDisable(GL_BLEND); //framebuffer
 
         /*
+                //templates
+
                 //texture
                 glActiveTexture(GL_TEXTURE0 + 0);
                 glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[0]].first.texture());
@@ -595,95 +756,277 @@ public:
                 fb1.bind();
                 fbother2.bindtexture(tsxz, 0);
                 mShader.setUniform("u_texture1", 0);
+                mShader.drawIndexed(GL_TRIANGLES, 0, 2);
                 fb1.release();
-                fb1.blittexture();
          */
 
-        //fix first black frame after resize
-        if(scrch){
-            pause_fb.bindtexture(tsxz, 0);
-            nvfxaa_fb.bindtexture(tsxz, 0);
+        //fix first black frame
+        if (scrch) {
+            if (filtering->checked()) {
+                pause_fb_linear.bindtexture(tsxz, 0);
+                nvfxaa_fb_linear.bindtexture(tsxz, 0);
+                copy_fb_linear.bindtexture(tsxz, 0);
+                copy_fb_linear2.bindtexture(tsxz, 0);
+                copy_fb_linear3.bindtexture(tsxz, 0);
+            } else {
+                pause_fb_near.bindtexture(tsxz, 0);
+                nvfxaa_fb_near.bindtexture(tsxz, 0);
+                copy_fb_near.bindtexture(tsxz, 0);
+                copy_fb_near2.bindtexture(tsxz, 0);
+                copy_fb_near3.bindtexture(tsxz, 0);
+            }
         }
 
+        if ((qz->selectedIndex() > 3)&&((tsxz[0] > tsxz_orig[0]) || (tsxz[1] > tsxz_orig[1]))) {
+            glViewport(0, 0, tsxz[0] - 0.01, tsxz[1] - 0.01); //WebGL or WASM...maybe bug, without -0.01 does not work
+        } else {
+            glViewport(0, 0, tsxz_orig[0], tsxz_orig[1]);
+        }
+
+        /*if (filtering->checked())grays_fb_linear.bind();
+        else grays_fb_near.bind();
+        grays_sh.bind();
+        if (filtering->checked())gmap_textured_fb_linear.bindtexture(tsxz, 0, true); //gmap_box2d_fb_linear for sdf
+        else gmap_textured_fb_near.bindtexture(tsxz, 0, true);
+        c_u_id = 0;
+        grays_sh.setUniform("u_texture1", 0, c_u_id++);
+        grays_sh.setUniform("u_resolution", screenSize, c_u_id++);
+        grays_sh.setUniform("u_time", (float) loctime, c_u_id++);
+        grays_sh.drawIndexed(GL_TRIANGLES, 0, 2);
+        if (filtering->checked())grays_fb_linear.release();
+        else grays_fb_near.release();
+         */
         if (paused) {
-            pause_fb.bind();
-        } else if (fxaa) {
-            nvfxaa_fb.bind();
+            if (filtering->checked())pause_fb_linear.bind();
+            else pause_fb_near.bind();
+        } else if (fxaa_box->checked()) {
+            if (filtering->checked())nvfxaa_fb_linear.bind();
+            else nvfxaa_fb_near.bind();
+        } else
+            if (resize_to_copy) {
+            if (filtering->checked())copy_fb_linear.bind();
+            else copy_fb_near.bind();
         }
 
         main_screen.bind();
-        //main_screen.setUniform("u_mouse", umouse);
-        float loctime = (float) glfwGetTime() - ptime;
-        if (paused) {
-            loctime = pto - ptime;
-        }
-        main_screen.setUniform("u_time", (float) loctime);
-        main_screen.setUniform("u_resolution", screenSize);
+        c_u_id = 0;
+        main_screen.setUniform("u_time", (float) loctime, c_u_id++);
+        main_screen.setUniform("u_resolution", screenSize, c_u_id++);
+        main_screen.setUniform("u_mouse", umouse, c_u_id++);
         main_screen.drawIndexed(GL_TRIANGLES, 0, 2);
 
+
         if (paused) {
-            pause_fb.release();
-            pause_fb.blittexture();
-        } else if (fxaa) {
-            nvfxaa_fb.release();
-            nvfxaa_fb.blittexture();
+            if (filtering->checked())pause_fb_linear.release();
+            else pause_fb_near.release();
+        } else if (fxaa_box->checked()) {
+            if (filtering->checked())nvfxaa_fb_linear.release();
+            else nvfxaa_fb_near.release();
+        } else if (resize_to_copy) {
+            if (filtering->checked())copy_fb_linear.release();
+            else copy_fb_near.release();
         }
 
         if (paused) {
-            if (fxaa) {
-                nvfxaa_fb.bind();
+            if (fxaa_box->checked()) {
+                if (filtering->checked())nvfxaa_fb_linear.bind();
+                else nvfxaa_fb_near.bind();
+            } else if (resize_to_copy) {
+                if (filtering->checked())copy_fb_linear.bind();
+                else copy_fb_near.bind();
             }
             pause_sh.bind();
-            pause_fb.bindtexture(tsxz, 0, true);
-            pause_sh.setUniform("u_texture1", 0);
-            //pause_sh.setUniform("u_mouse", umouse);
-            //pause_sh.setUniform("u_time", (float) pto - ptime);
-            pause_sh.setUniform("u_resolution", screenSize);
+            if (filtering->checked())pause_fb_linear.bindtexture(tsxz, 0, true);
+            else pause_fb_near.bindtexture(tsxz, 0, true);
+            c_u_id = 0;
+            pause_sh.setUniform("u_texture1", 0, c_u_id++);
+            pause_sh.setUniform("u_resolution", screenSize, c_u_id++);
             pause_sh.drawIndexed(GL_TRIANGLES, 0, 2);
-            if (fxaa) {
-                nvfxaa_fb.release();
-                nvfxaa_fb.blittexture();
+            if (fxaa_box->checked()) {
+                if (filtering->checked())nvfxaa_fb_linear.release();
+                else nvfxaa_fb_near.release();
+            } else if (resize_to_copy) {
+                if (filtering->checked())copy_fb_linear.release();
+                else copy_fb_near.release();
             }
         }
 
+        //Copy Framebuffers
+        // <FROM_FB>.copyto(copy_fb.getFramebuffer());
 
-        if (fxaa) {
+        //shader copy
+        /*copy_fb.bind();
+        cp_sh.bind();
+            <FROM_FB>.bindtexture(tsxz, 0, true);
+            cp_sh.setUniform("u_texture1", 0);
+            cp_sh.setUniform("u_resolution", screenSize);
+            cp_sh.drawIndexed(GL_TRIANGLES, 0, 2);
+        copy_fb.release();
+         */
+
+        //example
+        /*copy_fb.bind();
+        cp_sh.bind();
+        nvfxaa_fb.bindtexture(tsxz, 0, true);
+        cp_sh.setUniform("u_texture1", 0);
+        cp_sh.setUniform("u_resolution", screenSize);
+        cp_sh.drawIndexed(GL_TRIANGLES, 0, 2);
+        copy_fb.release();*/
+
+        //nvfxaa_fb.copyto(copy_fb.getFramebuffer());
+
+        if (fxaa_box->checked()) {
+
+            if (filtering->checked())copy_fb_linear2.bind();
+            else copy_fb_near2.bind();
+            bloom_h_sh.bind();
+            if (filtering->checked())nvfxaa_fb_linear.bindtexture(tsxz, 0, true);
+            else nvfxaa_fb_near.bindtexture(tsxz, 0, true);
+            c_u_id = 0;
+            bloom_h_sh.setUniform("u_texture1", 0, c_u_id++);
+            bloom_h_sh.setUniform("u_resolution", screenSize, c_u_id++);
+            bloom_h_sh.drawIndexed(GL_TRIANGLES, 0, 2);
+            if (filtering->checked())copy_fb_linear2.release();
+            else copy_fb_near2.release();
+
+            if (filtering->checked())copy_fb_linear3.bind();
+            else copy_fb_near3.bind();
+            bloom_v_sh.bind();
+            if (filtering->checked())copy_fb_linear2.bindtexture(tsxz, 0, true);
+            else copy_fb_near2.bindtexture(tsxz, 0, true);
+            c_u_id = 0;
+            bloom_v_sh.setUniform("u_texture1", 0, c_u_id++);
+            bloom_v_sh.setUniform("u_resolution", screenSize, c_u_id++);
+            bloom_v_sh.drawIndexed(GL_TRIANGLES, 0, 2);
+            if (filtering->checked())copy_fb_linear3.release();
+            else copy_fb_near3.release();
+
+            if (filtering->checked())copy_fb_linear2.bind();
+            else copy_fb_near2.bind();
+            bloom_p_sh.bind();
+            if (filtering->checked())nvfxaa_fb_linear.bindtexture(tsxz, 0, true);
+            else nvfxaa_fb_near.bindtexture(tsxz, 0, true);
+            c_u_id = 0;
+            bloom_p_sh.setUniform("u_texture1", 0, c_u_id++);
+            if (filtering->checked())copy_fb_linear3.bindtexture(tsxz, 1, true);
+            else copy_fb_near3.bindtexture(tsxz, 1, true);
+            bloom_p_sh.setUniform("u_texture2", 1, c_u_id++);
+            bloom_p_sh.setUniform("u_resolution", screenSize, c_u_id++);
+            bloom_p_sh.drawIndexed(GL_TRIANGLES, 0, 2);
+            if (filtering->checked())copy_fb_linear2.release();
+            else copy_fb_near2.release();
+
             nvfxaa_sh.bind();
-            nvfxaa_fb.bindtexture(tsxz, 0, true);
-            nvfxaa_sh.setUniform("u_texture1", 0);
-            //pause_sh.setUniform("u_mouse", umouse);
-            //pause_sh.setUniform("u_time", (float) pto - ptime);
-            nvfxaa_sh.setUniform("u_resolution", screenSize);
+            if (filtering->checked())copy_fb_linear2.bindtexture(tsxz, 0, true);
+            else copy_fb_near2.bindtexture(tsxz, 0, true);
+            c_u_id = 0;
+            nvfxaa_sh.setUniform("u_texture1", 0, c_u_id++);
+            if (resize_to_copy) {
+                nvfxaa_sh.setUniform("u_resolution", screenSize_orig, c_u_id++);
+            } else nvfxaa_sh.setUniform("u_resolution", screenSize, c_u_id++);
             nvfxaa_sh.drawIndexed(GL_TRIANGLES, 0, 2);
+        } else if (resize_to_copy) {
+            cp_sh.bind();
+            if (filtering->checked())copy_fb_linear.bindtexture(tsxz, 0, true);
+            else copy_fb_near.bindtexture(tsxz, 0, true);
+            c_u_id = 0;
+            cp_sh.setUniform("u_texture1", 0, c_u_id++);
+            cp_sh.setUniform("u_resolution", screenSize_orig, c_u_id++);
+            cp_sh.drawIndexed(GL_TRIANGLES, 0, 2);
         }
 
         resetx = false;
 
-        if (glfwGetTime() - ptime > 3900) {
+        if (glfwGetTime() - ptime - ex_pause_skip_time > 300000) {
             if (!paused)resetx = true;
         }
 
+
         scrch = (!(((osize - tsxz).norm() == 0)));
         osize = tsxz;
+        if ((dxo > 10)&&(!scrch)&&(!passfirstframe)) {
+            displaycanvas();
+            passfirstframe = true;
+        } else {
+            dxo++;
+        }
+        if (!paused) {
+
+            endframetime = glfwGetTime() - ptime - ex_pause_skip_time;
+        }
+
     }
 private:
+
+    bool paused = false; //game paused
+    bool resetx = true; //reset pressed
+    bool fadestop = false; //keep buttons visible first fewsec, funciton fadebuttons
+
+    double pto = 0; //time when pause clicked
+    double ptime = 0; //shift time of all pause
+    float FPSmin = 1; //min FPS to detect when this frame rendering paused by something
+    int max_fb_size = 4096; //max size of screen
+
+    int indexfx[8] = {0}; //textures indexed fixed
+
+    bool ffm = false; //mouse left click
+
+
+    Eigen::Vector2i osize = Eigen::Vector2i(1280, 720);
+    bool scrch = true; //screen resolution changed
+
+    int dxo = 0; //to pass first 10 frames
+    bool passfirstframe = false; //pause passed for first few frames
+
+    //FPS
+    double lastFpsTime = 0;
+    double frameRateSmoothing = 1.0;
+    double numFrames = 0;
+    double fps = 60;
+
+    double endframetime = 0;
+    double ex_pause_skip_time = 0; //time when window hiden somehow(fps < FPSmin)
 
     nanogui::GLShader main_screen;
     nanogui::GLShader pause_sh;
     nanogui::GLShader nvfxaa_sh;
 
-    nanogui::GLFramebuffer pause_fb;
-    nanogui::GLFramebuffer nvfxaa_fb;
+    nanogui::GLShader bloom_h_sh;
+    nanogui::GLShader bloom_v_sh;
+    nanogui::GLShader bloom_p_sh;
 
-    //nanogui::GLFramebuffer fb1;
+    nanogui::GLFramebuffer pause_fb_near;
+    nanogui::GLFramebuffer nvfxaa_fb_near;
 
-    std::chrono::high_resolution_clock::time_point lastFpsTime;
+    nanogui::GLFramebuffer pause_fb_linear;
+    nanogui::GLFramebuffer nvfxaa_fb_linear;
+
+    nanogui::GLShader cp_sh;
+    nanogui::GLFramebuffer copy_fb_near;
+    nanogui::GLFramebuffer copy_fb_linear;
+
+    nanogui::GLFramebuffer copy_fb_near2;
+    nanogui::GLFramebuffer copy_fb_linear2;
+
+    nanogui::GLFramebuffer copy_fb_near3;
+    nanogui::GLFramebuffer copy_fb_linear3;
+
+
     void settextures();
     void initall();
-    void updateallUnioforms();
+    void update_vals(double loctime);
     void setupdebug();
     bool isfullscreen();
-
+    void fadebuttons(float time);
+    void displaycanvas();
+    void hidecanvas();
+    void reset_x();
+    Eigen::Vector2f scale_calc(Eigen::Vector2f tsxz);
+    Eigen::Vector2f scale_calc_all(Eigen::Vector2i &tsxz, Eigen::Vector2f umouse);
+    Eigen::Vector2f umouse;
+    nanogui::MatrixXu polygon_indices(int t);
+    nanogui::MatrixXf polygon_positions(int t, Eigen::Vector2f center, Eigen::Vector2f screen_prop, float size_of);
+    void init_glsl_s();
 
     using imagesDataType = vector<pair<GLTexture, GLTexture::handleType>>;
     imagesDataType mImagesData;
@@ -691,10 +1034,105 @@ private:
     int mCurrentImage;
 };
 
+void Ccgm::init_glsl_s() {
+
+    using namespace nanogui;
+    pause_fb_near.inittexture(Vector2i(1280, 720), true);
+    nvfxaa_fb_near.inittexture(Vector2i(1280, 720), true);
+    copy_fb_near.inittexture(Vector2i(1280, 720), true);
+    copy_fb_near2.inittexture(Vector2i(1280, 720), true);
+    copy_fb_near3.inittexture(Vector2i(1280, 720), true);
+
+    pause_fb_linear.inittexture(Vector2i(1280, 720), false);
+    nvfxaa_fb_linear.inittexture(Vector2i(1280, 720), false);
+    copy_fb_linear.inittexture(Vector2i(1280, 720), false);
+    copy_fb_linear2.inittexture(Vector2i(1280, 720), false);
+    copy_fb_linear3.inittexture(Vector2i(1280, 720), false);
+
+    main_screen.initFromFiles("main_screen", "shaders/mainv.glsl", "shaders/main_screen.glsl");
+    pause_sh.initFromFiles("pause_sh", "shaders/mainv.glsl", "shaders/pause.glsl");
+    nvfxaa_sh.initFromFiles("mvfxaa_sh", "shaders/mainv.glsl", "shaders/nv_fxaa.glsl");
+    cp_sh.initFromFiles("cp_sh", "shaders/mainv.glsl", "shaders/cp.glsl");
+    bloom_h_sh.initFromFiles("bloom_h_sh", "shaders/mainv.glsl", "shaders/bloom_h.glsl");
+    bloom_v_sh.initFromFiles("bloom_v_sh", "shaders/mainv.glsl", "shaders/bloom_v.glsl");
+    bloom_p_sh.initFromFiles("bloom_p_sh", "shaders/mainv.glsl", "shaders/bloom_p.glsl");
+
+
+    MatrixXu indices = polygon_indices(B_RECT);
+
+    MatrixXf positions = polygon_positions(B_RECT, Eigen::Vector2f(0., 0.), Eigen::Vector2f(1., 1.), 1.);
+    Vector2f screenSize = size().cast<float>();
+
+    pause_fb_linear.bind();
+    pause_sh.bind();
+    pause_sh.uploadIndices(indices);
+    pause_sh.uploadAttrib("position", positions);
+    pause_sh.setUniform("u_resolution", screenSize);
+    pause_fb_linear.release();
+
+    nvfxaa_fb_linear.bind();
+    nvfxaa_sh.bind();
+    nvfxaa_sh.uploadIndices(indices);
+    nvfxaa_sh.uploadAttrib("position", positions);
+    nvfxaa_sh.setUniform("u_resolution", screenSize);
+    nvfxaa_fb_linear.release();
+
+    copy_fb_linear.bind();
+    cp_sh.bind();
+    cp_sh.uploadIndices(indices);
+    cp_sh.uploadAttrib("position", positions);
+    cp_sh.setUniform("u_resolution", screenSize);
+    copy_fb_linear.release();
+
+    copy_fb_linear2.bind();
+    bloom_h_sh.bind();
+    bloom_h_sh.uploadIndices(indices);
+    bloom_h_sh.uploadAttrib("position", positions);
+    bloom_h_sh.setUniform("u_resolution", screenSize);
+
+    bloom_v_sh.bind();
+    bloom_v_sh.uploadIndices(indices);
+    bloom_v_sh.uploadAttrib("position", positions);
+    bloom_v_sh.setUniform("u_resolution", screenSize);
+
+    bloom_p_sh.bind();
+    bloom_p_sh.uploadIndices(indices);
+    bloom_p_sh.uploadAttrib("position", positions);
+    bloom_p_sh.setUniform("u_resolution", screenSize);
+    copy_fb_linear2.release();
+
+    main_screen.bind();
+    main_screen.uploadIndices(indices);
+    main_screen.uploadAttrib("position", positions);
+    main_screen.setUniform("u_resolution", screenSize);
+}
+
+void Ccgm::reset_x() {
+    if (resetx) {
+        max_fb_size_w->setValue(4096);
+        qz->setSelectedIndex(3);
+        p_on_tab->setChecked(true);
+        ptime = glfwGetTime() - ex_pause_skip_time;
+        endframetime = 0;
+    }
+}
+
 bool Ccgm::isfullscreen() {
     EmscriptenFullscreenChangeEvent fsce;
     EMSCRIPTEN_RESULT ret = emscripten_get_fullscreen_status(&fsce);
+
     return fsce.isFullscreen;
+}
+
+void Ccgm::hidecanvas() {
+
+    emscripten_run_script("document.getElementById('spinner').hidden = false;document.getElementById('imloader').style.display=\"\"");
+}
+
+void Ccgm::displaycanvas() {
+
+    emscripten_run_script("resize_glfw_wasm()");
+    emscripten_run_script("document.getElementById('spinner').hidden = true;document.getElementById('imloader').style.display=\"none\"");
 }
 
 void Ccgm::settextures() {
@@ -704,21 +1142,22 @@ void Ccgm::settextures() {
     int i = 0;
     for (auto& texturex : textres) {
         GLTexture texture(texturex.second);
-        /*if (texturex.second == ("textures/txt1")) //its fixes for "random non sorted file names in readdir(loadImageDirectory use it)"
-            indexfx[1] = i;
 
-        if (texturex.second == ("textures/tx2"))
-                    indexfx[1] = i;
-                if (texturex.second == ("textures/tx3"))
-                    indexfx[2] = i;
-                if (texturex.second == ("textures/tx4"))
-                    indexfx[3] = i;
-                if (texturex.second == ("textures/tx5"))
-                    indexfx[4] = i;
-                if (texturex.second == ("textures/tx6"))
-                    indexfx[5] = i;
-                if (texturex.second == ("textures/tx7"))
-                    indexfx[6] = i;*/
+        /*if (texturex.second == ("textures/txt1")) //its fixes for "random non sorted file names in readdir(loadImageDirectory use it)"
+                                            indexfx[1] = i;
+
+                                        if (texturex.second == ("textures/tx2"))
+                                                    indexfx[1] = i;
+                                                if (texturex.second == ("textures/tx3"))
+                                                    indexfx[2] = i;
+                                                if (texturex.second == ("textures/tx4"))
+                                                    indexfx[3] = i;
+                                                if (texturex.second == ("textures/tx5"))
+                                                    indexfx[4] = i;
+                                                if (texturex.second == ("textures/tx6"))
+                                                    indexfx[5] = i;
+                                                if (texturex.second == ("textures/tx7"))
+                                                    indexfx[6] = i;*/
         if (texturex.second == ("textures/iqn"))
             indexfx[0] = i;
         //bool fmt = texturex.second == ("textures/tx6") || texturex.second == ("textures/tx7");
@@ -728,16 +1167,167 @@ void Ccgm::settextures() {
     }
 }
 
+void Ccgm::fadebuttons(float time) {
+    if (!(cb->checked()))return;
+    using namespace nanogui;
+    if ((!fadestop)) {
+        if (time < 3) {
+            b->setVisible(true);
+            b1->setVisible(true);
+            b2->setVisible(true);
+            b3->setVisible(true);
+            return;
+        } else {
+            b->setVisible(false);
+            b1->setVisible(false);
+            b2->setVisible(false);
+            b3->setVisible(false);
+
+        }
+    }
+}
+
+nanogui::MatrixXu Ccgm::polygon_indices(int t) {
+    using namespace nanogui;
+    switch (t) {
+            /*case B_TRI:
+            {
+                MatrixXu indices(3, 2);
+                indices.col(0) << 0, 1, 2;
+                indices.col(1) << 2, 3, 0;
+                return indices;
+            }*/
+        case B_RECT:
+        {
+            MatrixXu indices(3, 2);
+            indices.col(0) << 0, 1, 2;
+            indices.col(1) << 2, 3, 0;
+            return indices;
+        }
+        default:
+        { //B_CIRCLE
+            MatrixXu indices(3, B_CIRCLE_vertexCount);
+
+            for (int i = 0; i < B_CIRCLE_vertexCount; i++) {
+
+                indices(0, i) = 0;
+                indices(1, i) = (i + 1) % B_CIRCLE_vertexCount;
+                indices(2, i) = (i + 2) % B_CIRCLE_vertexCount;
+            }
+            return indices;
+        }
+    }
+}
+
+nanogui::MatrixXf Ccgm::polygon_positions(int t, Eigen::Vector2f center, Eigen::Vector2f screen_prop, float size_of) {
+    using namespace nanogui;
+    switch (t) {
+            /*case B_TRI:
+            {
+                MatrixXf positions(3, 3);
+                positions.col(0) << -(size_of) * screen_prop.x() + center.x(), -(size_of) * screen_prop.y() + center.y(), 0;
+                positions.col(1) << (size_of) * screen_prop.x() + center.x(), -(size_of) * screen_prop.y() + center.y(), 0;
+                positions.col(2) << 0. + center.x(), (size_of) * screen_prop.y() + center.y(), 0;
+                return positions;
+            }*/
+        case B_RECT:
+        {
+            MatrixXf positions(3, 4);
+            positions.col(0) << -(size_of) * screen_prop.x() + center.x(), -(size_of + 0.002) * screen_prop.y() + center.y(), 0; //0.002 for tiles
+            positions.col(1) << (size_of) * screen_prop.x() + center.x(), -(size_of + 0.002) * screen_prop.y() + center.y(), 0;
+            positions.col(2) << (size_of) * screen_prop.x() + center.x(), (size_of) * screen_prop.y() + center.y(), 0;
+            positions.col(3) << -(size_of) * screen_prop.x() + center.x(), (size_of) * screen_prop.y() + center.y(), 0;
+            return positions;
+        }
+        default:
+        { //B_CIRCLE
+            MatrixXf positions(3, B_CIRCLE_vertexCount);
+            const float segments = B_CIRCLE_vertexCount;
+
+            float theta = 0.0f;
+            const float k_increment = 2.0f * b2_pi / segments;
+            float radius = size_of;
+            for (int i = 0; i < segments; ++i) {
+
+                Eigen::Vector2f v = Eigen::Vector2f(+center.x() + radius * cosf(theta) * screen_prop.x(), +center.y() + radius * sinf(theta) * screen_prop.y());
+                positions(0, i) = v.x();
+                positions(1, i) = v.y();
+                positions(2, i) = 0;
+                theta += k_increment;
+            }
+            return positions;
+        };
+    }
+
+}
+
+Eigen::Vector2f Ccgm::scale_calc_all(Eigen::Vector2i &tsxz, Eigen::Vector2f umouse) {
+    tsxz = scale_calc(tsxz.cast<float>()).cast<int>();
+    umouse = scale_calc(umouse);
+    umouse = Eigen::Vector2f(umouse[0], tsxz[1] - umouse[1]);
+    if (!(tsxz[0] > 0))tsxz[0] = 1;
+    if (!(tsxz[1] > 0))tsxz[1] = 1;
+    //to max size
+    if ((tsxz[0] > max_fb_size) || (tsxz[1] > max_fb_size)) {
+        float prop = (float) tsxz[0] / tsxz[1];
+        if (prop >= 1) {
+            float oposx = (float) umouse[0] / tsxz[0];
+            float oposy = (float) umouse[1] / tsxz[1];
+            tsxz[0] = max_fb_size;
+            tsxz[1] = max_fb_size / prop;
+            umouse[0] = tsxz[0] * oposx;
+            umouse[1] = tsxz[1] * oposy;
+        } else {
+
+            float oposx = (float) umouse[0] / tsxz[0];
+            float oposy = (float) umouse[1] / tsxz[1];
+            tsxz[1] = max_fb_size;
+            tsxz[0] = max_fb_size*prop;
+            umouse[0] = tsxz[0] * oposx;
+            umouse[1] = tsxz[1] * oposy;
+        }
+    }
+    return umouse;
+}
+
+Eigen::Vector2f Ccgm::scale_calc(Eigen::Vector2f tsxz) {
+    if (qz->selectedIndex() != 3) {
+        if (qz->selectedIndex() == 0) {
+            tsxz[0] = tsxz[0]*((float) 1 / 3);
+            tsxz[1] = tsxz[1]*((float) 1 / 3);
+        } else
+            if (qz->selectedIndex() == 1) {
+            tsxz[0] = tsxz[0]*((float) 1 / 2);
+            tsxz[1] = tsxz[1]*((float) 1 / 2);
+        } else
+            if (qz->selectedIndex() == 2) {
+            tsxz[0] = tsxz[0]*((float) 1 / 1.5);
+            tsxz[1] = tsxz[1]*((float) 1 / 1.5);
+        } else
+            if (qz->selectedIndex() == 4) {
+
+            tsxz[0] = tsxz[0]*((float) 2);
+            tsxz[1] = tsxz[1]*((float) 2);
+        }
+    }
+    return tsxz;
+}
+
 void Ccgm::setupdebug() {
+
     debugw = new debug_table(this);
 }
 
 void Ccgm::initall() {
+
     setupdebug();
 }
 
-void Ccgm::updateallUnioforms() {
-
+void Ccgm::update_vals(double loctime) {
+    fadebuttons(loctime);
+    max_fb_size = max_fb_size_w->value();
+    if (fps_ch->checked())fps_edit->setValue(std::max(fps_edit->value(), (int) fps));
+    fps_r->setCaption(to_string((int) fps));
 }
 
 void mainloop() {

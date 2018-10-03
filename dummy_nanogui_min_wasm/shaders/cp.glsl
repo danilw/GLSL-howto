@@ -2,10 +2,12 @@
 #ifdef GL_ES
  precision highp float;
 #endif
+uniform float rot;
 uniform vec2 u_resolution;
 uniform vec2 u_mouse;
 uniform sampler2D u_texture1;
 uniform float u_time;
+uniform vec2 pos;
 out vec4 glFragColor;
 
 #define iTime u_time
@@ -15,16 +17,15 @@ out vec4 glFragColor;
 
 // License Creative Commons Attribution-NonCommercial-ShareAlike
 // original source github.com/danilw
-void mainImage(out vec4 o,vec2 u)
+
+vec4 getScene(vec2 fc)
 {
-    o =  mix(o = texture(iChannel0, u /= iResolution.xy),
-             vec4 ( dot(o,vec4(.3,.59,.11,0)) ), 1.); //1-0 anim
+    vec2 uv=fc/iResolution;
+    return texture(iChannel0,uv);
 }
 
 
 void main() {
-	vec4 ret;
-	mainImage(ret,gl_FragCoord.xy);
-	glFragColor=ret;
-	glFragColor.a=1.;
+    glFragColor=getScene(vec2(gl_FragCoord.x,gl_FragCoord.y));
+//glFragColor=vec4(1.,0.,0.,0.5);
 }

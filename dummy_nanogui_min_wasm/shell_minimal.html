@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8">
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-        <title>DUMMY PROJECT NAME</title>
+        <title>GLSL viewer</title>
         <style>
             html, body {
                 width:  100%;
@@ -11,6 +11,7 @@
                 margin: 0px;
                 padding: 0;
                 overflow: hidden;
+                background-color: #303030;
             }
 
 
@@ -19,7 +20,24 @@
             div.emscripten { text-align: center; }
             div.emscripten_border { border: 0px solid black; }
             /* the canvas *must not* have any border or padding, or mouse coords will be wrong */
-            canvas.emscripten {top: calc(50vh - (100% / 2));left: calc(50vw - (100% / 2)); position:absolute;width:  100%;height: 100%; border: 0px none; background-color: #3399FF;}
+            canvas.emscripten {top: calc(50vh - (100% / 2));left: calc(50vw - (100% / 2)); position:absolute;width:  100%;height: 100%; border: 0px none; background-color: #000000;}
+            div.fullscreenDiv {
+                background-color: #303030;
+                width: 100%;
+                height: auto;
+                bottom: 0px;
+                top: 0px;
+                left: 0;
+                position: absolute;
+            }
+            div.loader {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                margin-top: -25px;
+                color:white;
+                margin-left: -100px;
+            }
 
             progress[value] {
                 -webkit-appearance: none;
@@ -34,7 +52,7 @@
             .spinner {
                 width: 35px;
                 display: inline-block;
-                background-color: #FF0033;
+                background-color: #fcfefd;
                 margin: 0px auto;
                 height: 35px;
 
@@ -112,27 +130,63 @@
                 <hr>
         --> <!--CONSOLE-->
         <!--<hr/>-->
-        <div class="controls" style="color: white;position: absolute; top:20%; left:50%;transform: translate(-50%,-20%);"><figure style="overflow:visible;" id="spinner"><div class="spinner"></div><center style="display: inline-block;margin-top:0.5em"><strong><font size="6">LOADING...</font></strong></center><div class="spinner"></div></figure>
-            <div class="emscripten" id="status">Downloading...</div>
-            <div class="emscripten">
-                <progress value="50" max="100" id="progress" style="visibility: visible;"></progress>  
-            </div>
-        </div>
+        <div class='fullscreenDiv' id="imloader"><div class="loader">
+                <figure style="overflow:visible;" id="spinner"><div class="spinner"></div>
+                    <center style="display: inline-block;margin-top:0.5em"><strong><font size="6">LOADING...</font></strong></center><div class="spinner"></div>
+                </figure>
+                <div class="emscripten" id="status">Downloading...</div>
+                <div class="emscripten">
+                    <progress value="50" max="100" id="progress" style="visibility: visible;"></progress>  
+                </div>
+            </div></div>
 
 
         <script type='text/javascript'>
 
+            var canvas = document.getElementById('canvas');
+
             //wasm GLFL resizer
-            function onResize(element, callback) {
+            var resize_event = false; //launch once
+            var max_fb_size = 4096; //max size of screen
+            function onResize() {
+                if (!resize_event) {
+                    var element = canvas;
+                    resize_event = true;
+                    var elementHeight = 0;
+                    var elementWidth = 0;
+                    setInterval(function () {
+                        if (element.scrollHeight !== elementHeight || element.scrollWidth !== elementWidth) {
+                            if (!(typeof GLFW === 'undefined')) {
+                                elementHeight = element.scrollHeight;
+                                elementWidth = element.scrollWidth;
+                                if (elementHeight > max_fb_size)
+                                    elementHeight = max_fb_size;
+                                if (elementWidth > max_fb_size)
+                                    elementWidth = max_fb_size;
+                                GLFW.onCanvasResize(elementWidth, elementHeight);
+                            } else
+                                console.log("waiting WASM initialization");
+                        }
+                    }, 300); //this is not "thread safe", WebGL will lost context randomly(set to lowest timer for test)
+                }
+            }
+
+            //I dont want to pass "preinit canvas size to WASM from JS"(or have any JS-preinit variables for WASM) better call resize on first frame from wasm
+            function resize_glfw_wasm() {
+                var element = canvas;
                 var elementHeight = 0;
                 var elementWidth = 0;
-                setInterval(function () {
-                    if (element.scrollHeight !== elementHeight || element.scrollWidth !== elementWidth) {
-                        elementHeight = element.scrollHeight;
-                        elementWidth = element.scrollWidth;
-                        callback(elementWidth, elementHeight);
-                    }
-                }, 300);
+                elementHeight = element.scrollHeight;
+                elementWidth = element.scrollWidth;
+                if (elementHeight > max_fb_size)
+                    elementHeight = max_fb_size;
+                if (elementWidth > max_fb_size)
+                    elementWidth = max_fb_size;
+                console.log("startup size " + elementWidth + " " + elementHeight);
+                if (!(typeof GLFW === 'undefined')) {
+                    GLFW.onCanvasResize(elementWidth, elementHeight);
+                }
+
             }
 
             function fullscreen() {
@@ -142,6 +196,8 @@
             var statusElement = document.getElementById('status');
             var progressElement = document.getElementById('progress');
             var spinnerElement = document.getElementById('spinner');
+
+            var waitingtext = "";
 
             var Module = {
                 preRun: [],
@@ -175,7 +231,6 @@
                  }
                  },*/
                 canvas: (function () {
-                    var canvas = document.getElementById('canvas');
 
                     /*onResize(canvas, function (Width, Height) {
                      GLFW.onCanvasResize(Width, Height);
@@ -211,17 +266,15 @@
                         progressElement.value = null;
                         progressElement.max = null;
                         progressElement.style.visibility = 'hidden';
-                        var canvas = document.getElementById('canvas');
 
-                        onResize(canvas, function (Width, Height) {
-                            if(!(typeof GLFW === 'undefined'))GLFW.onCanvasResize(Width, Height);
-                            else console.log("waiting wasm initialization");
-                            //console.log("RESIZE! " + Width + " " + Height);
-                        });
+                        //document.getElementById('loadermii').style.display = "";
+                        onResize();
                         if (!text)
-                            spinnerElement.hidden = true;
+                            waitingtext = " waiting...";
+                        //if (!text)
+                        //    spinnerElement.hidden = true;
                     }
-                    statusElement.innerHTML = text;
+                    statusElement.innerHTML = text + waitingtext;
                 },
                 totalDependencies: 0,
                 monitorRunDependencies: function (left) {
