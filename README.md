@@ -26,6 +26,8 @@ ___
 
 **dummy_nanogui_min_wasm** minimal nanogui C++ code/example  to use many GLSL shaders with framebuffers, build with this command [live link](https://danilw.github.io/GLSL-howto/dummy_nanogui_min/glsl_v2.html)
 
+**glsl_to_cuda** simple from GLSL to CUDA, very basic example
+
 ```
 em++ -DNANOVG_GLES3_IMPLEMENTATION -DGLFW_INCLUDE_ES3 -DGLFW_INCLUDE_GLEXT -DNANOGUI_LINUX -Iinclude/ -Iext/Box2D/ -Iext/nanovg/ -Iext/eigen/ box2d.bc nanogui.bc dummy.cpp --std=c++11 -O3 -lGL -lGLU -lm -lGLEW -s USE_GLFW=3 -s FULL_ES3=1 -s USE_WEBGL2=1 -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -o build/glsl_v2.html --shell-file shell_minimal.html --no-heap-copy --preload-file  ./textures --preload-file ./shaders
 
