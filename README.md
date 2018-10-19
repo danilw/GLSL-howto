@@ -32,6 +32,8 @@ em++ -DNANOVG_GLES3_IMPLEMENTATION -DGLFW_INCLUDE_ES3 -DGLFW_INCLUDE_GLEXT -DNAN
 
 **glsl_to_cuda** simple from GLSL to CUDA, very basic example
 
+**ocean** OpenGL to wasm/WebGL ocean rendering(source code in .zip archive), live https://danilw.github.io/GLSL-howto/ocean/ocean.html
+
 
 
 ### Graphic
