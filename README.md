@@ -40,7 +40,7 @@ em++ -DNANOVG_GLES3_IMPLEMENTATION -DGLFW_INCLUDE_ES3 -DGLFW_INCLUDE_GLEXT -DNAN
 
 **terra**
 
-![terra](https://danilw.github.io/GLSL-howto/terra/scr3.png)
+![terra](https://danilw.github.io/GLSL-howto/terra/scr2.jpg)
 
 **ocean**
 
