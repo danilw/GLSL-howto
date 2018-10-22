@@ -34,9 +34,13 @@ em++ -DNANOVG_GLES3_IMPLEMENTATION -DGLFW_INCLUDE_ES3 -DGLFW_INCLUDE_GLEXT -DNAN
 
 **ocean** OpenGL to wasm/WebGL ocean rendering(source code in .zip archive), [live link](https://danilw.github.io/GLSL-howto/ocean/ocean.html)
 
-
+**terra** OpenGL to wasm/WebGL terra/planet rendering(source code in .zip archive), [live link](https://danilw.github.io/GLSL-howto/terra/terra.html)
 
 ### Graphic
+
+**terra**
+
+![terra](https://danilw.github.io/GLSL-howto/terra/scr3.png)
 
 **ocean**
 
