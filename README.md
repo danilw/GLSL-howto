@@ -36,6 +36,8 @@ em++ -DNANOVG_GLES3_IMPLEMENTATION -DGLFW_INCLUDE_ES3 -DGLFW_INCLUDE_GLEXT -DNAN
 
 **terra** OpenGL to wasm/WebGL terra/planet rendering(source code in .zip archive), [live link](https://danilw.github.io/GLSL-howto/terra/terra.html)
 
+**font demo** [live link](https://danilw.github.io/GLSL-howto/font_demo/glsl_v2.html)
+
 ### Graphic
 
 **terra**
