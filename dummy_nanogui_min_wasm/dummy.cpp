@@ -79,9 +79,6 @@ std::mt19937 rng(rd());
 #define B_RECT_vertexCount 2 //two triangles
 #define B_CIRCLE_vertexCount 32 //many triangles
 
-bool animonce = true;
-float animtime = 15 + 8 + 2;
-
 class GLTexture {
 public:
     using handleType = std::unique_ptr<uint8_t[], void(*)(void*) >;
@@ -340,7 +337,7 @@ public:
         window1 = new Window(this, "Menu / Settings");
         window1->setFixedSize(Vector2i(350, 410));
         initall();
-        //settextures();
+        settextures();
         setBackground(Vector4f(0, 0, 0, 1));
 
         b = new Button(this, "Menu");
@@ -413,7 +410,7 @@ public:
         b3->setVisible(false);
 
         b4->setVisible(false);
-        //b4->setVisible(true);
+        //b4->setVisible(true); //debug visible
 
         window1->setPosition(Vector2i(425, 300));
         GridLayout *layout =
@@ -455,12 +452,12 @@ public:
         fxaa_box = new CheckBox(wcontent, "");
         fxaa_box->setFontSize(16);
         fxaa_box->setChecked(false);
-
+/*
         new Label(wcontent, "Quality :", "sans-bold");
         qs = new ComboBox(wcontent,{"Minimal", "Lowest", "Low", "Medium", "Best"});
         qs->setSelectedIndex(2);
         qs->setTooltip("Minimal will disable all post-processing.");
-
+*/
         new Label(wcontent, "Current resolution :", "sans-bold");
         res_display = new TextBox(wcontent);
         res_display->setEditable(false);
@@ -605,17 +602,18 @@ public:
     }
 
     Eigen::Vector2f oumouse_p = Eigen::Vector2f(0, 0);
+    Eigen::Vector2f oumousezw_p = Eigen::Vector2f(0, 0);
 
     virtual bool mouseMotionEvent(const Eigen::Vector2i &p, const Eigen::Vector2i &rel, int button, int modifiers) {
         if (Screen::mouseMotionEvent(p, rel, button, modifiers)) {
             return true;
         }
         Eigen::Vector2i tsxz = size();
-        //if ((button & (1 << GLFW_MOUSE_BUTTON_1)) != 0) {
+        
         if (!paused) {
             oumouse_p = p.cast<float>();
         }
-        
+
         if (cb->checked()) {
             if (p[0] < 130 && p[1] < 80) {
                 fadestop = true;
@@ -631,8 +629,6 @@ public:
                 b3->setVisible(false);
             }
         }
-        //return true;
-        //}
         return false;
     }
 
@@ -640,6 +636,7 @@ public:
         if (Screen::mouseButtonEvent(p, button, down, modifiers))
             return true;
         ffm = button == GLFW_MOUSE_BUTTON_1 && down;
+        oumousezw_p = Eigen::Vector2f(0, 0);
         if (ffm) {
 
             std::uniform_int_distribution<int> uni(0, 2);
@@ -647,7 +644,8 @@ public:
 
             std::uniform_int_distribution<int> uni2(0, 8);
             int cx2 = uni2(rng);
-
+            
+			oumousezw_p=p.cast<float>();
             if (window1->visible())window1->setVisible(false);
         }
         return false;
@@ -669,9 +667,6 @@ public:
         }
     }
 
-
-    float antime = 0;
-
     virtual void drawContents() {
         using namespace nanogui;
         bool resize_to_copy = false; //if framebuffer size not same to screen size(when option zoom enabled)
@@ -686,7 +681,6 @@ public:
             tsxz[1] = (int) (tsxz[0]*(float) 9 / 16);
         }
         tsxz_orig = tsxz;
-        //Vector2i tmpval=Vector2i(1,1);
         scale_calc_all(tsxz, tsxz.cast<float>());
         resize_to_copy = (tsxz[0] != tsxz_orig[0]) || (tsxz[1] != tsxz_orig[1]);
         if ((qz->selectedIndex() > 3)&&((tsxz[0] > tsxz_orig[0]) || (tsxz[1] > tsxz_orig[1]))) {
@@ -698,6 +692,8 @@ public:
         }
         Eigen::Vector2i tsxz_t = tsxz_orig;
         umouse = scale_calc_all(tsxz_t, oumouse_p);
+        tsxz_t = tsxz_orig;
+        umousezw = scale_calc_all(tsxz_t, oumousezw_p);
         res_display->setValue(to_string(tsxz[0]) + " x " + to_string(tsxz[1]));
         res_display->setTooltip("Screen " + to_string(tsxz_orig[0]) + " x " + to_string(tsxz_orig[1]));
 
@@ -731,9 +727,6 @@ public:
             ex_pause_skip_time += loctime - endframetime - (float) 1 / 60;
             loctime = glfwGetTime() - ptime - ex_pause_skip_time;
         }
-        if (animonce)animonce = !(loctime >= animtime);
-        if ((!animonce)&&(loctime < animtime))antime = animtime;
-        loctime += antime;
 
         update_vals(loctime);
 
@@ -760,6 +753,9 @@ public:
                 fb1.release();
          */
 
+
+doublefbo_ctrl=!doublefbo_ctrl;
+if(doublefbo_ctrl)doublefbo=0;else doublefbo=1;
         //fix first black frame
         if (scrch) {
             if (filtering->checked()) {
@@ -783,19 +779,135 @@ public:
             glViewport(0, 0, tsxz_orig[0], tsxz_orig[1]);
         }
 
-        /*if (filtering->checked())grays_fb_linear.bind();
-        else grays_fb_near.bind();
-        grays_sh.bind();
-        if (filtering->checked())gmap_textured_fb_linear.bindtexture(tsxz, 0, true); //gmap_box2d_fb_linear for sdf
-        else gmap_textured_fb_near.bindtexture(tsxz, 0, true);
+        if (filtering->checked())bufA_fb_linear[doublefbo].bind();
+        else bufA_fb_near[doublefbo].bind();
+        bufA.bind();
         c_u_id = 0;
-        grays_sh.setUniform("u_texture1", 0, c_u_id++);
-        grays_sh.setUniform("u_resolution", screenSize, c_u_id++);
-        grays_sh.setUniform("u_time", (float) loctime, c_u_id++);
-        grays_sh.drawIndexed(GL_TRIANGLES, 0, 2);
-        if (filtering->checked())grays_fb_linear.release();
-        else grays_fb_near.release();
-         */
+        
+        bufA.setUniform("u_time", (float) loctime, c_u_id++);
+        bufA.setUniform("u_resolution", screenSize, c_u_id++);
+        bufA.setUniform("u_mouse", Vector4f(umouse.x(),umouse.y(),umousezw.x(),umousezw.y()), c_u_id++);
+        if (filtering->checked())bufA_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 0, true); else bufA_fb_near[std::abs(doublefbo-1)].bindtexture(tsxz, 0, true);
+        bufA.setUniform("u_texture1", 0);
+        if (filtering->checked())bufB_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 1, true); else bufB_fb_near[std::abs(doublefbo-1)].bindtexture(tsxz, 1, true);
+        bufA.setUniform("u_texture2", 1);
+        if (filtering->checked())bufC_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 2, true); else bufC_fb_near[std::abs(doublefbo-1)].bindtexture(tsxz, 2, true);
+        bufA.setUniform("u_texture3", 2);
+        if (filtering->checked())bufD_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 3, true); else bufD_fb_near[std::abs(doublefbo-1)].bindtexture(tsxz, 3, true);
+        bufA.setUniform("u_texture4", 3);
+        glActiveTexture(GL_TEXTURE0 + 4);
+        glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[0]].first.texture());
+        bufA.setUniform("u_tex_texture1", 4);
+        glActiveTexture(GL_TEXTURE0 + 5);
+        glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[1]].first.texture());
+        bufA.setUniform("u_tex_texture2", 5);
+        glActiveTexture(GL_TEXTURE0 + 6);
+        glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[2]].first.texture());
+        bufA.setUniform("u_tex_texture3", 6);
+        glActiveTexture(GL_TEXTURE0 + 7);
+        glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[3]].first.texture());
+        bufA.setUniform("u_tex_texture4", 7);
+        bufA.drawIndexed(GL_TRIANGLES, 0, 2);
+
+        if (filtering->checked())bufA_fb_linear[doublefbo].release();
+        else bufA_fb_near[doublefbo].release();
+        
+        if (filtering->checked())bufB_fb_linear[doublefbo].bind();
+        else bufB_fb_near[doublefbo].bind();
+        bufB.bind();
+        c_u_id = 0;
+        bufB.setUniform("u_time", (float) loctime, c_u_id++);
+        bufB.setUniform("u_resolution", screenSize, c_u_id++);
+        bufB.setUniform("u_mouse", Vector4f(umouse.x(),umouse.y(),umousezw.x(),umousezw.y()), c_u_id++);
+        if (filtering->checked())bufA_fb_linear[doublefbo].bindtexture(tsxz, 0, true); else bufA_fb_near[doublefbo].bindtexture(tsxz, 0, true);
+        bufB.setUniform("u_texture1", 0);
+        if (filtering->checked())bufB_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 1, true); else bufB_fb_near[std::abs(doublefbo-1)].bindtexture(tsxz, 1, true);
+        bufB.setUniform("u_texture2", 1);
+        if (filtering->checked())bufC_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 2, true); else bufC_fb_near[std::abs(doublefbo-1)].bindtexture(tsxz, 2, true);
+        bufB.setUniform("u_texture3", 2);
+        if (filtering->checked())bufD_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 3, true); else bufD_fb_near[std::abs(doublefbo-1)].bindtexture(tsxz, 3, true);
+        bufB.setUniform("u_texture4", 3);
+        glActiveTexture(GL_TEXTURE0 + 4);
+        glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[0]].first.texture());
+        bufB.setUniform("u_tex_texture1", 4);
+        glActiveTexture(GL_TEXTURE0 + 5);
+        glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[1]].first.texture());
+        bufB.setUniform("u_tex_texture2", 5);
+        glActiveTexture(GL_TEXTURE0 + 6);
+        glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[2]].first.texture());
+        bufB.setUniform("u_tex_texture3", 6);
+        glActiveTexture(GL_TEXTURE0 + 7);
+        glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[3]].first.texture());
+        bufB.setUniform("u_tex_texture4", 7);
+        bufB.drawIndexed(GL_TRIANGLES, 0, 2);
+
+        if (filtering->checked())bufB_fb_linear[doublefbo].release();
+        else bufB_fb_near[doublefbo].release();
+        
+        if (filtering->checked())bufC_fb_linear[doublefbo].bind();
+        else bufC_fb_near[doublefbo].bind();
+        bufC.bind();
+        c_u_id = 0;
+        bufC.setUniform("u_time", (float) loctime, c_u_id++);
+        bufC.setUniform("u_resolution", screenSize, c_u_id++);
+        bufC.setUniform("u_mouse", Vector4f(umouse.x(),umouse.y(),umousezw.x(),umousezw.y()), c_u_id++);
+        if (filtering->checked())bufA_fb_linear[doublefbo].bindtexture(tsxz, 0, true); else bufA_fb_near[doublefbo].bindtexture(tsxz, 0, true);
+        bufC.setUniform("u_texture1", 0);
+        if (filtering->checked())bufB_fb_linear[doublefbo].bindtexture(tsxz, 1, true); else bufB_fb_near[doublefbo].bindtexture(tsxz, 1, true);
+        bufC.setUniform("u_texture2", 1);
+        if (filtering->checked())bufC_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 2, true); else bufC_fb_near[std::abs(doublefbo-1)].bindtexture(tsxz, 2, true);
+        bufC.setUniform("u_texture3", 2);
+        if (filtering->checked())bufD_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 3, true); else bufD_fb_near[std::abs(doublefbo-1)].bindtexture(tsxz, 3, true);
+        bufC.setUniform("u_texture4", 3);
+        glActiveTexture(GL_TEXTURE0 + 4);
+        glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[0]].first.texture());
+        bufC.setUniform("u_tex_texture1", 4);
+        glActiveTexture(GL_TEXTURE0 + 5);
+        glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[1]].first.texture());
+        bufC.setUniform("u_tex_texture2", 5);
+        glActiveTexture(GL_TEXTURE0 + 6);
+        glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[2]].first.texture());
+        bufC.setUniform("u_tex_texture3", 6);
+        glActiveTexture(GL_TEXTURE0 + 7);
+        glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[3]].first.texture());
+        bufC.setUniform("u_tex_texture4", 7);
+        bufC.drawIndexed(GL_TRIANGLES, 0, 2);
+
+        if (filtering->checked())bufC_fb_linear[doublefbo].release();
+        else bufC_fb_near[doublefbo].release();
+
+        if (filtering->checked())bufD_fb_linear[doublefbo].bind();
+        else bufD_fb_near[doublefbo].bind();
+        bufD.bind();
+        c_u_id = 0;
+        bufD.setUniform("u_time", (float) loctime, c_u_id++);
+        bufD.setUniform("u_resolution", screenSize, c_u_id++);
+        bufD.setUniform("u_mouse", Vector4f(umouse.x(),umouse.y(),umousezw.x(),umousezw.y()), c_u_id++);
+        if (filtering->checked())bufA_fb_linear[doublefbo].bindtexture(tsxz, 0, true); else bufA_fb_near[doublefbo].bindtexture(tsxz, 0, true);
+        bufD.setUniform("u_texture1", 0);
+        if (filtering->checked())bufB_fb_linear[doublefbo].bindtexture(tsxz, 1, true); else bufB_fb_near[doublefbo].bindtexture(tsxz, 1, true);
+        bufD.setUniform("u_texture2", 1);
+        if (filtering->checked())bufC_fb_linear[doublefbo].bindtexture(tsxz, 2, true); else bufC_fb_near[doublefbo].bindtexture(tsxz, 2, true);
+        bufD.setUniform("u_texture3", 2);
+        if (filtering->checked())bufD_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 3, true); else bufD_fb_near[std::abs(doublefbo-1)].bindtexture(tsxz, 3, true);
+        bufD.setUniform("u_texture4", 3);
+        glActiveTexture(GL_TEXTURE0 + 4);
+        glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[0]].first.texture());
+        bufD.setUniform("u_tex_texture1", 4);
+        glActiveTexture(GL_TEXTURE0 + 5);
+        glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[1]].first.texture());
+        bufD.setUniform("u_tex_texture2", 5);
+        glActiveTexture(GL_TEXTURE0 + 6);
+        glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[2]].first.texture());
+        bufD.setUniform("u_tex_texture3", 6);
+        glActiveTexture(GL_TEXTURE0 + 7);
+        glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[3]].first.texture());
+        bufD.setUniform("u_tex_texture4", 7);
+        bufD.drawIndexed(GL_TRIANGLES, 0, 2);
+
+        if (filtering->checked())bufD_fb_linear[doublefbo].release();
+        else bufD_fb_near[doublefbo].release();
+        
         if (paused) {
             if (filtering->checked())pause_fb_linear.bind();
             else pause_fb_near.bind();
@@ -812,7 +924,15 @@ public:
         c_u_id = 0;
         main_screen.setUniform("u_time", (float) loctime, c_u_id++);
         main_screen.setUniform("u_resolution", screenSize, c_u_id++);
-        main_screen.setUniform("u_mouse", umouse, c_u_id++);
+        main_screen.setUniform("u_mouse", Vector4f(umouse.x(),umouse.y(),umousezw.x(),umousezw.y()), c_u_id++);
+        if (filtering->checked())bufA_fb_linear[doublefbo].bindtexture(tsxz, 0, true); else bufA_fb_near[doublefbo].bindtexture(tsxz, 0, true);
+        main_screen.setUniform("u_texture1", 0);
+        if (filtering->checked())bufB_fb_linear[doublefbo].bindtexture(tsxz, 1, true); else bufB_fb_near[doublefbo].bindtexture(tsxz, 1, true);
+        main_screen.setUniform("u_texture2", 1);
+        if (filtering->checked())bufC_fb_linear[doublefbo].bindtexture(tsxz, 2, true); else bufC_fb_near[doublefbo].bindtexture(tsxz, 2, true);
+        main_screen.setUniform("u_texture3", 2);
+        if (filtering->checked())bufD_fb_linear[doublefbo].bindtexture(tsxz, 3, true); else bufD_fb_near[doublefbo].bindtexture(tsxz, 3, true);
+        main_screen.setUniform("u_texture4", 3);
         main_screen.drawIndexed(GL_TRIANGLES, 0, 2);
 
 
@@ -986,8 +1106,16 @@ private:
 
     double endframetime = 0;
     double ex_pause_skip_time = 0; //time when window hiden somehow(fps < FPSmin)
+    
+    bool doublefbo_ctrl=true;
+    int doublefbo=0;
 
     nanogui::GLShader main_screen;
+    nanogui::GLShader bufA;
+    nanogui::GLShader bufB;
+    nanogui::GLShader bufC;
+    nanogui::GLShader bufD
+    ;
     nanogui::GLShader pause_sh;
     nanogui::GLShader nvfxaa_sh;
 
@@ -995,19 +1123,29 @@ private:
     nanogui::GLShader bloom_v_sh;
     nanogui::GLShader bloom_p_sh;
 
+    nanogui::GLFramebuffer bufA_fb_linear[2];
+    nanogui::GLFramebuffer bufB_fb_linear[2];
+    nanogui::GLFramebuffer bufC_fb_linear[2];
+    nanogui::GLFramebuffer bufD_fb_linear[2];
+
+    nanogui::GLFramebuffer bufA_fb_near[2];
+    nanogui::GLFramebuffer bufB_fb_near[2];
+    nanogui::GLFramebuffer bufC_fb_near[2];
+    nanogui::GLFramebuffer bufD_fb_near[2];
+    
     nanogui::GLFramebuffer pause_fb_near;
     nanogui::GLFramebuffer nvfxaa_fb_near;
 
     nanogui::GLFramebuffer pause_fb_linear;
     nanogui::GLFramebuffer nvfxaa_fb_linear;
-
+    
     nanogui::GLShader cp_sh;
     nanogui::GLFramebuffer copy_fb_near;
     nanogui::GLFramebuffer copy_fb_linear;
 
     nanogui::GLFramebuffer copy_fb_near2;
     nanogui::GLFramebuffer copy_fb_linear2;
-
+    
     nanogui::GLFramebuffer copy_fb_near3;
     nanogui::GLFramebuffer copy_fb_linear3;
 
@@ -1024,6 +1162,7 @@ private:
     Eigen::Vector2f scale_calc(Eigen::Vector2f tsxz);
     Eigen::Vector2f scale_calc_all(Eigen::Vector2i &tsxz, Eigen::Vector2f umouse);
     Eigen::Vector2f umouse;
+    Eigen::Vector2f umousezw;
     nanogui::MatrixXu polygon_indices(int t);
     nanogui::MatrixXf polygon_positions(int t, Eigen::Vector2f center, Eigen::Vector2f screen_prop, float size_of);
     void init_glsl_s();
@@ -1037,19 +1176,34 @@ private:
 void Ccgm::init_glsl_s() {
 
     using namespace nanogui;
+
+for(int i=0;i<2;i++){
+    bufA_fb_linear[i].inittexture(Vector2i(1280, 720), false);
+    bufB_fb_linear[i].inittexture(Vector2i(1280, 720), false);
+    bufC_fb_linear[i].inittexture(Vector2i(1280, 720), false);
+    bufD_fb_linear[i].inittexture(Vector2i(1280, 720), false);
+
+    bufA_fb_near[i].inittexture(Vector2i(1280, 720), true);
+    bufB_fb_near[i].inittexture(Vector2i(1280, 720), true);
+    bufC_fb_near[i].inittexture(Vector2i(1280, 720), true);
+    bufD_fb_near[i].inittexture(Vector2i(1280, 720), true);
+}
     pause_fb_near.inittexture(Vector2i(1280, 720), true);
     nvfxaa_fb_near.inittexture(Vector2i(1280, 720), true);
-    copy_fb_near.inittexture(Vector2i(1280, 720), true);
-    copy_fb_near2.inittexture(Vector2i(1280, 720), true);
-    copy_fb_near3.inittexture(Vector2i(1280, 720), true);
-
     pause_fb_linear.inittexture(Vector2i(1280, 720), false);
     nvfxaa_fb_linear.inittexture(Vector2i(1280, 720), false);
+    copy_fb_near.inittexture(Vector2i(1280, 720), true);
+    copy_fb_near2.inittexture(Vector2i(1280, 720), true);
     copy_fb_linear.inittexture(Vector2i(1280, 720), false);
     copy_fb_linear2.inittexture(Vector2i(1280, 720), false);
+    copy_fb_near3.inittexture(Vector2i(1280, 720), true);
     copy_fb_linear3.inittexture(Vector2i(1280, 720), false);
 
     main_screen.initFromFiles("main_screen", "shaders/mainv.glsl", "shaders/main_screen.glsl");
+    bufA.initFromFiles("bufA", "shaders/mainv.glsl", "shaders/bufA.glsl");
+    bufB.initFromFiles("bufB", "shaders/mainv.glsl", "shaders/bufB.glsl");
+    bufC.initFromFiles("bufC", "shaders/mainv.glsl", "shaders/bufC.glsl");
+    bufD.initFromFiles("bufD", "shaders/mainv.glsl", "shaders/bufD.glsl");
     pause_sh.initFromFiles("pause_sh", "shaders/mainv.glsl", "shaders/pause.glsl");
     nvfxaa_sh.initFromFiles("mvfxaa_sh", "shaders/mainv.glsl", "shaders/nv_fxaa.glsl");
     cp_sh.initFromFiles("cp_sh", "shaders/mainv.glsl", "shaders/cp.glsl");
@@ -1101,6 +1255,34 @@ void Ccgm::init_glsl_s() {
     bloom_p_sh.setUniform("u_resolution", screenSize);
     copy_fb_linear2.release();
 
+    bufA_fb_linear[doublefbo].bind();
+    bufA.bind();
+    bufA.uploadIndices(indices);
+    bufA.uploadAttrib("position", positions);
+    bufA.setUniform("u_resolution", screenSize);
+    bufA_fb_linear[doublefbo].release();
+
+    bufB_fb_linear[doublefbo].bind();
+    bufB.bind();
+    bufB.uploadIndices(indices);
+    bufB.uploadAttrib("position", positions);
+    bufB.setUniform("u_resolution", screenSize);
+    bufB_fb_linear[doublefbo].release();
+
+    bufC_fb_linear[doublefbo].bind();
+    bufC.bind();
+    bufC.uploadIndices(indices);
+    bufC.uploadAttrib("position", positions);
+    bufC.setUniform("u_resolution", screenSize);
+    bufC_fb_linear[doublefbo].release();
+
+    bufD_fb_linear[doublefbo].bind();
+    bufD.bind();
+    bufD.uploadIndices(indices);
+    bufD.uploadAttrib("position", positions);
+    bufD.setUniform("u_resolution", screenSize);
+    bufD_fb_linear[doublefbo].release();
+
     main_screen.bind();
     main_screen.uploadIndices(indices);
     main_screen.uploadAttrib("position", positions);
@@ -1143,23 +1325,16 @@ void Ccgm::settextures() {
     for (auto& texturex : textres) {
         GLTexture texture(texturex.second);
 
-        /*if (texturex.second == ("textures/txt1")) //its fixes for "random non sorted file names in readdir(loadImageDirectory use it)"
-                                            indexfx[1] = i;
-
-                                        if (texturex.second == ("textures/tx2"))
-                                                    indexfx[1] = i;
-                                                if (texturex.second == ("textures/tx3"))
-                                                    indexfx[2] = i;
-                                                if (texturex.second == ("textures/tx4"))
-                                                    indexfx[3] = i;
-                                                if (texturex.second == ("textures/tx5"))
-                                                    indexfx[4] = i;
-                                                if (texturex.second == ("textures/tx6"))
-                                                    indexfx[5] = i;
-                                                if (texturex.second == ("textures/tx7"))
-                                                    indexfx[6] = i;*/
-        if (texturex.second == ("textures/iqn"))
+        //its fixes for "random non sorted file names in readdir(loadImageDirectory use it)"
+        
+        if (texturex.second == ("textures/tex1"))
             indexfx[0] = i;
+        if (texturex.second == ("textures/tex2"))
+            indexfx[1] = i;
+        if (texturex.second == ("textures/tex3"))
+            indexfx[2] = i;
+        if (texturex.second == ("textures/tex4"))
+            indexfx[3] = i;
         //bool fmt = texturex.second == ("textures/tx6") || texturex.second == ("textures/tx7");
         auto data = texture.load(resourcesFolderPath + texturex.second + ".png", false, false);
         texturesData.emplace_back(std::move(texture), std::move(data));
