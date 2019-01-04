@@ -177,7 +177,7 @@ vec4 calcColortx(vec3 p,float i, float j)
     uvec4 tc=uvec4(0);
     
     //if all layers in single buffer
-    //tc=uvec4(abs(texelFetch(iChannel0,ivec2(((p.zy*vec2(iResolution.y/iResolution.x,1.))*.5+0.5)*iResolution.xy),0)));
+    //tc=uvec4(abs(texelFetch(iChannel0,ivec2(((p.zy*vec2(iResolution.y/iResolution.x,1.))*.5+0.5)*iResolution.xy-0.5),0)));
     
     //three buffers
     if(i*3.+j<4.)
@@ -266,10 +266,7 @@ void ParallelogramIntersectMin(vec3 ro, vec3 rd, in vec3 v0, in vec3 v1, in vec3
             
             hit.obj_type = OBJ;
         }
-        if(hit.color.a>=1.0)
         result = true;
-        else
-        result = false;
     }
 }
 
@@ -312,8 +309,8 @@ bool minDist(vec3 ro, vec3 rd, out HitInfo hit)
     
     ParallelogramIntersectMin(ro, rd, v01+vec3(border_step*(0.),0.,0.), 
                                  v11+vec3(border_step*(0.),0.,0.), v21+vec3(border_step*(0.),0.,0.), result, hit,OBJ_WALL_B,0.,0.);
-    for(float i=floor((nb_layers-0.)/3.)-1.;i>=0.;i--){
-        for(float j=2.;j>=0.;j--){
+    for(float i=floor((nb_layers-0.)/3.)-1.+float(min(0,iFrame));i>=0.;i--){
+        for(float j=2.+float(min(0,iFrame));j>=0.;j--){
         ParallelogramIntersectMin(ro, rd, v01+vec3(border_step*(nb_layers-(i*3.+j)),0.,0.), 
                                   v11+vec3(border_step*(nb_layers-(i*3.+j)),0.,0.), v21+vec3(border_step*(nb_layers-(i*3.+j)),0.,0.), result, hit,OBJ_WALL_N,i,j);
         }}
