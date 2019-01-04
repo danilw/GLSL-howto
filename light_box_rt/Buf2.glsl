@@ -84,14 +84,14 @@ float gen_grass(vec2 p,float tva){
     vec2 tp=p;
     int BLADES=6;
     float BLADE_SEED=1.0;
-    for(float ii=0.;ii<3.;ii++)
+    for(float ii=0.+float(min(0,iFrame));ii<3.;ii++)
     {
         tp=p;
         tp.y+=0.08-ii*0.005;
         tp.x+=0.25*ii;
         tp*=10.;
         tp.y*=1.5+1.25*ii;
-	for(int i = 0; i < BLADES; i++)
+	for(int i = 0+(min(0,iFrame)); i < BLADES; i++)
 	{
 		float z = -(float(BLADES - i) * 0.1 + 1.0);
 		vec4 pln = vec4(0.0, 0.0, -1.3, z);
