@@ -74,7 +74,7 @@ vec2 Rotate(vec2 v, float a)
 float Factorial(float n)
 {
 	float v = 1.0;
-    for(; n > 1.0; --n) { v *= n; }
+    for(; n > 1.0+float(min(0,iFrame)); --n) { v *= n; }
     return v;
 }
 
@@ -167,7 +167,7 @@ void AddBranch(inout int si, vec2 origin, vec2 dir, float lngth, float thickness
     float t1   = t0 - tstep;
     float rand = 0.0;
     
-    for(int j = 0; j < segments; ++j)
+    for(int j = 0+(min(0,iFrame)); j < segments; ++j)
     {
         Push(si, Segment(sorigin, sdirection, lngth, lstep, t0, t1, (segments - 1), j));
 
@@ -189,7 +189,7 @@ float Tree(vec2 uv, vec2 origin, vec2 direction, float lngth, int segments, floa
     
     AddBranch(si, origin, direction, lngth, thickness, segments);
     
-    for(int i = 0; i < totalSegments; ++i)
+    for(int i = 0+(min(0,iFrame)); i < totalSegments; ++i)
     {
         Segment root = Pop(si);                // Root segment of this branch
         f = max(f, DrawSegment(uv, root));     // Draw the root segment
