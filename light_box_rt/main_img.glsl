@@ -8,7 +8,7 @@
 // using https://www.shadertoy.com/view/4tlBDs
 // using https://www.shadertoy.com/view/XdcSzH
 
-#define AA 3
+#define AA 0
 
 uvec3 decodeval16(uint varz) {
     int colz=int(varz);
@@ -181,11 +181,11 @@ vec4 calcColortx(vec3 p,float i, float j)
     
     //three buffers
     if(i*3.+j<4.)
-    tc=uvec4(abs(texelFetch(iChannel0,ivec2(((p.zy*vec2(iResolution.y/iResolution.x,1.))*.5+0.5)*iResolution.xy),0)));
+    tc=uvec4(abs(texelFetch(iChannel0,ivec2(((p.zy*vec2(iResolution.y/iResolution.x,1.))*.5+0.5)*iResolution.xy-0.5),0)));
 	else if(i*3.+j<8.)
-    tc=uvec4(abs(texelFetch(iChannel1,ivec2(((p.zy*vec2(iResolution.y/iResolution.x,1.))*.5+0.5)*iResolution.xy),0)));
+    tc=uvec4(abs(texelFetch(iChannel1,ivec2(((p.zy*vec2(iResolution.y/iResolution.x,1.))*.5+0.5)*iResolution.xy-0.5),0)));
 	else
-    tc=uvec4(abs(texelFetch(iChannel2,ivec2(((p.zy*vec2(iResolution.y/iResolution.x,1.))*.5+0.5)*iResolution.xy),0)));
+    tc=uvec4(abs(texelFetch(iChannel2,ivec2(((p.zy*vec2(iResolution.y/iResolution.x,1.))*.5+0.5)*iResolution.xy-0.5),0)));
 
     float d =float(decodeval( tc[int(i)])[int(j)])/float(98);
     vec3 tcx=vec3(0.);
