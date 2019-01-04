@@ -125,21 +125,21 @@ vec2 Tree (vec2 pos, vec2 uv, int LEAFS, int BRANCHES, int TRUNKS)
     float lf = 999.0;
     float LEAFANGLE = PI * 0.2;
     vec2 leafSize = vec2(0.005, 0.01);
-    for (int i = 0; i < TRUNKS; ++i)
+    for (int i = 0+(min(0,iFrame)); i < TRUNKS; ++i)
     {
         b = smin(b, Cursor(uv, pos, H, angle, W));
         vec2 p = pos;
         float h = H; 
         float a = randA + angle + sin(0. + float(i)) * 0.1;
         float w = W;
-        for (int j = 0; j < BRANCHES; ++j)
+        for (int j = 0+(min(0,iFrame)); j < BRANCHES; ++j)
         {
             b = smin(b, Cursor(uv, p, h, a, w));    
             vec2 p1 = p;
             float h1 = max(randH * 0.06, 0.006); 
             float a1 = randA + a + sin(0.+ float(j) * 0.4) * 0.1;
             float w1 = w;
-            for (int k = 0; k < LEAFS; ++k)
+            for (int k = 0+(min(0,iFrame)); k < LEAFS; ++k)
             {
                b = smin(b, Cursor(uv, p1, h1, a1, w1));    
                float angl = mod(float(k), 2.0)  == 0.0 ? 1.0 : -1.0;
@@ -192,14 +192,14 @@ float gen_grass(vec2 p,float tva){
     vec2 tp=p;
     int BLADES=6;
     float BLADE_SEED=1.0;
-    for(float ii=0.;ii<3.;ii++)
+    for(float ii=0.+float(min(0,iFrame));ii<3.;ii++)
     {
         tp=p;
         tp.y+=0.08-ii*0.005;
         tp.x+=0.25*ii;
         tp*=10.;
         tp.y*=1.5+1.25*ii;
-	for(int i = 0; i < BLADES; i++)
+	for(int i = 0+(min(0,iFrame)); i < BLADES; i++)
 	{
 		float z = -(float(BLADES - i) * 0.1 + 1.0);
 		vec4 pln = vec4(0.0, 0.0, -1.3, z);
