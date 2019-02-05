@@ -42,6 +42,8 @@ em++ -DNANOVG_GLES3_IMPLEMENTATION -DGLFW_INCLUDE_ES3 -DGLFW_INCLUDE_GLEXT -DNAN
 
 **light_box_rt** [live link](https://www.shadertoy.com/view/tsfGW4) using intersection/RayTracing in GLSL
 
+**vulkan_shader_launcher** [link to repo](https://github.com/danilw/vulkan_shader_launcher)
+
 
 ### Graphic
 
