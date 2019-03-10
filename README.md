@@ -44,7 +44,7 @@ em++ -DNANOVG_GLES3_IMPLEMENTATION -DGLFW_INCLUDE_ES3 -DGLFW_INCLUDE_GLEXT -DNAN
 
 **vulkan_shader_launcher** [link to repo](https://github.com/danilw/vulkan_shader_launcher)
 
-**Auto tetris** copy from my shadertoy [shadertoy link](https://www.shadertoy.com/view/3dlSzs)
+**Auto tetris** copy from my shadertoy [shadertoy link](https://www.shadertoy.com/view/3dlSzs) more [win64](https://danilw.github.io/GLSL-howto/Auto_tetris/AutoTetris.zip) [web](https://danilw.github.io/GLSL-howto/Auto_tetris/web/glsl_v2.html)
 
 ### Graphic
 
