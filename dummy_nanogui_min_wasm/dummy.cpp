@@ -533,167 +533,202 @@ public:
 
     }
 
-    ~Ccgm() {
+	//left+right control movement to keep move when one of key released
+	bool ka = false;
+	bool kd = false;
 
-        //mShader.free();
-    }
+	bool KEY_LEFT = false;
+	bool KEY_UP = false;
+	bool KEY_RIGHT = false;
+	bool KEY_DOWN = false;
 
-    //left+right control movement to keep move when one of key released
-    bool ka = false;
-    bool kd = false;
+	virtual bool keyboardEvent(int key, int scancode, int action, int modifiers) {
+		if (Screen::keyboardEvent(key, scancode, action, modifiers))
+			return true;
 
-    virtual bool keyboardEvent(int key, int scancode, int action, int modifiers) {
-        if (Screen::keyboardEvent(key, scancode, action, modifiers))
-            return true;
-
-        //DO NOT USE IN WASM
-        /*if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-            std::cout << "Exit(ESC) called" << std::endl;
-            setVisible(false);
-            return true;
-        }*/
-        if (key == GLFW_KEY_P && action == GLFW_PRESS) {
-            (b1->callback())();
-            return true;
-        }
+		//DO NOT USE IN WASM
+		/*if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+		std::cout << "Exit(ESC) called" << std::endl;
+		setVisible(false);
+		return true;
+		}*/
+		if (key == GLFW_KEY_P && action == GLFW_PRESS) {
+			(b1->callback())();
+			return true;
+		}
 
 
-        if (((key == GLFW_KEY_A) || (key == GLFW_KEY_LEFT)) && action == GLFW_PRESS) {
-            //ka=false;
-            kd = true;
-            //boxhelper->wheel->SetMotorSpeed(3);
+		if (((key == GLFW_KEY_A) || (key == GLFW_KEY_LEFT)) && action == GLFW_PRESS) {
+			KEY_LEFT = true;
+			KEY_UP = false;
+			KEY_RIGHT = false;
+			KEY_DOWN = false;
+			return true;
+		}
 
-            return true;
-        }
+		if (((key == GLFW_KEY_A) || (key == GLFW_KEY_LEFT)) && action == GLFW_RELEASE) {
+			KEY_LEFT = false;
 
-        if (((key == GLFW_KEY_A) || (key == GLFW_KEY_LEFT)) && action == GLFW_RELEASE) {
-            kd = false;
-            /*if (!ka)
-                boxhelper->wheel->SetMotorSpeed(0);
-            else
-                boxhelper->wheel->SetMotorSpeed(-3);*/
+			return true;
+		}
 
-            return true;
-        }
+		if (((key == GLFW_KEY_D) || (key == GLFW_KEY_RIGHT)) && action == GLFW_PRESS) {
+			KEY_LEFT = false;
+			KEY_UP = false;
+			KEY_RIGHT = true;
+			KEY_DOWN = false;
 
-        if (((key == GLFW_KEY_D) || (key == GLFW_KEY_RIGHT)) && action == GLFW_PRESS) {
-            ka = true;
-            //boxhelper->wheel->SetMotorSpeed(-3);
+			return true;
+		}
 
-            return true;
-        }
+		if (((key == GLFW_KEY_D) || (key == GLFW_KEY_RIGHT)) && action == GLFW_RELEASE) {
+			KEY_RIGHT = false;
 
-        if (((key == GLFW_KEY_D) || (key == GLFW_KEY_RIGHT)) && action == GLFW_RELEASE) {
-            ka = false;
-            /*if (!kd)
-                boxhelper->wheel->SetMotorSpeed(0);
-            else
-                boxhelper->wheel->SetMotorSpeed(3);*/
+			return true;
+		}
 
-            return true;
-        }
+		if (((key == GLFW_KEY_W) || (key == GLFW_KEY_UP)) && action == GLFW_PRESS) {
+			KEY_LEFT = false;
+			KEY_UP = true;
+			KEY_RIGHT = false;
+			KEY_DOWN = false;
 
-        if (((key == GLFW_KEY_SPACE) || (key == GLFW_KEY_W)) && action == GLFW_PRESS) {
-            //boxhelper->jumpx = true;
-            return true;
-        }
+			return true;
+		}
 
-        return false;
-    }
+		if (((key == GLFW_KEY_W) || (key == GLFW_KEY_UP)) && action == GLFW_RELEASE) {
+			KEY_UP = false;
 
-    Eigen::Vector2f oumouse_p = Eigen::Vector2f(0, 0);
-    Eigen::Vector2f oumousezw_p = Eigen::Vector2f(0, 0);
+			return true;
+		}
 
-    virtual bool mouseMotionEvent(const Eigen::Vector2i &p, const Eigen::Vector2i &rel, int button, int modifiers) {
-        if (Screen::mouseMotionEvent(p, rel, button, modifiers)) {
-            return true;
-        }
-        Eigen::Vector2i tsxz = size();
-        
-        if (!paused) {
-            oumouse_p = p.cast<float>();
-        }
+		if (((key == GLFW_KEY_S) || (key == GLFW_KEY_DOWN)) && action == GLFW_PRESS) {
+			KEY_LEFT = false;
+			KEY_UP = false;
+			KEY_RIGHT = false;
+			KEY_DOWN = true;
 
-        if (cb->checked()) {
-            if (p[0] < 130 && p[1] < 80) {
-                fadestop = true;
-                b->setVisible(true);
-                b1->setVisible(true);
-                b2->setVisible(true);
-                b3->setVisible(true);
-            } else {
+			return true;
+		}
 
-                b->setVisible(false);
-                b1->setVisible(false);
-                b2->setVisible(false);
-                b3->setVisible(false);
-            }
-        }
-        return false;
-    }
+		if (((key == GLFW_KEY_S) || (key == GLFW_KEY_DOWN)) && action == GLFW_RELEASE) {
+			KEY_DOWN = false;
 
-    virtual bool mouseButtonEvent(const Eigen::Vector2i &p, int button, bool down, int modifiers) {
-        if (Screen::mouseButtonEvent(p, button, down, modifiers))
-            return true;
-        ffm = button == GLFW_MOUSE_BUTTON_1 && down;
-        oumousezw_p = Eigen::Vector2f(0, 0);
-        if (ffm) {
+			return true;
+		}
 
-            std::uniform_int_distribution<int> uni(0, 2);
-            int cx = uni(rng);
+		if (((key == GLFW_KEY_SPACE) || (key == GLFW_KEY_W)) && action == GLFW_PRESS) {
+			//boxhelper->jumpx = true;
+			return true;
+		}
 
-            std::uniform_int_distribution<int> uni2(0, 8);
-            int cx2 = uni2(rng);
-            
-			oumousezw_p=p.cast<float>();
-            if (window1->visible())window1->setVisible(false);
-        }
-        return false;
-    }
+		return false;
+	}
 
-    virtual void draw(NVGcontext * ctx) {
+	Eigen::Vector2f oumouse_p = Eigen::Vector2f(0, 0);
+	Eigen::Vector2f oumousezw_p = Eigen::Vector2f(0, 0);
 
-        /* Draw the user interface */
-        Screen::draw(ctx);
-    }
+	virtual bool mouseMotionEvent(const Eigen::Vector2i &p, const Eigen::Vector2i &rel, int button, int modifiers) {
+		if (Screen::mouseMotionEvent(p, rel, button, modifiers)) {
+			return true;
+		}
+		Eigen::Vector2i tsxz = size();
+		//if ((button & (1 << GLFW_MOUSE_BUTTON_1)) != 0) {
+		if (!paused) {
+			oumouse_p = p.cast<float>();
+		}
 
-    void FPS(double time) {
-        numFrames++;
-        if (time - lastFpsTime > frameRateSmoothing) {
+		if (cb->checked()) {
+			if (p[0] < 130 && p[1] < 80) {
+				fadestop = true;
+				b->setVisible(true);
+				b1->setVisible(true);
+				b2->setVisible(true);
+				b3->setVisible(true);
+			}
+			else {
 
-            fps = (int) (numFrames / (time - lastFpsTime));
-            numFrames = 0;
-            lastFpsTime = time;
-        }
-    }
+				b->setVisible(false);
+				b1->setVisible(false);
+				b2->setVisible(false);
+				b3->setVisible(false);
+			}
+		}
+		//return true;
+		//}
+		return false;
+	}
 
-    virtual void drawContents() {
-        using namespace nanogui;
-        bool resize_to_copy = false; //if framebuffer size not same to screen size(when option zoom enabled)
-        int c_u_id = 0; //uniform index to store without calling glGetUniformLocation every time
+	virtual bool mouseButtonEvent(const Eigen::Vector2i &p, int button, bool down, int modifiers) {
+		if (Screen::mouseButtonEvent(p, button, down, modifiers))
+			return true;
+		ffm = button == GLFW_MOUSE_BUTTON_1 && down;
+		oumousezw_p = Eigen::Vector2f(0, 0);
+		if (ffm) {
 
-        reset_x();
-        Vector2i tsxz = size();
-        Vector2i tsxz_orig = tsxz;
+			std::uniform_int_distribution<int> uni(0, 2);
+			int cx = uni(rng);
 
-        //resize to 16/9
-        if ((int) (tsxz[0]*(float) 9 / 16) < tsxz[1]) {
-            tsxz[1] = (int) (tsxz[0]*(float) 9 / 16);
-        }
-        tsxz_orig = tsxz;
-        scale_calc_all(tsxz, tsxz.cast<float>());
-        resize_to_copy = (tsxz[0] != tsxz_orig[0]) || (tsxz[1] != tsxz_orig[1]);
-        if ((qz->selectedIndex() > 3)&&((tsxz[0] > tsxz_orig[0]) || (tsxz[1] > tsxz_orig[1]))) {
-            glViewport(0, 0, tsxz[0] - 0.01, tsxz[1] - 0.01); //WebGL or WASM...maybe bug, without -0.01 does not work
-        } else {
-            //if (qz->selectedIndex() <= 3) {
-            glViewport(0, 0, tsxz_orig[0], tsxz_orig[1]);
-            //}
-        }
-        Eigen::Vector2i tsxz_t = tsxz_orig;
-        umouse = scale_calc_all(tsxz_t, oumouse_p);
-        tsxz_t = tsxz_orig;
-        umousezw = scale_calc_all(tsxz_t, oumousezw_p);
+			std::uniform_int_distribution<int> uni2(0, 8);
+			int cx2 = uni2(rng);
+			oumousezw_p = p.cast<float>();
+			if (window1->visible())window1->setVisible(false);
+		}
+		return false;
+	}
+
+	virtual void draw(NVGcontext * ctx) {
+
+		/* Draw the user interface */
+		Screen::draw(ctx);
+	}
+
+	void FPS(double time) {
+		numFrames++;
+		u_frames++;
+		if (time - lastFpsTime > frameRateSmoothing) {
+
+			fps = (int)(numFrames / (time - lastFpsTime));
+			numFrames = 0;
+			lastFpsTime = time;
+		}
+	}
+
+	virtual void drawContents() {
+		using namespace nanogui;
+		bool resize_to_copy = false; //if framebuffer size not same to screen size(when option zoom enabled)
+		int c_u_id = 0; //uniform index to store without calling glGetUniformLocation every time
+
+		reset_x();
+		Vector2i tsxz = size();
+		Vector2i tsxz_orig = tsxz;
+		float txxc = tsxz[1];
+		//resize to 16/9
+		if ((int)(tsxz[0] * (float)9 / 16) < tsxz[1]) {
+			tsxz[1] = (int)(tsxz[0] * (float)9 / 16);
+		}
+		tsxz_orig = tsxz;
+		//Vector2i tmpval=Vector2i(1,1);
+		scale_calc_all(tsxz, tsxz.cast<float>());
+		resize_to_copy = (tsxz[0] != tsxz_orig[0]) || (tsxz[1] != tsxz_orig[1]);
+		if ((qz->selectedIndex() > 3) && ((tsxz[0] > tsxz_orig[0]) || (tsxz[1] > tsxz_orig[1]))) {
+			glViewport(0, 0, tsxz[0] - 0.01, tsxz[1] - 0.01); //WebGL or WASM...maybe bug, without -0.01 does not work
+		}
+		else {
+			//if (qz->selectedIndex() <= 3) {
+			glViewport(0, 0, tsxz_orig[0], tsxz_orig[1]);
+			//}
+		}
+		Eigen::Vector2i tsxz_t = tsxz_orig;
+		umouse = scale_calc_all(tsxz_t, oumouse_p);
+		tsxz_t = tsxz_orig;
+		umousezw = scale_calc_all(tsxz_t, oumousezw_p);
+		if (qz->selectedIndex() == 3) {
+		umouse[1] = oumouse_p[1] - (txxc - tsxz[1]);
+		umouse[1] = tsxz[1] - umouse[1];
+		umousezw[1] = oumousezw_p[1] - (txxc - tsxz[1]);
+		umousezw[1] = tsxz[1] - umousezw[1];
+		}
         res_display->setValue(to_string(tsxz[0]) + " x " + to_string(tsxz[1]));
         res_display->setTooltip("Screen " + to_string(tsxz_orig[0]) + " x " + to_string(tsxz_orig[1]));
 
@@ -753,7 +788,6 @@ public:
                 fb1.release();
          */
 
-
 doublefbo_ctrl=!doublefbo_ctrl;
 if(doublefbo_ctrl)doublefbo=0;else doublefbo=1;
         //fix first black frame
@@ -779,14 +813,31 @@ if(doublefbo_ctrl)doublefbo=0;else doublefbo=1;
             glViewport(0, 0, tsxz_orig[0], tsxz_orig[1]);
         }
 
+        /*if (filtering->checked())grays_fb_linear.bind();
+        else grays_fb_near.bind();
+        grays_sh.bind();
+        if (filtering->checked())gmap_textured_fb_linear.bindtexture(tsxz, 0, true); //gmap_box2d_fb_linear for sdf
+        else gmap_textured_fb_near.bindtexture(tsxz, 0, true);
+        c_u_id = 0;
+        grays_sh.setUniform("u_texture1", 0, c_u_id++);
+        grays_sh.setUniform("u_resolution", screenSize, c_u_id++);
+        grays_sh.setUniform("u_time", (float) loctime, c_u_id++);
+        grays_sh.drawIndexed(GL_TRIANGLES, 0, 2);
+        if (filtering->checked())grays_fb_linear.release();
+        else grays_fb_near.release();
+         */
+
+
         if (filtering->checked())bufA_fb_linear[doublefbo].bind();
         else bufA_fb_near[doublefbo].bind();
         bufA.bind();
         c_u_id = 0;
-        
+
         bufA.setUniform("u_time", (float) loctime, c_u_id++);
         bufA.setUniform("u_resolution", screenSize, c_u_id++);
         bufA.setUniform("u_mouse", Vector4f(umouse.x(),umouse.y(),umousezw.x(),umousezw.y()), c_u_id++);
+		bufA.setUniform("u_keys", Vector4f(KEY_LEFT,KEY_UP,KEY_RIGHT,KEY_DOWN), c_u_id++);
+		bufA.setUniform("u_frames", u_frames, c_u_id++);
         if (filtering->checked())bufA_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 0, true); else bufA_fb_near[std::abs(doublefbo-1)].bindtexture(tsxz, 0, true);
         bufA.setUniform("u_texture1", 0);
         if (filtering->checked())bufB_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 1, true); else bufB_fb_near[std::abs(doublefbo-1)].bindtexture(tsxz, 1, true);
@@ -819,6 +870,8 @@ if(doublefbo_ctrl)doublefbo=0;else doublefbo=1;
         bufB.setUniform("u_time", (float) loctime, c_u_id++);
         bufB.setUniform("u_resolution", screenSize, c_u_id++);
         bufB.setUniform("u_mouse", Vector4f(umouse.x(),umouse.y(),umousezw.x(),umousezw.y()), c_u_id++);
+		bufB.setUniform("u_keys", Vector4f(KEY_LEFT, KEY_UP, KEY_RIGHT, KEY_DOWN), c_u_id++);
+		bufB.setUniform("u_frames", u_frames, c_u_id++);
         if (filtering->checked())bufA_fb_linear[doublefbo].bindtexture(tsxz, 0, true); else bufA_fb_near[doublefbo].bindtexture(tsxz, 0, true);
         bufB.setUniform("u_texture1", 0);
         if (filtering->checked())bufB_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 1, true); else bufB_fb_near[std::abs(doublefbo-1)].bindtexture(tsxz, 1, true);
@@ -851,6 +904,8 @@ if(doublefbo_ctrl)doublefbo=0;else doublefbo=1;
         bufC.setUniform("u_time", (float) loctime, c_u_id++);
         bufC.setUniform("u_resolution", screenSize, c_u_id++);
         bufC.setUniform("u_mouse", Vector4f(umouse.x(),umouse.y(),umousezw.x(),umousezw.y()), c_u_id++);
+		bufC.setUniform("u_keys", Vector4f(KEY_LEFT, KEY_UP, KEY_RIGHT, KEY_DOWN), c_u_id++);
+		bufC.setUniform("u_frames", u_frames, c_u_id++);
         if (filtering->checked())bufA_fb_linear[doublefbo].bindtexture(tsxz, 0, true); else bufA_fb_near[doublefbo].bindtexture(tsxz, 0, true);
         bufC.setUniform("u_texture1", 0);
         if (filtering->checked())bufB_fb_linear[doublefbo].bindtexture(tsxz, 1, true); else bufB_fb_near[doublefbo].bindtexture(tsxz, 1, true);
@@ -883,6 +938,8 @@ if(doublefbo_ctrl)doublefbo=0;else doublefbo=1;
         bufD.setUniform("u_time", (float) loctime, c_u_id++);
         bufD.setUniform("u_resolution", screenSize, c_u_id++);
         bufD.setUniform("u_mouse", Vector4f(umouse.x(),umouse.y(),umousezw.x(),umousezw.y()), c_u_id++);
+		bufD.setUniform("u_keys", Vector4f(KEY_LEFT, KEY_UP, KEY_RIGHT, KEY_DOWN), c_u_id++);
+		bufD.setUniform("u_frames", u_frames, c_u_id++);
         if (filtering->checked())bufA_fb_linear[doublefbo].bindtexture(tsxz, 0, true); else bufA_fb_near[doublefbo].bindtexture(tsxz, 0, true);
         bufD.setUniform("u_texture1", 0);
         if (filtering->checked())bufB_fb_linear[doublefbo].bindtexture(tsxz, 1, true); else bufB_fb_near[doublefbo].bindtexture(tsxz, 1, true);
@@ -908,6 +965,7 @@ if(doublefbo_ctrl)doublefbo=0;else doublefbo=1;
         if (filtering->checked())bufD_fb_linear[doublefbo].release();
         else bufD_fb_near[doublefbo].release();
         
+
         if (paused) {
             if (filtering->checked())pause_fb_linear.bind();
             else pause_fb_near.bind();
@@ -925,6 +983,8 @@ if(doublefbo_ctrl)doublefbo=0;else doublefbo=1;
         main_screen.setUniform("u_time", (float) loctime, c_u_id++);
         main_screen.setUniform("u_resolution", screenSize, c_u_id++);
         main_screen.setUniform("u_mouse", Vector4f(umouse.x(),umouse.y(),umousezw.x(),umousezw.y()), c_u_id++);
+		main_screen.setUniform("u_keys", Vector4f(KEY_LEFT, KEY_UP, KEY_RIGHT, KEY_DOWN), c_u_id++);
+		main_screen.setUniform("u_frames", u_frames, c_u_id++);
         if (filtering->checked())bufA_fb_linear[doublefbo].bindtexture(tsxz, 0, true); else bufA_fb_near[doublefbo].bindtexture(tsxz, 0, true);
         main_screen.setUniform("u_texture1", 0);
         if (filtering->checked())bufB_fb_linear[doublefbo].bindtexture(tsxz, 1, true); else bufB_fb_near[doublefbo].bindtexture(tsxz, 1, true);
@@ -933,6 +993,18 @@ if(doublefbo_ctrl)doublefbo=0;else doublefbo=1;
         main_screen.setUniform("u_texture3", 2);
         if (filtering->checked())bufD_fb_linear[doublefbo].bindtexture(tsxz, 3, true); else bufD_fb_near[doublefbo].bindtexture(tsxz, 3, true);
         main_screen.setUniform("u_texture4", 3);
+        glActiveTexture(GL_TEXTURE0 + 4);
+        glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[0]].first.texture());
+        main_screen.setUniform("u_tex_texture1", 4);
+        glActiveTexture(GL_TEXTURE0 + 5);
+        glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[1]].first.texture());
+        main_screen.setUniform("u_tex_texture2", 5);
+        glActiveTexture(GL_TEXTURE0 + 6);
+        glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[2]].first.texture());
+        main_screen.setUniform("u_tex_texture3", 6);
+        glActiveTexture(GL_TEXTURE0 + 7);
+        glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[3]].first.texture());
+        main_screen.setUniform("u_tex_texture4", 7);
         main_screen.drawIndexed(GL_TRIANGLES, 0, 2);
 
 
@@ -1075,6 +1147,14 @@ if(doublefbo_ctrl)doublefbo=0;else doublefbo=1;
             endframetime = glfwGetTime() - ptime - ex_pause_skip_time;
         }
 
+		//click once
+		KEY_LEFT = false;
+		KEY_UP = false;
+		KEY_RIGHT = false;
+		//KEY_DOWN = false;
+
+        //glfwPostEmptyEvent(); //win
+
     }
 private:
 
@@ -1102,6 +1182,7 @@ private:
     double lastFpsTime = 0;
     double frameRateSmoothing = 1.0;
     double numFrames = 0;
+    int u_frames = 0;
     double fps = 60;
 
     double endframetime = 0;
