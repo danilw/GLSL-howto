@@ -48,6 +48,8 @@ em++ -DNANOVG_GLES3_IMPLEMENTATION -DGLFW_INCLUDE_ES3 -DGLFW_INCLUDE_GLEXT -DNAN
 
 **Godot_shadertoy** [live link](https://danilw.github.io/GLSL-howto/Godot_shadertoy/shadertoy.html) very simple "play Shadertoy logic to Godot" [video](https://youtu.be/v48O7Nk_n4g) used [this shader](https://www.shadertoy.com/view/wlX3zn)
 
+**Cubemap to panorama** convertor [live link](https://danilw.github.io/GLSL-howto/cubemap_to_panorama_js/cubemap_to_panorama.html) 
+
 ### Graphic
 
 **light box**
