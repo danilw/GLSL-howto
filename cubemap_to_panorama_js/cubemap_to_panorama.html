@@ -390,7 +390,7 @@
                 if(isload){
                 isreseq=(left_tex.image.width==right_tex.image.width)&&(right_tex.image.width==up_tex.image.width)&&
                 (up_tex.image.width==down_tex.image.width)&&(down_tex.image.width==front_tex.image.width)&&(front_tex.image.width==back_tex.image.width);
-                if(!isreseq){console.log("not rendered: resolution of images not equal");document.getElementById('status').innerHTML = "not rendered: resolution of images not equal";}
+                if(!isreseq){console.log("not rendered: resolution of images not equal");document.getElementById('status').innerHTML = "not rendered: resolution of images not equal, please load ALL images same size(when all loaded it render)";}
                 }
                 isload=isload&&isreseq;
                 if (isload) {
