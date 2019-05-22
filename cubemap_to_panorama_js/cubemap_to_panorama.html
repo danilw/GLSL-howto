@@ -99,7 +99,7 @@
         <font color="white">Status: <b><div id="status"></div></b></font>
         <br>
         <div><button onclick="set_req_draw()" class="button">Download(save) result</button></div>
-        <div><button onclick="set_reg_open()" class="button">Open result image in browser</button></div>
+        <div><button onclick="set_reg_open()" class="button">Open result image in browser (below on this page, scroll down)</button></div>
         <br>
         <div><font color="white">Save Panorama image resolution (x,y):</font>
             <input type="number" id="width" value=1280>
@@ -111,6 +111,8 @@
         <input type="checkbox" id="pow" onclick="set_efpow()"> effect color*color<br>
         <input type="checkbox" id="stop_mov" onclick="set_stopmov()"> Animate scroll<br>
         </font>
+        <br>
+        <div id="image_holder" style="visibility:hidden"><img id="image_prev"></img></div>
         
         <script type = "text/javascript">
             "use strict";
@@ -187,13 +189,16 @@
                         break;
                 }
             }
-
+            
+            var imgtmp = document.createElement("img");
             function openImage()
             {
                 var canvas = document.getElementById('gl');
                 var image = canvas.toDataURL('image/png');
-                var w = window.open('about:blank', 'image from canvas');
-                w.document.write("<img src='" + image + "' alt='from canvas'/>");
+                var imghold = document.getElementById('image_holder');
+                imghold.style.visibility = "visible";
+                var imgprev = document.getElementById('image_prev');
+                imgprev.src=image;
             }
             
             function downloadImage()
@@ -251,6 +256,7 @@
                 xmlhttp.open("GET", filename_vs, true);
                 xmlhttp.send();
             }
+            
             function InitializeShader(source_vs, source_frag, fv, ff)
             {
                 var ErrorMessage = "Initializing Shader Program: <" + fv + ">, <" + ff + ">";
