@@ -52,6 +52,10 @@ em++ -DNANOVG_GLES3_IMPLEMENTATION -DGLFW_INCLUDE_ES3 -DGLFW_INCLUDE_GLEXT -DNAN
 
 ### Graphic
 
+**Cubemap to panorama**
+
+![ctop](https://danilw.github.io/GLSL-howto/cubemap_to_panorama_js/ctop_scr.png)
+
 **light box**
 
 [![light_box](https://danilw.github.io/GLSL-howto/light_box_rt/yt.png)](https://youtu.be/dNIRggzJFSc)
