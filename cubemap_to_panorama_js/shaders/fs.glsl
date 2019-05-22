@@ -34,7 +34,6 @@ vec3 SetCamera(vec2 uv)
 {
     vec3 ro = vec3(0.,2.,0.);
     vec2 m = (iMouse.xy*2.5)/iResolution.xy;
-    m.y=-m.y;
     m.x=-m.x;
     uv.y=-uv.y;
     vec3 rd = normalize(vec3(uv, 1.5));
