@@ -57,7 +57,9 @@
         <canvas id = "gl" width = "800" height = "600"></canvas>
         <br>
 
-        <p><font color="white"><b>Example cubemap from: <a href="https://opengameart.org/content/interstellar-skybox">skybox</a> by <a href="https://opengameart.org/users/arikel">https://opengameart.org/users/arikel</a></b></font></p>
+        <p><font color="white"><b>Example cubemap from: <a href="https://opengameart.org/content/interstellar-skybox">skybox</a> by <a href="https://opengameart.org/users/arikel">https://opengameart.org/users/arikel</a></b></font>
+        || <font color="pink"><input type="checkbox" id="sphere_map" onclick="set_smap()"> Display on sphere</font><br>
+        </p>
         <table>
         <tr>
         <th>
@@ -132,8 +134,33 @@
             var stop_mov = true;
             var req_draw = false;
             var req_open = false;
-            
+            var sphere_map =false;
+            var mouse_x=0;
+            var mouse_y=0;
+            var mouse_x_spos=0;
+            var mouse_y_spos=0;
             var next_frame_draw = false;
+            
+            function mouse_move(event)
+            {
+                event.preventDefault();
+                mouse_x_spos+=event.clientX-mouse_x;
+                mouse_y_spos+=event.clientY-mouse_y;
+                mouse_x = event.clientX;
+                mouse_y = event.clientY;
+            }
+            
+            function mouse_down(event)
+            {
+                mouse_x = event.clientX;
+                mouse_y = event.clientY;
+                document.addEventListener("mousemove", mouse_move, false);
+            }
+            
+            function mouse_up(event)
+            {
+                document.removeEventListener("mousemove", mouse_move, false);
+            }
 
             function load_side_file(tex, e)
             {
@@ -424,6 +451,11 @@
             function set_stopmov() {
                 stop_mov = !document.getElementById('stop_mov').checked;
             }
+            
+            function set_smap() {
+                sphere_map = document.getElementById('sphere_map').checked;
+            }
+            
 
             function initdtextr() {
                 left_tex = new Texture("dummy");
@@ -469,9 +501,11 @@
                 gl.useProgram(Shader);
                 gl.uniform1f(gl.getUniformLocation(Shader, "u_time"), timex);
                 gl.uniform2f(gl.getUniformLocation(Shader, "u_resolution"), width, height);
+                gl.uniform2f(gl.getUniformLocation(Shader, "u_mouse"), mouse_x_spos, mouse_y_spos);
                 gl.uniform1i(gl.getUniformLocation(Shader, "ef_sqrt"), ef_sqrt ? 1 : 0);
                 gl.uniform1i(gl.getUniformLocation(Shader, "ef_pow"), ef_pow ? 1 : 0);
                 gl.uniform1i(gl.getUniformLocation(Shader, "stop_mov"), stop_mov ? 1 : 0);
+                gl.uniform1i(gl.getUniformLocation(Shader, "sphere_map"), sphere_map ? 1 : 0);
                 //gl.activeTexture(gl.TEXTURE0);
                 gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubemap_tex);
                 gl.uniform1i(gl.getUniformLocation(Shader, 'u_cubemap1'), 0);
@@ -491,6 +525,7 @@
                     document.getElementById('gl').height = height;
                     document.getElementById('gl').width = width;
                     gl.viewport(0, 0, width, height);
+                    set_smap();
                 }
                 if (req_draw) {
                     width = document.getElementById('width').value;
@@ -499,6 +534,7 @@
                     document.getElementById('gl').width = width;
                     gl.viewport(0, 0, width, height);
                     next_frame_draw = true;
+                    sphere_map=false;
                 }
                 window.requestAnimationFrame(frame_step);
             }
@@ -529,9 +565,11 @@
                 window.requestAnimationFrame(frame_step);
 
             }
-
+            
+            document.addEventListener("mouseup", mouse_up, false);
             document.addEventListener("DOMContentLoaded", function (event) {
                 var canvas = document.getElementById('gl');
+                canvas.addEventListener("mousedown", mouse_down, false);
                 gl = canvas.getContext("webgl2");
                 if (!gl) {
                     console.log('webgl2 not supported, trying webgl');
