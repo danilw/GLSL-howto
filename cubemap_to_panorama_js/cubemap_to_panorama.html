@@ -31,6 +31,16 @@
                 display: inline-block;
                 font-size: 16px;
             }
+            .button_ex {
+                background-color: #c48924;
+                border: none;
+                color: white;
+                padding: 5px 10px;
+                text-align: center;
+                text-decoration: none;
+                display: inline-block;
+                font-size: 16px;
+            }
 
             a {
                 color: hotpink;
@@ -57,8 +67,9 @@
         <canvas id = "gl" width = "800" height = "600"></canvas>
         <br>
 
-        <p><font color="white"><b>Example cubemap from: <a href="https://opengameart.org/content/interstellar-skybox">skybox</a> by <a href="https://opengameart.org/users/arikel">https://opengameart.org/users/arikel</a></b></font>
+        <p><font color="white"><b><button onclick="load_ex1()" class="button_ex" title="Click to laod">Example 1</button> cubemap from: <a href="https://opengameart.org/content/interstellar-skybox">link</a> by <a href="https://opengameart.org/users/arikel">opengameart.org/users/arikel</a></b></font>
         || <font color="pink"><input type="checkbox" id="sphere_map" onclick="set_smap()"> Display on sphere</font><br>
+        <font color="white"><b><button onclick="load_ex2()" class="button_ex" title="Click to laod">Example 2</button> cubemap from: <a href="https://opengameart.org/content/field-skyboxes">link</a> by <a href="https://opengameart.org/users/arikel">opengameart.org/users/tapio</a></b></font>
         </p>
         <table>
         <tr>
@@ -96,7 +107,7 @@
         </table>
 
         <br>
-        <font color="white">Status: <b><div id="status"></div></b></font>
+        <font color="white"><div id="status">Status: </div></font>
         <br>
         <div><button onclick="set_req_draw()" class="button">Download(save) result</button></div>
         <div><button onclick="set_reg_open()" class="button">Open result image in browser (below on this page, scroll down)</button></div>
@@ -362,7 +373,7 @@
             function waiting() {
                 catmpt++;
                 console.log('waiting for shaders loading, try left: ' + (atmpt - catmpt));
-                document.getElementById('status').innerHTML = 'waiting for shaders loading, try left: ' + (atmpt - catmpt);;
+                document.getElementById('status').innerHTML = 'Status: <b>waiting for shaders loading, try left: ' + (atmpt - catmpt)+'</b>';
                 setTimeout(function () {
                     if (catmpt < atmpt) {
                         if (!shadersloaded)
@@ -370,12 +381,12 @@
                         else
                         {
                             catmpt = 0;
-                            document.getElementById('status').innerHTML = "downloading demo textres...";
+                            document.getElementById('status').innerHTML = "Status: <b>downloading demo textres...</b>";
                             loadtextures();
                         }
                     } else{
                         console.log('failed loading shaders');
-                        document.getElementById('status').innerHTML = 'failed loading shaders';
+                        document.getElementById('status').innerHTML = 'Status: <b>failed loading shaders</b>';
                     }
                         
                 }, 500);
@@ -391,7 +402,7 @@
                 if(isload){
                 isreseq=(left_tex.image.width==right_tex.image.width)&&(right_tex.image.width==up_tex.image.width)&&
                 (up_tex.image.width==down_tex.image.width)&&(down_tex.image.width==front_tex.image.width)&&(front_tex.image.width==back_tex.image.width);
-                if(!isreseq){console.log("not rendered: resolution of images not equal");document.getElementById('status').innerHTML = "not rendered: resolution of images not equal, please load ALL images same size(when all loaded it render)";}
+                if(!isreseq){console.log("not rendered: resolution of images not equal");document.getElementById('status').innerHTML = "Status: <b>not rendered: resolution of images not equal, please load ALL images same size(when all loaded it render)</b>";}
                 }
                 isload=isload&&isreseq;
                 if (isload) {
@@ -432,7 +443,7 @@
                     gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
                     gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
                 }
-                if(isload){console.log("cubemap rendered");document.getElementById('status').innerHTML = "cubemap rendered";}
+                if(isload){console.log("cubemap rendered");document.getElementById('status').innerHTML = "Status: <b>cubemap rendered</b>";}
             }
 
             function reload_cubemap() {
@@ -490,6 +501,40 @@
                 down_tex = load_new_text(down_tex, "test/down.jpg");
                 up_tex = load_new_text(up_tex, "test/up.jpg");
                 launchwebgl();
+            }
+            
+            function reset_x(){
+                document.getElementById('left_r').value="0";
+                document.getElementById('right_r').value="0";
+                document.getElementById('front_r').value="0";
+                document.getElementById('back_r').value="0";
+                document.getElementById('up_r').value="0";
+                document.getElementById('down_r').value="0";
+            }
+            
+            function load_ex1(){
+                reset_x();
+                document.getElementById('status').innerHTML = "Status: <b>downloading demo textres...</b>";
+                document.getElementById('up_r').value="90";
+                document.getElementById('down_r').value="-90";
+                left_tex = load_new_text(left_tex, "test/left.jpg");
+                right_tex = load_new_text(right_tex, "test/right.jpg");
+                front_tex = load_new_text(front_tex, "test/front.jpg");
+                back_tex = load_new_text(back_tex, "test/back.jpg");
+                down_tex = load_new_text(down_tex, "test/down.jpg");
+                up_tex = load_new_text(up_tex, "test/up.jpg");
+            }
+            
+            function load_ex2(){
+                reset_x();
+                document.getElementById('status').innerHTML = "Status: <b>downloading demo 2 textres...</b>";
+                left_tex = load_new_text(left_tex, "test2/posx.jpg");
+                right_tex = load_new_text(right_tex, "test2/negx.jpg");
+                front_tex = load_new_text(front_tex, "test2/posz.jpg");
+                back_tex = load_new_text(back_tex, "test2/negz.jpg");
+                down_tex = load_new_text(down_tex, "test2/negy.jpg");
+                up_tex = load_new_text(up_tex, "test2/posy.jpg");
+                
             }
 
             var gtimex = -1;
@@ -583,7 +628,7 @@
                     gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl") || canvas.getContext("moz-webgl") || canvas.getContext("webkit-3d");
                     if (!gl) {
                         console.log('webgl not suported');
-                        document.getElementById('status').innerHTML = 'webgl not suported';
+                        document.getElementById('status').innerHTML = 'Status: <b>webgl not suported</b>';
                         return;
                     } else {
                         console.log('continue using webgl');
