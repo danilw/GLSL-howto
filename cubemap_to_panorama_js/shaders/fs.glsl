@@ -33,8 +33,10 @@ fragColor.a=1.;
 vec3 SetCamera(vec2 uv)
 {
     vec3 ro = vec3(0.,2.,0.);
-    vec2 m = (iMouse.xy*5.)/iResolution.xy;
-    m.y = -m.y;
+    vec2 m = (iMouse.xy*2.5)/iResolution.xy;
+    m.y=-m.y;
+    m.x=-m.x;
+    uv.y=-uv.y;
     vec3 rd = normalize(vec3(uv, 1.5));
     mat3 rotX = mat3(1.0, 0.0, 0.0, 0.0, cos(m.y), sin(m.y), 0.0, -sin(m.y), cos(m.y));
     mat3 rotY = mat3(cos(m.x), 0.0, -sin(m.x), 0.0, 1.0, 0.0, sin(m.x), 0.0, cos(m.x));
