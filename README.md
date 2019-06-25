@@ -50,6 +50,8 @@ em++ -DNANOVG_GLES3_IMPLEMENTATION -DGLFW_INCLUDE_ES3 -DGLFW_INCLUDE_GLEXT -DNAN
 
 **Cubemap to panorama** convertor [live link](https://danilw.github.io/GLSL-howto/cubemap_to_panorama_js/cubemap_to_panorama.html) 
 
+### Contact: [**Join discord server**](https://discord.gg/JKyqWgt)
+
 ### Graphic
 
 **Cubemap to panorama**
