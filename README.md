@@ -1,6 +1,7 @@
 **update 2019**
 
-due to ban on github moved to gitlab(with same name there)
+due to ban on github moved to gitlab(with same name there) link [https://gitlab.com/danilw](https://gitlab.com/danilw)
+
 ![ban](https://danilw.github.io/GLSL-howto/1.png)
 
 **what is it** random GLSL tests and basic-step-by-step tutorials/examples that I write or use while codding it GLSL
