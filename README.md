@@ -1,6 +1,6 @@
 **update 2019**
 
-due to ban on github moved to gitlab(with same name there) https://gitlab.com/danilw
+due to ban on github moved to gitlab(with same name there)
 ![ban](https://danilw.github.io/GLSL-howto/ocean/1.png)
 
 **what is it** random GLSL tests and basic-step-by-step tutorials/examples that I write or use while codding it GLSL
