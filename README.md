@@ -1,6 +1,6 @@
 **update 2019**
 
-due to *this reason* moved to gitlab(with same name there) link [https://gitlab.com/danilw](https://gitlab.com/danilw)
+gitlab link [https://gitlab.com/danilw](https://gitlab.com/danilw) (il update this repo until im not fully blocked)
 
 ![reas](https://danilw.github.io/GLSL-howto/1.png)
 
