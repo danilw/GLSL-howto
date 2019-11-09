@@ -55,6 +55,8 @@ em++ -DNANOVG_GLES3_IMPLEMENTATION -DGLFW_INCLUDE_ES3 -DGLFW_INCLUDE_GLEXT -DNAN
 
 **Cubemap to panorama** convertor [live link](https://danilw.github.io/GLSL-howto/cubemap_to_panorama_js/cubemap_to_panorama.html) 
 
+**Thousands of indexed particles** copy from my shadertoy https://www.shadertoy.com/view/tstSz7
+
 ### Contact: [**Join discord server**](https://discord.gg/JKyqWgt)
 
 ### Graphic
