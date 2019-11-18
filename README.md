@@ -57,7 +57,7 @@ em++ -DNANOVG_GLES3_IMPLEMENTATION -DGLFW_INCLUDE_ES3 -DGLFW_INCLUDE_GLEXT -DNAN
 
 **Thousands of indexed particles** copy from my shadertoy https://www.shadertoy.com/view/tstSz7
 
-**More likes GLSL** copy from my shadertoy https://www.shadertoy.com/view/3syXDD or https://danilw.itch.io/we-need-more-likes
+**More likes GLSL** copy from my shadertoy https://www.shadertoy.com/view/3syXDD or [itch](https://danilw.itch.io/we-need-more-likes)
 
 ### Contact: [**Join discord server**](https://discord.gg/JKyqWgt)
 
