@@ -92,7 +92,7 @@ vec4 init_global_st() {
 
 vec2 postmove(vec2 mzw) {
     for (int i = 0; i < 2; i++) {
-        // 0.0001 to fix some bug(maybe because float precision) (look line 214 in Image)
+        // 0.0001 to fix some bug(maybe because float precision) (look line 215 in Image)
         //mzw[i]=mzw[i]<0.?mzw[i]-(mzw[i])/5.:mzw[i]; //test bug, left side of board blink after ~6-7 sec
         mzw[i] = mzw[i] < 0. - 1. ? mzw[i]-(mzw[i] + 1.) / 20. + 0.0001 : mzw[i]; //comment this for test bug
         mzw[i] = (mzw[i]>float(gai())*0.2 * 5. - 2.) ? mzw[i]-(mzw[i] - float(gai())*0.2 * 5. + 2.) / 20. - 0.0001 : mzw[i];
