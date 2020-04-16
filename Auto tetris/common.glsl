@@ -1,11 +1,15 @@
 
+//delete define no_AI to have AI boards, Angle comile time ~20+sec
+//OpenGL compile time ~6sec
+#define no_AI
+
 //set number of launched AI bots, set 0 for max (debug use its also)
 #define AI 199
 
 //define debug for debug draw
 //#define debug
 
-//debug for tetris block drop on line 472 BufA
+//debug for tetris block drop on line 479 BufA
 
 //speed of faling blocks for player and AI, speed in frames (255 max)
 #define speed 35
