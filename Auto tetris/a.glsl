@@ -29,7 +29,9 @@
 
 ivec2 ipx;
 
-int alp = 0; //for non unrol loops
+//no unrol loops, disabled it make shader work much slower and comile same slow
+//#define alp min(0, iFrame)
+#define alp 0
 
 int bits2Int(int start);
 void rotate_la(inout int el_ID);
@@ -63,7 +65,6 @@ vec4 lll() {
 
 void init_globals(vec2 fragCoord) {
     ipx = ivec2(fragCoord - 0.5);
-    alp = min(0, iFrame);
 }
 
 //save state
@@ -270,6 +271,7 @@ void delete_line_at(int el_pos) {
     int imidx = (ipx.y * int(iResolution.x) + ipx.x) - index_idx()*3;
     int gidx = 96 * imidx;
     for (int i = el_pos + alp; i < gidx+96; i++) {
+        if(i>=msize.x*msize.y)break; //OpenGL bug, without this rule score(el_sc) of board ruined
         map[i] = (i+10<msize.x*msize.y)?map[i+10]:0;
     }
 }
@@ -455,23 +457,32 @@ void player_AI_logic() {
     int imidx = (ipx.y * int(iResolution.x) + ipx.x) - index_idx()*3;
     if (imidx != 2)return;
     bool is_player=false;
-    is_player=(exidx == 0);
-    if ((is_player) && (lgs2().x != 0.))return; //check for pause if player board not selected
-
     int el_pos = logicz[0]; //position in array
     int el_ttl = logicz[1]; //timer
     int el_ID = logicz[2]; //element id
     int el_act = logicw[0]; //action
     int el_sc = (logicw[1] << 8) + logicw[2]; //score
     //el_sc++; //debug
-
+    
+#ifndef no_AI
+    is_player=(exidx == 0);
+    if ((is_player) && (lgs2().x != 0.))return; //check for pause if player board not selected
+#else
+    is_player=(exidx == int(lgs2().x));
+    if ((!is_player)&&(el_pos < 17 * 10)&&(el_act!=nac))return;
+#endif
+    
     //spawn new block
     if (el_act == nac) {
         el_act = draw;
         el_ID = int(float(barr - 1) * rand(vec2(ipx) + vec2(mod(iTime, float(0xffff)), mod(iTime, float(0xffff)) / 2.)));
         //el_ID = exidx%(barr); //debug
         el_ttl = is_player?speed:AIspeed;
+#ifdef no_AI
+        el_pos = 20 * 10 + 4;
+#else
         el_pos = is_player?20 * 10 + 4:AI_pos_gen(el_ID);
+#endif
         save_ltmp(el_pos, el_ttl, el_ID, el_act, el_sc);
         return;
     }
