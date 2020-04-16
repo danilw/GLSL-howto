@@ -48,7 +48,8 @@
 float zv;
 vec2 res_g;
 ivec2 ipx;
-int alp = 0;
+
+#define alp min(0, iFrame)
 
 const vec3 white = vec3(0xa4, 0xc4, 0xd8) / float(0xff);
 const vec3 whitel = vec3(0xdc, 0xe0, 0xd1) / float(0xff);
@@ -304,7 +305,6 @@ void init_globals(vec2 fragCoord) {
     zv = zoom_calc(1.);
     ipx = ivec2(fragCoord - 0.5);
     res_g = res;
-    alp = min(0, iFrame);
 }
 
 void mainImage(out vec4 fragColor, in vec2 fragCoord) {
