@@ -59,7 +59,7 @@ em++ -DNANOVG_GLES3_IMPLEMENTATION -DGLFW_INCLUDE_ES3 -DGLFW_INCLUDE_GLEXT -DNAN
 
 **More likes GLSL** copy from my shadertoy https://www.shadertoy.com/view/3syXDD or [itch](https://danilw.itch.io/we-need-more-likes)
 
-**Sgame** copy of original sgame(single shader game) with removing twgl library from JS code [live link](https://danilw.github.io/GLSL-howto/sgame_ntwgl/sgame.html) 
+**Sgame** copy of [original](https://github.com/danilw/cputests) sgame(single shader game) with removing twgl library from JS code [live link](https://danilw.github.io/GLSL-howto/sgame_ntwgl/sgame.html) 
 
 ### Contact: [**Join discord server**](https://discord.gg/JKyqWgt)
 
