@@ -19,12 +19,6 @@
   void main() {
       feedback_data_1_out=feedback_data_1;
       feedback_data_2_out=feedback_data_2;
-      if(mod(time,4.)<0.1){
-        feedback_data_1_out.r=sin(time*5.2+3.14*(float(gl_VertexID)/uniform_feedback1.x));
-        feedback_data_1_out.g=sin(time*5.2+0.4*3.14*(float(gl_VertexID)/uniform_feedback1.x));
-        feedback_data_1_out.b=cos(time*5.2+01.4*3.14*(float(gl_VertexID)/uniform_feedback1.x));
-      }
-      feedback_data_1_out.rgb*=0.9+0.1*uniform_feedback2.x;
       gl_Position = vec4 (0.0, 0.0, 0.0, 0.0);
       }</script><script id=shader-vertex type=glsl>#version 300 es
   precision highp float;
