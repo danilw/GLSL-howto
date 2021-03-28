@@ -1,0 +1,89 @@
+<!doctypehtml><html lang=en-us><head><meta charset=utf-8><meta content="text/html; charset=utf-8"http-equiv=Content-Type><title>Transform feedback shader</title><style>body,html{width:100%;height:100%;margin:0;padding:0;overflow:hidden;background-color:#303030}.emscripten_grid_container{display:grid;grid-template-columns:auto auto;padding:1px;width:8%;height:4%;position:absolute;border:0 none;background-color:#00000066;font-family:monospace;color:#fff}.emscripten_grid_item{background-color:rgba(10,15,20,.8);border:1px solid rgba(0,0,0,.8);font-family:monospace;color:#fff;padding:2px;font-size:12px;text-align:center}.emscripten{padding-right:0;margin-left:auto;margin-right:auto;display:block}textarea.emscripten{width:50%;height:15%;position:absolute;border:0 none;background-color:#00000066;font-family:monospace;color:#fff}div.emscripten{text-align:center}div.emscripten_border{border:0 solid #000}canvas.emscripten{top:calc(50vh - (100% / 2));left:calc(50vw - (100% / 2));position:absolute;width:100%;height:100%;border:0 none;background-color:#000}div.fullscreenDiv{background-color:#303030;width:100%;height:auto;bottom:0;top:0;left:0;position:absolute}div.loader{position:absolute;top:50%;left:50%;margin-top:-25px;color:#fff;margin-left:-100px}progress[value]{-webkit-appearance:none;-moz-appearance:none;appearance:none;border:none;width:250px;height:20px;background-color:#fff}.spinner{width:35px;display:inline-block;background-color:#fcfefd;margin:0 auto;height:35px;-webkit-animation:3s rotate2 ease-in-out infinite;animation:3s flip ease-in-out infinite}@-webkit-keyframes flip{0%{-webkit-transform:perspective(120px) rotateX(0) rotateY(0);transform:perspective(120px) rotateX(0) rotateY(0)}25%{-webkit-transform:perspective(120px) rotateX(-180deg) rotateY(0);transform:perspective(120px) rotateX(-180deg) rotateY(0)}50%{transform:perspective(120px) rotateX(-180deg) rotateY(-180deg);-webkit-transform:perspective(120px) rotateX(-180deg) rotateY(-180deg)}75%{-webkit-transform:perspective(120px) rotateX(0) rotateY(-180deg);transform:perspective(120px) rotateX(0) rotateY(-180deg)}100%{-webkit-transform:perspective(120px) rotateX(0) rotateY(-360deg);transform:perspective(120px) rotateX(0) rotateY(-360deg)}}@keyframes flip{0%{-webkit-transform:perspective(120px) rotateX(0) rotateY(0);transform:perspective(120px) rotateX(0) rotateY(0)}25%{-webkit-transform:perspective(120px) rotateX(-180deg) rotateY(0);transform:perspective(120px) rotateX(-180deg) rotateY(0)}50%{transform:perspective(120px) rotateX(-180deg) rotateY(-180deg);-webkit-transform:perspective(120px) rotateX(-180deg) rotateY(-180deg)}75%{-webkit-transform:perspective(120px) rotateX(0) rotateY(-180deg);transform:perspective(120px) rotateX(0) rotateY(-180deg)}100%{-webkit-transform:perspective(120px) rotateX(0) rotateY(-360deg);transform:perspective(120px) rotateX(0) rotateY(-360deg)}}</style><script id=shader-feedback type=glsl>#version 300 es
+  precision highp float;
+  precision highp int;
+  #define vertexId float(gl_InstanceID+gl_VertexID)
+  in vec4 feedback_data_1;
+  in vec4 feedback_data_2;
+
+  out vec4 feedback_data_1_out;
+  out vec4 feedback_data_2_out;
+
+  uniform vec4 uniform_feedback1;
+  uniform vec4 uniform_feedback2;
+  uniform vec4 uniform_feedback3;
+  
+  uniform vec2 mouse;
+  uniform float time;
+  uniform vec2 resolution;
+
+  void main() {
+      feedback_data_1_out=feedback_data_1;
+      feedback_data_1_out.x+=0.01;
+      feedback_data_2_out=feedback_data_2;
+      gl_Position = vec4 (0.0, 0.0, 0.0, 0.0);
+  }</script><script id=shader-vertex type=glsl>#version 300 es
+  precision highp float;
+  precision highp int;
+  #define vertexCount (uniform_custom1.x)
+  #define vertexId (float(gl_VertexID))
+
+  in vec4 feedback_data_1;
+  in vec4 feedback_data_2;
+
+  uniform vec2 mouse;
+  uniform float time;
+  uniform vec2 resolution;
+
+  uniform vec4 uniform_custom1;
+  uniform vec4 uniform_custom2;
+  uniform vec4 uniform_custom3;
+
+  out vec4 v_color;
+
+  // shader is copy from https://www.vertexshaderart.com/art/TFXxrMbQQXNqtcTE8
+  
+  
+// test shader
+
+  #define xpoints
+
+  #define NUM 30.0
+    void main() {
+      
+      // points
+      
+      #ifdef points
+      gl_PointSize = 64.0;
+      float col = mod(vertexId, NUM + 1.0);
+      float row = mod(floor(vertexId / NUM), NUM + 1.0); 
+      float x = col / NUM * 2.0 - 1.0;
+      float y = row / NUM * 2.0 - 1.0;
+      gl_Position = vec4(x, y, 0, 1);
+      v_color = vec4(fract( (col) / NUM)*100., ( mod(col , 2.)), 0, 1);
+      if(vertexId==50.)v_color.rgb=vec3(1.,0.,1.);
+      if(vertexId==10.)v_color.rgb=vec3(0.,1.,1.);
+      if(vertexId==vertexCount-1.)v_color.rgb=vec3(.25,.25,1.);
+      #else
+      
+      //trianlges
+      gl_PointSize = 14.0;
+      float vertexId_triangle=floor(vertexId/3.);
+      float tri_vtx=mod(vertexId,3.);
+      float col = mod(vertexId_triangle, NUM + 1.0);
+      float row = mod(floor(vertexId_triangle / NUM), NUM + 1.0); 
+      float x = col / NUM * 2.0 - 1.0;
+      float y = row / NUM * 2.0 - 1.0;
+      float a=0.;
+      if(tri_vtx==1.)a=1.;
+      if(tri_vtx==2.)a=0.;
+      x+=(a)*.1;
+      y+=(1.-tri_vtx)*.1;
+      gl_Position = vec4(x, y, 0, 1);
+      v_color = vec4(fract( (col) / NUM)*100., ( mod(col , 2.)), 0, 1);
+      if(vertexId_triangle==0.)v_color.rgb=vec3(1.,1.,1.);
+      if(vertexId_triangle==20.)v_color.rgb=vec3(1.,0.,1.);
+      if(vertexId_triangle==10.)v_color.rgb=vec3(0.,1.,1.);
+      if(vertexId_triangle==floor(vertexCount/3.)-1.)v_color.rgb=vec3(.25,.25,1.);
+      #endif
+      
+    }</script></head><body><div class=emscripten_border><canvas class=emscripten id=canvas oncontextmenu=event.preventDefault()></canvas></div><textarea class=emscripten id=output rows=8></textarea><div class=emscripten_grid_container><div class=emscripten_grid_item>Render mode:</div><select class=emscripten_grid_item id=render onchange=set_render.call(this,event)><option value=triangles>Triangles</option><option value=lines>Lines</option><option value=points>Points</option></select><div class=emscripten_grid_item>Particles:</div><select class=emscripten_grid_item id=quality onchange=set_quality.call(this,event)><option value=q1>100</option><option value=q2>500</option><option value=q3>1000</option></select></div><div class=fullscreenDiv id=imloader><div class=loader><figure id=spinner style=overflow:visible><div class=spinner></div><center style=display:inline-block;margin-top:.5em><strong><font size=6>LOADING...</font></strong></center><div class=spinner></div></figure><div class=emscripten id=status>Downloading...</div><div class=emscripten><progress id=progress max=100 style=visibility:visible value=50></progress></div></div></div><script>var canvas=document.getElementById("canvas");document.getElementById("output").style.display="none";var NUM_PARTICLES=100,render_mode=0;function fullscreen(){document.getElementById("output").hidden=!0,Module.requestFullscreen(!0,!0)}function update_num_particles_uniforms(){var e=3;1==render_mode&&(e=2),2==render_mode&&(e=1),Module.cwrap("set_custom_uniform","number",["number","number","number","number"])(0,NUM_PARTICLES,e,0,0),Module.cwrap("set_custom_uniform_feedback","number",["number","number","number","number"])(0,NUM_PARTICLES,e,0,0)}function update_num_particles(){Module.cwrap("set_number_particles","number",["number"])(NUM_PARTICLES),update_num_particles_uniforms()}function set_render(e){Module.cwrap("set_render_mode","number",["number"])(this.selectedIndex),render_mode=this.selectedIndex,update_num_particles_uniforms()}function set_quality(e){var t=this.selectedIndex,n=100;1==t&&(n=500),2==t&&(n=1e3),NUM_PARTICLES=n,update_num_particles()}function init_custom_uniforms(){update_num_particles()}function init_vshader(){var e=document.getElementById("shader-vertex").innerHTML,t=document.getElementById("shader-feedback").innerHTML;Module.cwrap("init_shader","number",["string","number","string","number"])(e,e.length,t,t.length)}var statusElement=document.getElementById("status"),progressElement=document.getElementById("progress"),spinnerElement=document.getElementById("spinner"),waitingtext="",Module={preRun:[],postRun:[],print:function(){var e=document.getElementById("output");return e&&(e.value=""),function(t){arguments.length>1&&(t=Array.prototype.slice.call(arguments).join(" ")),console.log(t),e&&(e.value+=t+"\n",e.scrollTop=e.scrollHeight)}}(),printErr:function(e){arguments.length>1&&(e=Array.prototype.slice.call(arguments).join(" ")),console.error(e)},canvas:(canvas.addEventListener("webglcontextlost",(function(e){alert("WebGL context lost. You will need to reload the page."),e.preventDefault()}),!1),canvas),setStatus:function(e){if(Module.setStatus.last||(Module.setStatus.last={time:Date.now(),text:""}),e!==Module.setStatus.text){var t=e.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/),n=Date.now();t&&n-Date.now()<30||(t?(e=t[1],progressElement.value=100*parseInt(t[2]),progressElement.max=100*parseInt(t[4]),progressElement.style.visibility="visible",spinnerElement.hidden=!1):(progressElement.value=null,progressElement.max=null,progressElement.style.visibility="hidden",e||(waitingtext=" waiting...")),statusElement.innerHTML=e+waitingtext)}},totalDependencies:0,monitorRunDependencies:function(e){this.totalDependencies=Math.max(this.totalDependencies,e),Module.setStatus(e?"Preparing... ("+(this.totalDependencies-e)+"/"+this.totalDependencies+")":"All downloads complete.")}};Module.setStatus("Downloading..."),window.onerror=function(){Module.setStatus("Exception thrown, see JavaScript console"),spinnerElement.style.display="none",Module.setStatus=function(e){e&&Module.printErr("[post-exception status] "+e)}}</script><script async src=feedback_advanced.js></script></body></html>

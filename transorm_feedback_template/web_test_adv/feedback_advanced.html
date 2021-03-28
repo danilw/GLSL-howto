@@ -1,0 +1,409 @@
+<!doctypehtml><html lang=en-us><head><meta charset=utf-8><meta content="text/html; charset=utf-8"http-equiv=Content-Type><title>Transform feedback shader</title><style>body,html{width:100%;height:100%;margin:0;padding:0;overflow:hidden;background-color:#303030}.emscripten_grid_container{display:grid;grid-template-columns:auto auto;padding:1px;width:8%;height:4%;position:absolute;border:0 none;background-color:#00000066;font-family:monospace;color:#fff}.emscripten_grid_item{background-color:rgba(10,15,20,.8);border:1px solid rgba(0,0,0,.8);font-family:monospace;color:#fff;padding:2px;font-size:12px;text-align:center}.emscripten{padding-right:0;margin-left:auto;margin-right:auto;display:block}textarea.emscripten{width:50%;height:15%;position:absolute;border:0 none;background-color:#00000066;font-family:monospace;color:#fff}div.emscripten{text-align:center}div.emscripten_border{border:0 solid #000}canvas.emscripten{top:calc(50vh - (100% / 2));left:calc(50vw - (100% / 2));position:absolute;width:100%;height:100%;border:0 none;background-color:#000}div.fullscreenDiv{background-color:#303030;width:100%;height:auto;bottom:0;top:0;left:0;position:absolute}div.loader{position:absolute;top:50%;left:50%;margin-top:-25px;color:#fff;margin-left:-100px}progress[value]{-webkit-appearance:none;-moz-appearance:none;appearance:none;border:none;width:250px;height:20px;background-color:#fff}.spinner{width:35px;display:inline-block;background-color:#fcfefd;margin:0 auto;height:35px;-webkit-animation:3s rotate2 ease-in-out infinite;animation:3s flip ease-in-out infinite}@-webkit-keyframes flip{0%{-webkit-transform:perspective(120px) rotateX(0) rotateY(0);transform:perspective(120px) rotateX(0) rotateY(0)}25%{-webkit-transform:perspective(120px) rotateX(-180deg) rotateY(0);transform:perspective(120px) rotateX(-180deg) rotateY(0)}50%{transform:perspective(120px) rotateX(-180deg) rotateY(-180deg);-webkit-transform:perspective(120px) rotateX(-180deg) rotateY(-180deg)}75%{-webkit-transform:perspective(120px) rotateX(0) rotateY(-180deg);transform:perspective(120px) rotateX(0) rotateY(-180deg)}100%{-webkit-transform:perspective(120px) rotateX(0) rotateY(-360deg);transform:perspective(120px) rotateX(0) rotateY(-360deg)}}@keyframes flip{0%{-webkit-transform:perspective(120px) rotateX(0) rotateY(0);transform:perspective(120px) rotateX(0) rotateY(0)}25%{-webkit-transform:perspective(120px) rotateX(-180deg) rotateY(0);transform:perspective(120px) rotateX(-180deg) rotateY(0)}50%{transform:perspective(120px) rotateX(-180deg) rotateY(-180deg);-webkit-transform:perspective(120px) rotateX(-180deg) rotateY(-180deg)}75%{-webkit-transform:perspective(120px) rotateX(0) rotateY(-180deg);transform:perspective(120px) rotateX(0) rotateY(-180deg)}100%{-webkit-transform:perspective(120px) rotateX(0) rotateY(-360deg);transform:perspective(120px) rotateX(0) rotateY(-360deg)}}</style><script id=shader-feedback type=glsl>#version 300 es
+  precision highp float;
+  precision highp int;
+  #define vertexId float(gl_InstanceID+gl_VertexID)
+  in vec4 feedback_data_1;
+  in vec4 feedback_data_2;
+
+  out vec4 feedback_data_1_out;
+  out vec4 feedback_data_2_out;
+
+  uniform vec4 uniform_feedback1;
+  uniform vec4 uniform_feedback2;
+  uniform vec4 uniform_feedback3;
+  
+  uniform vec2 mouse;
+  uniform float time;
+  uniform vec2 resolution;
+
+  void main() {
+      feedback_data_1_out=feedback_data_1;
+      feedback_data_2_out=feedback_data_2;
+      if(mod(time,4.)<0.1){
+        feedback_data_1_out.r=sin(time*5.2+3.14*(float(gl_VertexID)/uniform_feedback1.x));
+        feedback_data_1_out.g=sin(time*5.2+0.4*3.14*(float(gl_VertexID)/uniform_feedback1.x));
+        feedback_data_1_out.b=cos(time*5.2+01.4*3.14*(float(gl_VertexID)/uniform_feedback1.x));
+      }
+      feedback_data_1_out.rgb*=0.9+0.1*uniform_feedback2.x;
+      gl_Position = vec4 (0.0, 0.0, 0.0, 0.0);
+      }</script><script id=shader-vertex type=glsl>#version 300 es
+  precision highp float;
+  precision highp int;
+  #define vertexCount (uniform_custom1.x)
+
+  #define vertexId float(gl_VertexID)
+
+  in vec4 feedback_data_1;
+  in vec4 feedback_data_2;
+
+  uniform vec2 mouse;
+  uniform float time;
+  uniform vec2 resolution;
+
+  uniform vec4 uniform_custom1;
+  uniform vec4 uniform_custom2;
+  uniform vec4 uniform_custom3;
+
+  out vec4 v_color;
+
+  // shader is copy from https://www.vertexshaderart.com/art/5dNDeR4dqCCRvcHCT
+  
+    
+      /*
+
+      Challenge: 01
+
+      */
+      // Knotted Candy - @P_Malin
+
+      // Some different shapes...
+
+      #define SHAPE_TWO_BRAIDS
+      //#define SHAPE_THREE_BRAIDS
+      //#define SHAPE_TORUS
+      //#define SHAPE_MOBIUS
+
+
+      //#define RIBBON  
+
+      #ifdef SHAPE_TWO_BRAIDS  
+      float twist = 2.0;
+      float radius1 = 0.25;
+      float radius2 = 3.0;
+      float radius3 = 0.4;
+
+      float waves = 4.0;
+      float braids = 2.0;
+
+      vec2 vShapeDim = vec2( 32.0, 256.0 );
+      #elif defined(SHAPE_THREE_BRAIDS)
+      float twist = 5.0;
+      float radius1 = 0.15;
+      float radius2 = 3.0;
+      float radius3 = 0.5;
+
+      float waves = 4.0;
+      float braids = 3.0;
+
+      vec2 vShapeDim = vec2( 24.0, 192.0 );
+      #elif defined(SHAPE_TORUS)
+      // Torus
+      float twist = 0.0;
+      float radius1 = 1.0;
+      float radius2 = 3.0;
+      float radius3 = 0.0;
+
+      float waves = 3.0;
+      float braids = 2.0;
+
+      vec2 vShapeDim = vec2( 32.0, 256.0 );
+      #elif defined(SHAPE_MOBIUS)
+      // Torus
+      float twist = 2.0;
+      float radius1 = 1.0;
+      float radius2 = 2.0;
+      float radius3 = 0.0;
+
+      float waves = 0.0;
+      float braids = 2.0;
+
+      #define RIBBON  
+      vec2 vShapeDim = vec2( 32.0, 256.0 );
+      #else
+      #error INVALID SHAPE DEFINE
+      #endif
+
+      // Inputs:
+      // vertexId
+      // time
+      // resolution
+
+      // Outputs:
+      // gl_Position
+      // v_color
+
+      #define PI radians( 180.0 )
+
+      void GetQuadInfo( const float vertexIndex, out float x, out float y, out float quadId )
+      {
+      float twoTriVertexIndex = mod( vertexIndex, 6.0 );
+      float triVertexIndex = mod( vertexIndex, 3.0 );
+      float quadVertexIndex = triVertexIndex;
+      if ( twoTriVertexIndex >= 3.0 )
+      {
+      quadVertexIndex ++;
+      }
+
+      if ( quadVertexIndex < 0.5 )
+      {
+      x = 0.0;
+      y = 0.0;
+      }
+      else if ( quadVertexIndex < 1.5 )
+      {
+      x = 1.0;
+      y = 0.0;
+      }
+      else if ( quadVertexIndex < 2.5 )
+      {
+      x = 0.0;
+      y = 1.0;
+      }
+      else if ( quadVertexIndex < 3.5 )
+      {
+      x = 1.0;
+      y = 1.0;
+      }
+
+      quadId = floor( vertexIndex / 6.0 );
+      }
+
+      vec2 Rotate( const in vec2 vPos, const in float fAngle )
+      {
+      float s = sin(fAngle);
+      float c = cos(fAngle);
+
+      vec2 vResult = vec2( c * vPos.x + s * vPos.y, -s * vPos.x + c * vPos.y);
+
+      return vResult;
+      }
+
+      struct SurfaceInfo
+      {
+      vec3 vPos;
+      vec3 vNormal;
+      };
+
+      void Translate( vec3 vTranslation, inout vec3 vPos )
+      {
+      vPos += vTranslation;
+      }
+
+      void RotateX( float theta, inout vec3 vPos )
+      {
+      vPos.yz = Rotate( vPos.yz, theta );
+      }
+
+      void RotateY( float theta, inout vec3 vPos )
+      {
+      vPos.xz = Rotate( vPos.xz, theta );
+      }
+
+      void RotateZ( float theta, inout vec3 vPos )
+      {
+      vPos.xy = Rotate( vPos.xy, theta );
+      }
+
+      void AddPointLight( vec3 vLightPos, vec3 vLightColor, const SurfaceInfo surfaceInfo, inout vec3 vDiffuse, inout vec3 vSpecular )
+      {
+      vec3 vLightDir = normalize(vLightPos - surfaceInfo.vPos);
+      vec3 vViewDir = normalize(-surfaceInfo.vPos);
+
+      float NdotL = max( 0.0, dot( vLightDir, surfaceInfo.vNormal ) );
+
+      vec3 vHalfAngle = normalize( vViewDir + vLightDir );
+
+      float NdotH = max( 0.0, dot( vHalfAngle, surfaceInfo.vNormal ) );
+
+      vDiffuse += NdotL * vLightColor;
+
+      float fPower = 80.0;
+      vSpecular += pow( NdotH, fPower ) * (fPower * 8.0 * PI) * NdotL * vLightColor;
+      }
+
+      void AddDirectionalLight( vec3 vLightDir, vec3 vLightColor, const SurfaceInfo surfaceInfo, inout vec3 vDiffuse, inout vec3 vSpecular )
+      {
+      vec3 vViewDir = normalize(-surfaceInfo.vPos);
+
+      float NdotL = max( 0.0, dot( vLightDir, surfaceInfo.vNormal ) );
+
+      vec3 vHalfAngle = normalize( vViewDir + vLightDir );
+
+      float NdotH = max( 0.0, dot( vHalfAngle, surfaceInfo.vNormal ) );
+
+      vDiffuse += NdotL * vLightColor;
+
+      float fPower = 80.0;
+      vSpecular += pow( NdotH, fPower ) * (fPower * 8.0 * PI) * NdotL * vLightColor;
+      }
+
+      vec3 GetSkyColor( vec3 vDir )
+      {
+      return mix( vec3(0.01, 0.1, 0.4), vec3(0.2, 0.5, 0.6) * 5.0, vDir.y * 0.5 + 0.5 );
+      }
+
+
+
+      vec3 LightSurface( const SurfaceInfo surfaceInfo, const vec3 vAlbedo )
+      {   
+      vec3 vDiffuseLight = vec3(0.0);
+      vec3 vSpecLight = vec3(0.0);
+
+      // use background color
+      vec3 vAmbient = GetSkyColor( surfaceInfo.vNormal );
+      vDiffuseLight += vAmbient;
+      vSpecLight += vAmbient;
+
+      AddPointLight( vec3(3.0, 2.0, 30.0), vec3( 0.5, 1.0, 1.0), surfaceInfo, vDiffuseLight, vSpecLight );
+      AddDirectionalLight( normalize(vec3(0.0, 1.0, 0.0)), vec3( 3.0, 2.9, 1.5), surfaceInfo, vDiffuseLight, vSpecLight );
+
+      //AddDirectionalLight( normalize(vec3(0.0, -1.0, 0.0)), vAmbient * 0.1, surfaceInfo, vDiffuseLight, vSpecLight );
+
+      // viewer is at origin
+      vec3 vViewDir = normalize(-surfaceInfo.vPos);
+
+      float fNdotD = clamp(dot(surfaceInfo.vNormal, vViewDir), 0.0, 1.0);
+      vec3 vR0 = vec3(0.04);
+      vec3 vFresnel = vR0 + (1.0 - vR0) * pow(1.0 - fNdotD, 5.0);
+
+
+      vec3 vColor = mix( vDiffuseLight * vAlbedo, vSpecLight, vFresnel );
+
+      return vColor;
+      }
+
+      vec3 PostProcess( vec3 vColor )
+      {
+      float kExposure = 1.0;
+      vColor = vec3(1.0) - exp2( vColor * -kExposure );
+
+      vColor = pow( vColor, vec3(1.0 / 2.2) );
+
+      return vColor;
+      }
+
+      vec3 ApplyVignetting( const in vec2 vUV, const in vec3 vInput )
+      {
+      vec2 vOffset = (vUV - 0.5) * sqrt(2.0);
+
+      float fDist = dot(vOffset, vOffset);
+
+      const float kStrength = 0.95;
+      const float kPower = 1.5;
+
+      return vInput * ((1.0 - kStrength) +  kStrength * pow(1.0 - fDist, kPower));
+      }
+
+      void ProcessBackdrop( float vertexIndex )
+      {
+      float quadX, quadY, quadId;
+
+      GetQuadInfo( vertexId, quadX, quadY, quadId );
+
+      vec2 vDim = vec2( 8.0, 8.0 );
+
+      vec2 vUV;
+
+      vec2 quadTile;
+      quadTile.x = mod(quadId, vDim.x);
+      quadTile.y = floor(quadId / vDim.x);
+
+      vUV.x = quadX + quadTile.x;
+      vUV.y = quadY + quadTile.y;
+
+      vUV = vUV * (1.0 / vDim);
+
+
+      gl_Position = vec4( vUV.xy * 2.0 - 1.0, .0, 1.0 );
+
+      vec3 vPos = vec3( vUV.xy * 2.0 - 1.0, 2.0 );
+      vPos.y *= resolution.x / resolution.y;
+
+      vec3 vColor = GetSkyColor( normalize( vPos ) );
+
+      vColor = ApplyVignetting( vUV.xy, vColor );
+
+      vColor = PostProcess( vColor );
+
+      v_color = vec4( vColor, 1.0 );
+      }
+
+      void TransformPoint( inout vec3 vPos, vec2 vUV, float t )
+      {  
+      vPos += vec3(0.0, radius1, 0.0);
+      RotateZ( vUV.x * PI * 2.0  + vUV.y * PI * 2.0 * twist, vPos );
+
+      #ifdef RIBBON  
+      vPos.y *= 0.1;
+      #endif  
+
+      vPos += vec3(-radius3, 0.0, 0.0);
+      RotateZ( vUV.y * PI * 2.0 * (waves + 1.0 / braids), vPos );
+
+      vPos += vec3(-radius2, 0.0, 0.0); 
+
+      RotateY( vUV.y * PI * 2.0, vPos );
+
+      // animated spin
+      RotateY( t * 0.5, vPos );  
+      RotateX( t, vPos );  
+
+      vPos += vec3(0.0, 0.0, 30.0);  
+      }
+
+      void ProcessShape( float vertexIndex )
+      {
+      float quadX, quadY, quadId;
+
+      GetQuadInfo( vertexId, quadX, quadY, quadId );  
+
+      vec2 vUV;
+
+      vec2 quadTile;
+      quadTile.x = mod(quadId, vShapeDim.x);
+      quadTile.y = floor(quadId / vShapeDim.x);
+
+      vUV.x = quadX + quadTile.x;
+      vUV.y = quadY + quadTile.y;
+
+      vUV = vUV * (1.0 / vShapeDim);  
+
+      vec3 vPos = vec3(0.0, 0.0, 0.0);
+      TransformPoint( vPos, vUV, time );
+
+      // Lazy normal calculation
+
+      float fDelta = 0.001;
+      vec3 vPosdU = vec3(0.0, 0.0, 0.0);
+      TransformPoint( vPosdU, vUV + vec2(fDelta, 0.0), time );
+      vec3 vPosdV = vec3(0.0, 0.0, 0.0);
+      TransformPoint( vPosdV, vUV + vec2(0.0, fDelta), time );
+
+      SurfaceInfo surfaceInfo;  
+      surfaceInfo.vPos = vPos;
+      surfaceInfo.vNormal = normalize(cross(vPosdV - vPos, vPosdU - vPos));
+
+      vec3 vViewPos = surfaceInfo.vPos;
+      vec2 vFov = vec2( 1.0, resolution.x / resolution.y ) * 4.0;
+      vec2 vScreenPos = vViewPos.xy * vFov;
+
+      gl_Position = vec4( vScreenPos.xy, (1.0 / -vViewPos.z), vViewPos.z );
+      gl_PointSize=10.;
+
+      float stripes = 4.0;
+      vec3 vAlbedo = vec3(1.0);
+
+      float fTile = step( 0.5, fract( (quadTile.x * stripes / vShapeDim.x) ));
+      vAlbedo = mix( uniform_custom2.rgb, vec3(0.8, 0.8, 0.8), fTile )+feedback_data_1.rgb;
+
+      vec3 vColor = LightSurface( surfaceInfo, vAlbedo );  
+
+      vColor = ApplyVignetting( (vScreenPos.xy / vViewPos.z) * 0.5 + 0.5, vColor );  
+
+      vColor = PostProcess( vColor );
+
+      v_color = vec4(vColor, 1.0);
+      }
+
+      void main() 
+      {  
+      if( vertexId < 64.0 * 6.0 )
+      {
+      ProcessBackdrop(vertexId);    
+      }
+      else
+      {
+      ProcessShape(vertexId - 64.0 * 6.0);
+      }
+
+      }</script></head><body><div class=emscripten_border><canvas class=emscripten id=canvas oncontextmenu=event.preventDefault()></canvas></div><textarea class=emscripten id=output rows=8></textarea><div class=emscripten_grid_container><div class=emscripten_grid_item>Render mode:</div><select class=emscripten_grid_item id=render onchange=set_render.call(this,event)><option value=triangles>Triangles</option><option value=lines>Lines</option><option value=points>Points</option></select><div class=emscripten_grid_item>Particles:</div><select class=emscripten_grid_item id=quality onchange=set_quality.call(this,event)><option value=q1>100k</option><option value=q2>50k</option><option value=q3>1k</option></select><div class=emscripten_grid_item>Color:</div><select class=emscripten_grid_item id=sdfop onchange=set_color.call(this,event)><option value=r>Red</option><option value=g>Green</option><option value=b>Blue</option></select><div class=emscripten_grid_item>Feedback speed:</div><input class=emscripten_grid_item max=100 min=0 onchange=set_fb_speed(this.value) type=range value=0></div><div class=fullscreenDiv id=imloader><div class=loader><figure id=spinner style=overflow:visible><div class=spinner></div><center style=display:inline-block;margin-top:.5em><strong><font size=6>LOADING...</font></strong></center><div class=spinner></div></figure><div class=emscripten id=status>Downloading...</div><div class=emscripten><progress id=progress max=100 style=visibility:visible value=50></progress></div></div></div><script>var canvas=document.getElementById("canvas");document.getElementById("output").style.display="none";var NUM_PARTICLES=1e5,render_mode=0;function fullscreen(){document.getElementById("output").hidden=!0,Module.requestFullscreen(!0,!0)}function update_num_particles_uniforms(){Module.cwrap("set_custom_uniform","number",["number","number","number","number"])(0,NUM_PARTICLES,0,0,0),Module.cwrap("set_custom_uniform_feedback","number",["number","number","number","number"])(0,NUM_PARTICLES,0,0,0)}function update_num_particles(){Module.cwrap("set_number_particles","number",["number"])(NUM_PARTICLES),update_num_particles_uniforms()}function set_render(e){Module.cwrap("set_render_mode","number",["number"])(this.selectedIndex),render_mode=this.selectedIndex,update_num_particles_uniforms()}function set_color(e){var t=this.selectedIndex,n=[1,0,0];1==t&&(n=[0,1,0]),2==t&&(n=[0,0,1]),Module.cwrap("set_custom_uniform","number",["number","number","number","number"])(1,n[0],n[1],n[2],0)}function set_fb_speed(e){var t=e/100;Module.cwrap("set_custom_uniform_feedback","number",["number","number","number","number"])(1,t,0,0,0)}function set_quality(e){var t=this.selectedIndex,n=1e5;1==t&&(n=5e4),2==t&&(n=1e3),NUM_PARTICLES=n,update_num_particles()}function init_custom_uniforms(){update_num_particles(),Module.cwrap("set_custom_uniform","number",["number","number","number","number"])(1,1,0,0,0)}function init_vshader(){var e=document.getElementById("shader-vertex").innerHTML,t=document.getElementById("shader-feedback").innerHTML;Module.cwrap("init_shader","number",["string","number","string","number"])(e,e.length,t,t.length)}var statusElement=document.getElementById("status"),progressElement=document.getElementById("progress"),spinnerElement=document.getElementById("spinner"),waitingtext="",Module={preRun:[],postRun:[],print:function(){var e=document.getElementById("output");return e&&(e.value=""),function(t){arguments.length>1&&(t=Array.prototype.slice.call(arguments).join(" ")),console.log(t),e&&(e.value+=t+"\n",e.scrollTop=e.scrollHeight)}}(),printErr:function(e){arguments.length>1&&(e=Array.prototype.slice.call(arguments).join(" ")),console.error(e)},canvas:(canvas.addEventListener("webglcontextlost",(function(e){alert("WebGL context lost. You will need to reload the page."),e.preventDefault()}),!1),canvas),setStatus:function(e){if(Module.setStatus.last||(Module.setStatus.last={time:Date.now(),text:""}),e!==Module.setStatus.text){var t=e.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/),n=Date.now();t&&n-Date.now()<30||(t?(e=t[1],progressElement.value=100*parseInt(t[2]),progressElement.max=100*parseInt(t[4]),progressElement.style.visibility="visible",spinnerElement.hidden=!1):(progressElement.value=null,progressElement.max=null,progressElement.style.visibility="hidden",e||(waitingtext=" waiting...")),statusElement.innerHTML=e+waitingtext)}},totalDependencies:0,monitorRunDependencies:function(e){this.totalDependencies=Math.max(this.totalDependencies,e),Module.setStatus(e?"Preparing... ("+(this.totalDependencies-e)+"/"+this.totalDependencies+")":"All downloads complete.")}};Module.setStatus("Downloading..."),window.onerror=function(){Module.setStatus("Exception thrown, see JavaScript console"),spinnerElement.style.display="none",Module.setStatus=function(e){e&&Module.printErr("[post-exception status] "+e)}}</script><script async src=feedback_advanced.js></script></body></html>
