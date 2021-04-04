@@ -73,7 +73,7 @@ Source advansed, for web only, loading shaders from html file without recompilin
 
 **Cubemap to panorama**
 
-![ctop](https://danilw.github.io/GLSL-howto/cubemap_to_panorama_js/ctop_scr.png)
+[![ctop](https://danilw.github.io/GLSL-howto/cubemap_to_panorama_js/ctop_scr.png)](https://danilw.github.io/GLSL-howto/cubemap_to_panorama_js/cubemap_to_panorama.html)
 
 **light box**
 
