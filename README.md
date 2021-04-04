@@ -77,15 +77,15 @@ Source advansed, for web only, loading shaders from html file without recompilin
 
 **light box**
 
-[![light_box](https://danilw.github.io/GLSL-howto/light_box_rt/yt.png)](https://youtu.be/dNIRggzJFSc)
+[![light_box](https://danilw.github.io/GLSL-howto/light_box_rt/yt.png)](https://www.shadertoy.com/view/NslGRN)
 
 **terra**
 
-![terra](https://danilw.github.io/GLSL-howto/terra/scr2.jpg)
+[![terra](https://danilw.github.io/GLSL-howto/terra/scr2.jpg)](https://danilw.github.io/GLSL-howto/terra/terra.html)
 
 **ocean**
 
-![ocean](https://danilw.github.io/GLSL-howto/ocean/ocean.png)
+[![ocean](https://danilw.github.io/GLSL-howto/ocean/ocean.png)](https://danilw.github.io/GLSL-howto/ocean/ocean.html)
 
 **space_ship_obj**
 
@@ -93,4 +93,4 @@ Source advansed, for web only, loading shaders from html file without recompilin
 
 **goglsl**
 
-![goglsl](https://danilw.github.io/GLSL-howto/goglsl/goglsl.png)
+[![goglsl](https://danilw.github.io/GLSL-howto/goglsl/goglsl.png)](https://danilw.itch.io/goglsl)
