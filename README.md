@@ -67,7 +67,7 @@ Source minimal [transorm_feedback_template.zip](https://danilw.github.io/GLSL-ho
 
 Source advansed, for web only, loading shaders from html file without recompiling source [template_feedback_advanced.zip](https://danilw.github.io/GLSL-howto/transorm_feedback_template/template_feedback_advanced.zip), test [live feedback and uniforms and depth](https://danilw.github.io/GLSL-howto/transorm_feedback_template/web_test_adv/feedback_advanced.html) other [live vertex cube march shader](https://danilw.github.io/GLSL-howto/transorm_feedback_template/vertex_voxels_web/voxels_march.html). And [vertexshaderart link](https://www.vertexshaderart.com/art/TFXxrMbQQXNqtcTE8) to compare with [live minimal test](https://danilw.github.io/GLSL-howto/transorm_feedback_template/web_test_adv_minimal/feedback_advanced.html).
 
-**Shader wallpaper for Linux** for Gnome [link](https://www.gnome-look.org/p/1505898/), for KDE [link](https://store.kde.org/p/1505365). There script with example shader.
+**Shader wallpaper for Linux** for Gnome [link](https://www.gnome-look.org/p/1505898/) [mirror link](https://danilw.github.io/GLSL-howto/shader_wallpapers/cube_lines_live_wallpaper_gnome.zip), for KDE [link](https://store.kde.org/p/1505365) [mirror link](https://danilw.github.io/GLSL-howto/shader_wallpapers/cube_lines_live_wallpaper.zip). There script with example shader.
 
 ### Contact: [**Join discord server**](https://discord.gg/JKyqWgt)
 
