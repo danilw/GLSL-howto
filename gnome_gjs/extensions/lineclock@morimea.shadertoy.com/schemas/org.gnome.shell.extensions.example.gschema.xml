@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.lineclock" path="/org/gnome/shell/extensions/lineclock/">
+    <key name="fps-switch" type="b">
+      <default>false</default>
+    </key>
+    <key name="custom-scale" type="d">
+      <default>1</default>
+    </key>
+    <key name="alpha-val" type="d">
+      <default>1</default>
+    </key>
+    <key name="custom-posx" type="d">
+      <default>0.5</default>
+    </key>
+    <key name="custom-posy" type="d">
+      <default>0.5</default>
+    </key>
+    <key type="s" name="lines-color">
+      <default>"#FFFFFF"</default>
+    </key>
+  </schema>
+</schemalist>

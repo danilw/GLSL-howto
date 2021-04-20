@@ -1,0 +1,355 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Generated with glade 3.38.2 -->
+<interface>
+  <requires lib="gtk+" version="3.24"/>
+  <object class="GtkAdjustment" id="adjustment1">
+    <property name="upper">10</property>
+    <property name="value">2</property>
+    <property name="step-increment">0.05000000000000003</property>
+    <property name="page-increment">0.14999999999999999</property>
+  </object>
+  <object class="GtkAdjustment" id="adjustment2">
+    <property name="lower">0.05</property>
+    <property name="upper">1</property>
+    <property name="value">1</property>
+    <property name="step-increment">0.01</property>
+    <property name="page-increment">0.10</property>
+  </object>
+  <object class="GtkAdjustment" id="adjustment3">
+    <property name="upper">1</property>
+    <property name="step-increment">1</property>
+    <property name="page-increment">0.14999999999999999</property>
+  </object>
+  <object class="GtkAdjustment" id="adjustment4">
+    <property name="upper">1</property>
+    <property name="step-increment">1</property>
+    <property name="page-increment">0.14999999999999999</property>
+  </object>
+  <object class="GtkAdjustment" id="adjustment5">
+    <property name="lower">-0.5</property>
+    <property name="upper">1.5</property>
+    <property name="value">0.5</property>
+    <property name="step-increment">0.005</property>
+    <property name="page-increment">0.10</property>
+  </object>
+  <object class="GtkAdjustment" id="adjustment6">
+    <property name="lower">-0.5</property>
+    <property name="upper">1.5</property>
+    <property name="value">0.5</property>
+    <property name="step-increment">0.005</property>
+    <property name="page-increment">0.10</property>
+  </object>
+  <object class="GtkAdjustment" id="adjustment7">
+    <property name="upper">2</property>
+    <property name="value">1</property>
+    <property name="step-increment">1</property>
+    <property name="page-increment">0.10</property>
+  </object>
+  <object class="GtkAdjustment" id="adjustment8">
+    <property name="lower">0.016666666666666666</property>
+    <property name="upper">24</property>
+    <property name="value">24</property>
+    <property name="step-increment">0.016666666666666666</property>
+    <property name="page-increment">0.16666666666659999</property>
+  </object>
+  <object class="GtkAdjustment" id="adjustment9">
+    <property name="upper">1</property>
+    <property name="value">1</property>
+    <property name="step-increment">0.005</property>
+    <property name="page-increment">0.10</property>
+  </object>
+  <object class="GtkBox" id="main_box">
+    <property name="visible">True</property>
+    <property name="can-focus">False</property>
+    <property name="margin-start">5</property>
+    <property name="margin-end">5</property>
+    <property name="margin-top">5</property>
+    <property name="margin-bottom">5</property>
+    <property name="orientation">vertical</property>
+    <child>
+      <object class="GtkLabel" id="tittle">
+        <property name="visible">True</property>
+        <property name="can-focus">False</property>
+        <property name="label" translatable="yes">Shader Line clock options</property>
+        <attributes>
+          <attribute name="scale" value="2"/>
+        </attributes>
+      </object>
+      <packing>
+        <property name="expand">False</property>
+        <property name="fill">True</property>
+        <property name="position">0</property>
+      </packing>
+    </child>
+    <child>
+      <object class="GtkCheckButton" id="fps-switch">
+        <property name="label" translatable="yes">Update once per sec (1FPS), default 10FPS</property>
+        <property name="visible">True</property>
+        <property name="can-focus">True</property>
+        <property name="receives-default">False</property>
+        <property name="draw-indicator">True</property>
+      </object>
+      <packing>
+        <property name="expand">False</property>
+        <property name="fill">True</property>
+        <property name="position">1</property>
+      </packing>
+    </child>
+    <child>
+      <object class="GtkBox" id="box_fscr">
+        <property name="visible">True</property>
+        <property name="can-focus">False</property>
+        <property name="orientation">vertical</property>
+        <child>
+          <object class="GtkLabel">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkBox" id="box_custom_scr">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="orientation">vertical</property>
+            <child>
+              <object class="GtkBox" id="box_custom_scale">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="orientation">vertical</property>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="label" translatable="yes">On screen location and Custom size:</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkBox" id="box_scale">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="label" translatable="yes">Custom size scale</property>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">0</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkScale" id="custom-scale">
+                        <property name="visible">True</property>
+                        <property name="can-focus">True</property>
+                        <property name="adjustment">adjustment2</property>
+                        <property name="fill-level">1</property>
+                        <property name="round-digits">2</property>
+                        <property name="digits">2</property>
+                        <property name="value-pos">left</property>
+                      </object>
+                      <packing>
+                        <property name="expand">True</property>
+                        <property name="fill">True</property>
+                        <property name="position">1</property>
+                      </packing>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">1</property>
+                  </packing>
+                </child>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkBox" id="box_posx">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="label" translatable="yes">pos X </property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkScale" id="custom-posx">
+                    <property name="visible">True</property>
+                    <property name="can-focus">True</property>
+                    <property name="adjustment">adjustment5</property>
+                    <property name="fill-level">2</property>
+                    <property name="round-digits">2</property>
+                    <property name="digits">2</property>
+                    <property name="value-pos">left</property>
+                  </object>
+                  <packing>
+                    <property name="expand">True</property>
+                    <property name="fill">True</property>
+                    <property name="position">1</property>
+                  </packing>
+                </child>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkBox" id="box_posy">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="label" translatable="yes">pos Y </property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkScale" id="custom-posy">
+                    <property name="visible">True</property>
+                    <property name="can-focus">True</property>
+                    <property name="adjustment">adjustment6</property>
+                    <property name="fill-level">2</property>
+                    <property name="round-digits">2</property>
+                    <property name="digits">2</property>
+                    <property name="value-pos">left</property>
+                  </object>
+                  <packing>
+                    <property name="expand">True</property>
+                    <property name="fill">True</property>
+                    <property name="position">1</property>
+                  </packing>
+                </child>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">2</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">2</property>
+          </packing>
+        </child>
+      </object>
+      <packing>
+        <property name="expand">False</property>
+        <property name="fill">True</property>
+        <property name="position">8</property>
+      </packing>
+    </child>
+    <child>
+      <object class="GtkBox">
+        <property name="visible">True</property>
+        <property name="can-focus">False</property>
+        <property name="orientation">vertical</property>
+        <child>
+          <object class="GtkLabel">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="label" translatable="yes">Main color:</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkColorButton" id="lines-color">
+            <property name="visible">True</property>
+            <property name="can-focus">True</property>
+            <property name="receives-default">True</property>
+            <property name="rgba">rgb(255,255,255)</property>
+            <property name="show-editor">True</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="label" translatable="yes">Alpha value:</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">2</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkScale" id="alpha-val">
+            <property name="visible">True</property>
+            <property name="can-focus">True</property>
+            <property name="adjustment">adjustment9</property>
+            <property name="fill-level">1</property>
+            <property name="round-digits">1</property>
+            <property name="digits">2</property>
+            <property name="value-pos">left</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">3</property>
+          </packing>
+        </child>
+      </object>
+      <packing>
+        <property name="expand">False</property>
+        <property name="fill">True</property>
+        <property name="position">9</property>
+      </packing>
+    </child>
+    <child>
+      <object class="GtkButton" id="reset_all">
+        <property name="label" translatable="yes">Reset all to default</property>
+        <property name="visible">True</property>
+        <property name="can-focus">True</property>
+        <property name="receives-default">True</property>
+        <signal name="clicked" handler="reset_all_clicked_cb" swapped="no"/>
+      </object>
+      <packing>
+        <property name="expand">False</property>
+        <property name="fill">True</property>
+        <property name="position">13</property>
+      </packing>
+    </child>
+  </object>
+</interface>

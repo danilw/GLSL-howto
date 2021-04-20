@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.cubelines" path="/org/gnome/shell/extensions/cubelines/">
+    <key name="use-alpha" type="b">
+      <default>true</default>
+    </key>
+    <key name="use-shadow" type="b">
+      <default>false</default>
+    </key>
+    <key name="cam-far" type="d">
+      <default>2</default>
+    </key>
+    <key name="cam-static" type="d">
+      <default>0</default>
+    </key>
+    <key name="cam-shape" type="d">
+      <default>0</default>
+    </key>
+    <key name="cam-rot" type="d">
+      <default>1</default>
+    </key>
+    <key name="fps-30" type="b">
+      <default>false</default>
+    </key>
+    <key name="custom-scale" type="d">
+      <default>1</default>
+    </key>
+    <key name="custom-posx" type="d">
+      <default>0.5</default>
+    </key>
+    <key name="custom-posy" type="d">
+      <default>0.5</default>
+    </key>
+    <key name="update-interval" type="d">
+      <default>24.0</default>
+    </key>
+    <key type="s" name="day-color1">
+      <default>"#84A5CC"</default>
+    </key>
+    <key type="s" name="day-color2">
+      <default>"#F53A21"</default>
+    </key>
+    <key type="s" name="night-color1">
+      <default>"#84A5CC"</default>
+    </key>
+    <key type="s" name="night-color2">
+      <default>"#F53A21"</default>
+    </key>
+  </schema>
+</schemalist>

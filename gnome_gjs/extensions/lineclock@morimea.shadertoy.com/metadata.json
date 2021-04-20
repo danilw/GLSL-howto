@@ -1,0 +1,10 @@
+{
+    "name" : "Wallpaper Shader Line Clock",
+    "description" : "Line Clock shader and settings",
+    "shell-version" : [
+        "3.36"
+    ],
+    "url" : "https://www.shadertoy.com/view/4sdBDn",
+    "uuid" : "lineclock@morimea.shadertoy.com",
+    "version" : 1.0
+}

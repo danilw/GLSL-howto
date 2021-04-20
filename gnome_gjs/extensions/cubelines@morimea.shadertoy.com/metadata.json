@@ -1,0 +1,10 @@
+{
+    "name" : "Wallpaper Shader Cube Lines",
+    "description" : "Cube Lines shader and settings",
+    "shell-version" : [
+        "3.36"
+    ],
+    "url" : "https://www.shadertoy.com/view/NslGRN",
+    "uuid" : "cubelines@morimea.shadertoy.com",
+    "version" : 1.0
+}
