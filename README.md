@@ -69,7 +69,7 @@ Source advansed, for web only, loading shaders from html file without recompilin
 
 **Shader wallpaper for Linux** for Gnome [link](https://www.gnome-look.org/p/1505898/) [mirror link](https://danilw.github.io/GLSL-howto/shader_wallpapers/cube_lines_live_wallpaper_gnome.zip), for KDE [link](https://store.kde.org/p/1505365) [mirror link](https://danilw.github.io/GLSL-howto/shader_wallpapers/cube_lines_live_wallpaper.zip). There script with example shader. 
 
-**gnome_gjs** Gnome shell 3 Extension that display shader on Wallpaper in Gnome, these extensions can not be uploaded to Gnome extensions website because of the bugs in gjs and Gnome Shell there no method to free VRAM  (my extension dont recreate self, it just hide self on disabling), [lineclock](https://github.com/danilw/GLSL-howto/tree/master/gnome_gjs/extensions/lineclock%40morimea.shadertoy.com) extension can be used as minimal example code to display Shaders in Gnome gjs Javascript using Clutter API. More info: [link]().
+**gnome_gjs** Gnome Shell 3 Extension that display shader on Wallpaper in Gnome, these extensions can not be uploaded to Gnome extensions website because of the bugs in gjs and Gnome Shell there no method to free VRAM  (my extension dont recreate self, it just hide self on disabling), [lineclock](https://github.com/danilw/GLSL-howto/tree/master/gnome_gjs/extensions/lineclock%40morimea.shadertoy.com) extension can be used as minimal example code to display Shaders in Gnome gjs Javascript using Clutter API. More info: [link]().
 
 
 
