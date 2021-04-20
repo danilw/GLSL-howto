@@ -44,6 +44,7 @@ function new_stage(){
 
 function delete_stage(){
   this.stage.hide();
+  this.stage.disconnect("key-press-event");
   
   //this.stage.run_dispose(); 
   // run_dispose result this emssage: 
