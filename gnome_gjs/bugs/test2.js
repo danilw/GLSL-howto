@@ -45,6 +45,14 @@ function new_stage(){
 function delete_stage(){
   this.stage.hide();
   this.stage.disconnect("key-press-event");
+  let shader_old = this.stage.get_effect("shader");
+  if(shader_old){
+    this.stage.remove_effect_by_name("shader");
+    shader_old.run_dispose(); //do literally nothiing
+    delete shader_old;
+    shader_old = null;
+  }
+  this.stage.clear_effects();
   
   //this.stage.run_dispose(); 
   // run_dispose result this emssage: 
