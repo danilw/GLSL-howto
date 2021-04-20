@@ -77,7 +77,7 @@ Source advansed, for web only, loading shaders from html file without recompilin
 
 ### Graphic
 
-**Shader wallpaper for Linux**
+**Shader wallpaper for Linux and gnome_gjs**
 
 ![terra](https://danilw.github.io/GLSL-howto/gnome_ext_cl.png)
 
