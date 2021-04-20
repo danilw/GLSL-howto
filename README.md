@@ -67,11 +67,20 @@ Source minimal [transorm_feedback_template.zip](https://danilw.github.io/GLSL-ho
 
 Source advansed, for web only, loading shaders from html file without recompiling source [template_feedback_advanced.zip](https://danilw.github.io/GLSL-howto/transorm_feedback_template/template_feedback_advanced.zip), test [live feedback and uniforms and depth](https://danilw.github.io/GLSL-howto/transorm_feedback_template/web_test_adv/feedback_advanced.html) other [live vertex cube march shader](https://danilw.github.io/GLSL-howto/transorm_feedback_template/vertex_voxels_web/voxels_march.html). And [vertexshaderart link](https://www.vertexshaderart.com/art/TFXxrMbQQXNqtcTE8) to compare with [live minimal test](https://danilw.github.io/GLSL-howto/transorm_feedback_template/web_test_adv_minimal/feedback_advanced.html).
 
-**Shader wallpaper for Linux** for Gnome [link](https://www.gnome-look.org/p/1505898/) [mirror link](https://danilw.github.io/GLSL-howto/shader_wallpapers/cube_lines_live_wallpaper_gnome.zip), for KDE [link](https://store.kde.org/p/1505365) [mirror link](https://danilw.github.io/GLSL-howto/shader_wallpapers/cube_lines_live_wallpaper.zip). There script with example shader.
+**Shader wallpaper for Linux** for Gnome [link](https://www.gnome-look.org/p/1505898/) [mirror link](https://danilw.github.io/GLSL-howto/shader_wallpapers/cube_lines_live_wallpaper_gnome.zip), for KDE [link](https://store.kde.org/p/1505365) [mirror link](https://danilw.github.io/GLSL-howto/shader_wallpapers/cube_lines_live_wallpaper.zip). There script with example shader. 
+
+**gnome_gjs** Gnome shell 3 Extension that display shader on Wallpaper in Gnome, these extensions can not be uploaded to Gnome extensions website because of the bugs in gjs and Gnome Shell there no method to free VRAM  (my extension dont recreate self, it just hide self on disabling), [lineclock](https://github.com/danilw/GLSL-howto/tree/master/gnome_gjs/extensions/lineclock%40morimea.shadertoy.com) extension can be used as minimal example code to display Shaders in Gnome gjs Javascript using Clutter API. More info: [link]().
+
+
 
 ### Contact: [**Join discord server**](https://discord.gg/JKyqWgt)
 
 ### Graphic
+
+**Shader wallpaper for Linux**
+
+![terra](https://danilw.github.io/GLSL-howto/gnome_ext_cl.png)
+
 
 **Cubemap to panorama**
 
