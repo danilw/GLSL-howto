@@ -1,7 +1,3 @@
-**update 2019**
-
-gitlab link [https://gitlab.com/danilw](https://gitlab.com/danilw) (il update this(github) repo until im not fully blocked)
-___
 
 **what is it** random GLSL tests and basic-step-by-step tutorials/examples that I write or use while codding it GLSL
 ___
