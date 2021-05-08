@@ -11,9 +11,11 @@
             var height = 600;
             var gl = null;
             var Shader = null;
+            var time_start = null;
             var shadersloaded = false;
             var texturex1 = null;
             var texturex2 = null;
+            
             function LoadShader(filenameVertexShader, filenameFragmentShader, index)
             {
                 var filename_vs = filenameVertexShader;
@@ -43,6 +45,7 @@
                 xmlhttp.open("GET", filename_vs, true);
                 xmlhttp.send();
             }
+            
             function InitializeShader(source_vs, source_frag, fv, ff)
             {
                 var ErrorMessage = "Initializing Shader Program: <" + fv + ">, <" + ff + ">";
@@ -79,9 +82,11 @@
                     return program;
                 }
             }
+            
             function isPowerOf2(value) {
-				return (value & (value - 1)) == 0;
-			}
+              return (value & (value - 1)) == 0;
+            }
+            
             var Texture = function (fn) {
                 var that = this;
                 var root = this;
@@ -120,6 +125,7 @@
                     console.log("Unable to load texture. Filename '" +
                             fn + "' is undefined or null.");
             }
+            
             var atmpt = 10;
             var catmpt = 0;
             function waiting() {
@@ -135,6 +141,7 @@
                         console.log('failed loading shaders');
                 }, 500);
             }
+            
             function waitingtextures() {
                 catmpt++;
                 console.log('waiting for textures loading');
@@ -148,6 +155,7 @@
                         console.log('failed loading textures');
                 }, 500);
             }
+            
             document.addEventListener("DOMContentLoaded", function (event) {
                 var canvas = document.getElementById('gl');
                 gl = canvas.getContext("webgl2");
@@ -166,20 +174,43 @@
                 LoadShader("vs.glsl", "fs.glsl");
                 waiting();
             });
+            
             function loadtextures() {
-				texturex1 = new Texture("texture1.jpg");
-                texturex2 = new Texture("texture2.jpg");
-                waitingtextures();
-			}
+              texturex1 = new Texture("texture1.jpg");
+                      texturex2 = new Texture("texture2.jpg");
+                      waitingtextures();
+            }
+
+            function animation_frame(T){
+                if (!time_start)
+                    time_start = T;
+                if (!gl) {
+                    console.log("ERROR: webgl lost");
+                    return;
+                }
+                var iTime = (T - time_start) / 1000;
+                gl.clearColor(0.0, 0.0, 0.0, 1.0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+                gl.useProgram(Shader);
+                gl.uniform1f(gl.getUniformLocation(Shader, "u_time"), iTime);
+                gl.uniform2f(gl.getUniformLocation(Shader, "u_resolution"), width, height);
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, texturex1.texture);
+                gl.uniform1i(gl.getUniformLocation(Shader, 'u_texture1'), 0);
+                gl.activeTexture(gl.TEXTURE1);
+                gl.bindTexture(gl.TEXTURE_2D, texturex2.texture);
+                gl.uniform1i(gl.getUniformLocation(Shader, 'u_texture2'), 1);
+                gl.drawElements(gl.TRIANGLES, 3, gl.UNSIGNED_SHORT, 0);
+                window.requestAnimationFrame(animation_frame);
+            }
             
             function launchwebgl() {
                 var vertices = new Float32Array([
-                    -1.0, 1.0, 0.0,
-                    -1.0, -1.0, 0.0,
-                    1.0, -1.0, 0.0,
-                    1.0, 1.0, 0.0,
+                    -1.001, 3.001, 0.0,
+                    -1.001, -1.001, 0.0,
+                    3.001, -1.001, 0.0,
                 ]);
-                var indices = [0, 1, 2, 2, 3, 0];
+                var indices = [0, 1, 2];
                 var vertexbuffer = gl.createBuffer();
                 var indexbuffer = gl.createBuffer();
                 gl.bindBuffer(gl.ARRAY_BUFFER, vertexbuffer);
@@ -194,27 +225,7 @@
                 var coords = gl.getAttribLocation(Shader, "a_Position");
                 gl.vertexAttribPointer(coords, 3, gl.FLOAT, false, 0, 0);
                 gl.enableVertexAttribArray(coords);
-                var timex = 0;
-                var loopx = 10;
-                var T = setInterval(function () {
-                    if (!gl)
-                        return;
-                    timex++;
-                    if (timex > 60000)
-                        timex = 0;
-                    gl.clearColor(0.0, 0.0, 0.0, 1.0);
-                    gl.clear(gl.COLOR_BUFFER_BIT);
-                    gl.useProgram(Shader);
-                    gl.uniform1f(gl.getUniformLocation(Shader, "u_time"), timex / 60.);
-                    gl.uniform2f(gl.getUniformLocation(Shader, "u_resolution"), width, height);
-                    gl.activeTexture(gl.TEXTURE0);
-                    gl.bindTexture(gl.TEXTURE_2D, texturex1.texture);
-                    gl.uniform1i(gl.getUniformLocation(Shader, 'u_texture1'), 0);
-                    gl.activeTexture(gl.TEXTURE1);
-                    gl.bindTexture(gl.TEXTURE_2D, texturex2.texture);
-                    gl.uniform1i(gl.getUniformLocation(Shader, 'u_texture2'), 1);
-                    gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
-                }, 0);
+                window.requestAnimationFrame(animation_frame);
             }
         </script>
     </body>
