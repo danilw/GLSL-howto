@@ -31,6 +31,11 @@
             "use strict";
             var width = 800;
             var height = 600;
+            
+            var gl = null;
+            var Shader = null;
+            var time_start = null;
+            
             function InitializeShader(gl, source_vs, source_frag, fv, ff)
             {
                 var ErrorMessage = "Initializing Shader Program: <" + fv + ">, <" + ff + ">";
@@ -67,9 +72,27 @@
                     return program;
                 }
             }
+            
+            function animation_frame(T){
+                if (!time_start)
+                    time_start = T;
+                if (!gl) {
+                    console.log("ERROR: webgl lost");
+                    return;
+                }
+                var iTime = (T - time_start) / 1000;
+                gl.clearColor(0.0, 0.0, 0.0, 1.0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+                gl.useProgram(Shader);
+                gl.uniform1f(gl.getUniformLocation(Shader, "u_time"), iTime);
+                gl.uniform2f(gl.getUniformLocation(Shader, "u_resolution"), width, height);
+                gl.drawElements(gl.TRIANGLES, 3, gl.UNSIGNED_SHORT, 0);
+                window.requestAnimationFrame(animation_frame);
+            }
+            
             document.addEventListener("DOMContentLoaded", function (event) {
                 var canvas = document.getElementById('gl');
-                var gl = canvas.getContext("webgl2");
+                gl = canvas.getContext("webgl2");
                 if (!gl) {
                     console.log('webgl2 not supported, trying webgl');
                     gl = canvas.getContext("webgl")|| canvas.getContext("experimental-webgl") || canvas.getContext("moz-webgl") || canvas.getContext("webkit-3d");
@@ -84,14 +107,13 @@
                 }
                     var vs = document.getElementById("standard-vs").innerHTML;
                     var fs = document.getElementById("standard-frag").innerHTML;
-                    var Shader = InitializeShader(gl, vs, fs);
+                    Shader = InitializeShader(gl, vs, fs);
                     var vertices = new Float32Array([
-                        -1.0, 1.0, 0.0,
-                        -1.0, -1.0, 0.0,
-                        1.0, -1.0, 0.0,
-                        1.0, 1.0, 0.0,
+                        -1.001, 3.001, 0.0,
+                        -1.001, -1.001, 0.0,
+                        3.001, -1.001, 0.0,
                     ]);
-                    var indices = [0, 1, 2, 2, 3, 0];
+                    var indices = [0, 1, 2];
                     var vertexbuffer = gl.createBuffer();
                     var indexbuffer = gl.createBuffer();
                     gl.bindBuffer(gl.ARRAY_BUFFER, vertexbuffer);
@@ -106,23 +128,7 @@
                     var coords = gl.getAttribLocation(Shader, "a_Position");
                     gl.vertexAttribPointer(coords, 3, gl.FLOAT, false, 0, 0);
                     gl.enableVertexAttribArray(coords);
-                    gl.useProgram(Shader);
-                    gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
-                    var timex = 0;
-                    var loopx = 10;
-                    var T = setInterval(function () {
-                        if (!gl)
-                            return;
-                        timex++;
-                        if (timex > 60000)
-                            timex = 0;
-                        gl.clearColor(0.0, 0.0, 0.0, 1.0);
-                        gl.clear(gl.COLOR_BUFFER_BIT);
-                        gl.useProgram(Shader);
-                        gl.uniform1f(gl.getUniformLocation(Shader, "u_time"), timex / 60.);
-                        gl.uniform2f(gl.getUniformLocation(Shader, "u_resolution"), width, height);
-                        gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
-                    }, 0);
+                    window.requestAnimationFrame(animation_frame);
             });
         </script>
     </body>
