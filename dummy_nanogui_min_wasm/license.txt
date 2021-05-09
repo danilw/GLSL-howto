@@ -1,0 +1,6 @@
+
+license of this dummy_nanogui_min_wasm
+
+Mit license
+
+or use as you wish

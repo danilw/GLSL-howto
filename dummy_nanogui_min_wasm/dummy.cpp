@@ -28,6 +28,10 @@
 #include "emscripten/html5.h"
 #include <cmath>
 
+// license
+// Mit license
+// or use as you wish
+
 // Includes for the GLTexture class.
 #include <cstdint>
 #include <memory>
