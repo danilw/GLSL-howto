@@ -33,7 +33,7 @@
 #include <memory>
 #include <utility>
 
-#include "Box2D/Box2D.h"
+//#include "Box2D/Box2D.h"
 
 
 #if defined(__GNUC__)
@@ -68,16 +68,6 @@ using std::to_string;
 //random
 std::random_device rd;
 std::mt19937 rng(rd());
-
-//support drawing types
-#define B_TRI 0
-#define B_RECT 1
-#define B_CIRCLE 2
-
-
-#define B_TRI_vertexCount 32//1 //single triangle
-#define B_RECT_vertexCount 2 //two triangles
-#define B_CIRCLE_vertexCount 32 //many triangles
 
 class GLTexture {
 public:
@@ -303,7 +293,7 @@ private:
 
 //globals to make lambda work
 nanogui::CheckBox *cb;
-nanogui::CheckBox *fps_ch;
+//nanogui::CheckBox *fps_ch;
 nanogui::CheckBox *fxaa_box;
 nanogui::CheckBox *filtering;
 nanogui::CheckBox *p_on_tab;
@@ -323,8 +313,8 @@ nanogui::ComboBox *qz;
 
 nanogui::TextBox *res_display;
 nanogui::IntBox<int> *max_fb_size_w; //max size of screen
-nanogui::IntBox<int> *fps_edit;
-nanogui::Label *fps_r;
+//nanogui::IntBox<int> *fps_edit;
+//nanogui::Label *fps_r;
 
 class Ccgm : public nanogui::Screen {
 public:
@@ -479,7 +469,7 @@ public:
         max_fb_size_w->setMinValue(10);
         max_fb_size_w->setValueIncrement(1);
         max_fb_size_w->setFontSize(18);
-        new Label(wcontent, "FPS autodetection :", "sans-bold");
+        /*new Label(wcontent, "FPS autodetection :", "sans-bold");
         Widget *vals = new Widget(wcontent);
         vals->setLayout(new BoxLayout(Orientation::Horizontal, Alignment::Middle, 0, 6));
         fps_edit = new IntBox<int>(vals);
@@ -509,13 +499,13 @@ public:
         fps_r = new Label(vals, "100", "sans-bold");
         fps_r->setTooltip("FPS now");
         fps_r->setColor(Color(255, 153, 0, 255));
-
+        */
         new Label(wcontent, "Filtering linear :", "sans-bold");
 
         filtering = new CheckBox(wcontent, "");
         filtering->setFontSize(16);
         filtering->setChecked(true);
-        filtering->setTooltip("Uncheck for better FPS.");
+        filtering->setTooltip("Works only on scale-resized screen. Texture Lod or Fetch for main screen.");
 
         new Label(wcontent, "Pause when hiden :", "sans-bold");
 
@@ -635,7 +625,7 @@ public:
 		Eigen::Vector2i tsxz = size();
 		//if ((button & (1 << GLFW_MOUSE_BUTTON_1)) != 0) {
 		if (!paused) {
-			oumouse_p = p.cast<float>();
+			oumouse_p = p.cast<float>()-Eigen::Vector2f(-1,-3); //(-1,-3) idk where this border come from, mouse event shifted
 		}
 
 		if (cb->checked()) {
@@ -663,15 +653,9 @@ public:
 		if (Screen::mouseButtonEvent(p, button, down, modifiers))
 			return true;
 		ffm = button == GLFW_MOUSE_BUTTON_1 && down;
-		oumousezw_p = Eigen::Vector2f(0, 0);
+		oumousezw_p = Eigen::Vector2f(-std::abs(oumousezw_p[0]), -std::abs(oumousezw_p[1]));
 		if (ffm) {
-
-			std::uniform_int_distribution<int> uni(0, 2);
-			int cx = uni(rng);
-
-			std::uniform_int_distribution<int> uni2(0, 8);
-			int cx2 = uni2(rng);
-			oumousezw_p = p.cast<float>();
+			oumousezw_p = p.cast<float>()-Eigen::Vector2f(-1,-3); //(-1,-3) idk where this border come from, mouse event shifted
 			if (window1->visible())window1->setVisible(false);
 		}
 		return false;
@@ -685,7 +669,6 @@ public:
 
 	void FPS(double time) {
 		numFrames++;
-		u_frames++;
 		if (time - lastFpsTime > frameRateSmoothing) {
 
 			fps = (int)(numFrames / (time - lastFpsTime));
@@ -695,73 +678,46 @@ public:
 	}
 
 	virtual void drawContents() {
-		using namespace nanogui;
-		bool resize_to_copy = false; //if framebuffer size not same to screen size(when option zoom enabled)
-		int c_u_id = 0; //uniform index to store without calling glGetUniformLocation every time
+        using namespace nanogui;
+        bool resize_to_copy = false; //if framebuffer size not same to screen size(when option zoom enabled)
+        int c_u_id = 0; //uniform index to store without calling glGetUniformLocation every time
 
-		reset_x();
-		Vector2i tsxz = size();
-		Vector2i tsxz_orig = tsxz;
-		float txxc = tsxz[1];
-		//resize to 16/9
-		if ((int)(tsxz[0] * (float)9 / 16) < tsxz[1]) {
-			tsxz[1] = (int)(tsxz[0] * (float)9 / 16);
-		}
-		tsxz_orig = tsxz;
-		//Vector2i tmpval=Vector2i(1,1);
-		scale_calc_all(tsxz, tsxz.cast<float>());
-		resize_to_copy = (tsxz[0] != tsxz_orig[0]) || (tsxz[1] != tsxz_orig[1]);
-		if ((qz->selectedIndex() > 3) && ((tsxz[0] > tsxz_orig[0]) || (tsxz[1] > tsxz_orig[1]))) {
-			glViewport(0, 0, tsxz[0] - 0.01, tsxz[1] - 0.01); //WebGL or WASM...maybe bug, without -0.01 does not work
-		}
-		else {
-			//if (qz->selectedIndex() <= 3) {
-			glViewport(0, 0, tsxz_orig[0], tsxz_orig[1]);
-			//}
-		}
-		Eigen::Vector2i tsxz_t = tsxz_orig;
-		umouse = scale_calc_all(tsxz_t, oumouse_p);
-		tsxz_t = tsxz_orig;
-		umousezw = scale_calc_all(tsxz_t, oumousezw_p);
-		if (qz->selectedIndex() == 3) {
-		umouse[1] = oumouse_p[1] - (txxc - tsxz[1]);
-		umouse[1] = tsxz[1] - umouse[1];
-		umousezw[1] = oumousezw_p[1] - (txxc - tsxz[1]);
-		umousezw[1] = tsxz[1] - umousezw[1];
-		}
+        reset_x();
+        Vector2i tsxz = size();
+        Vector2i tsxz_orig = tsxz;
+        scale_calc_all(tsxz, tsxz.cast<float>());
+        resize_to_copy = (tsxz[0] != tsxz_orig[0]) || (tsxz[1] != tsxz_orig[1]);
+        if ((qz->selectedIndex() > 3) && ((tsxz[0] > tsxz_orig[0]) || (tsxz[1] > tsxz_orig[1]))) {
+          glViewport(0, 0, tsxz[0] - 0.01, tsxz[1] - 0.01); //WebGL or WASM...maybe bug, without -0.01 does not work
+        }
+        else {
+          glViewport(0, 0, tsxz_orig[0], tsxz_orig[1]);
+        }
+        Eigen::Vector2i tsxz_t = tsxz_orig;
+        umouse = scale_calc_all(tsxz_t, oumouse_p);
+        tsxz_t = tsxz_orig;
+        umousezw = scale_calc_all(tsxz_t, Eigen::Vector2f(std::abs(oumousezw_p[0]), std::abs(oumousezw_p[1]))); 
+        umousezw[0] = (oumousezw_p[0]>0.?1:-1)*(std::abs(umousezw[0]));
+        umousezw[1] = (oumousezw_p[1]>0.?1:-1)*(std::abs(umousezw[1]));
         res_display->setValue(to_string(tsxz[0]) + " x " + to_string(tsxz[1]));
         res_display->setTooltip("Screen " + to_string(tsxz_orig[0]) + " x " + to_string(tsxz_orig[1]));
 
-        /*
-                debugw->set_text_on_id("orig fb", to_string(tsxz_orig[0]), to_string(tsxz_orig[1]), 0);
-                debugw->set_text_on_id("resized fb", to_string(tsxz[0]), to_string(tsxz[1]), 1);
-                debugw->set_text_on_id("mouse", to_string(umouse[0]), to_string(umouse[1]), 2);
-
-                bool ifc = isfullscreen();
-                debugw->set_text_on_id("is fullscreen", ifc ? "true" : "false", "----", 3);
-
-                debugw->set_text_on_id("fps", to_string(fps), "--", 5);
-
-                debugw->set_text_on_id("box2d numobj", to_string(boxhelper->numobj), "--", 7);
-                debugw->set_text_on_id("box2d onscr_obj", to_string(boxhelper->num_onscr_obj), "--", 8);
-
-
-                for (int i = 0; i < boxhelper->numobj; i++) {
-                    if (i > 70)break;
-                    debugw->set_text_on_id("box2d " + to_string(i),
-                            "x " + to_string((int) boxhelper->s_bodyes[i].x) + " y " +
-                            to_string((int) boxhelper->s_bodyes[i].y), to_string((int) boxhelper->m_bodyes[i].angle), 10 + i);
-                }
-         */
         FPS(glfwGetTime());
         double loctime = glfwGetTime() - ptime - ex_pause_skip_time;
-
+        
         if (paused) {
             loctime = pto - ptime - ex_pause_skip_time;
-        } else if ((p_on_tab->checked())&&(loctime - endframetime > FPSmin)) {
+        } else {
+          static int init_frames=0;
+          if(init_frames<4)init_frames++;else {
+            static bool init_mouse=true;
+            if(init_mouse){init_mouse=false;oumousezw_p[1]=tsxz_t[1];}
+            u_frames++;
+          }
+          if ((p_on_tab->checked())&&(loctime - endframetime > FPSmin)) {
             ex_pause_skip_time += loctime - endframetime - (float) 1 / 60;
             loctime = glfwGetTime() - ptime - ex_pause_skip_time;
-        }
+        }}
 
         update_vals(loctime);
 
@@ -788,23 +744,16 @@ public:
                 fb1.release();
          */
 
+if (!paused) {
 doublefbo_ctrl=!doublefbo_ctrl;
 if(doublefbo_ctrl)doublefbo=0;else doublefbo=1;
         //fix first black frame
         if (scrch) {
-            if (filtering->checked()) {
-                pause_fb_linear.bindtexture(tsxz, 0);
-                nvfxaa_fb_linear.bindtexture(tsxz, 0);
-                copy_fb_linear.bindtexture(tsxz, 0);
-                copy_fb_linear2.bindtexture(tsxz, 0);
-                copy_fb_linear3.bindtexture(tsxz, 0);
-            } else {
-                pause_fb_near.bindtexture(tsxz, 0);
-                nvfxaa_fb_near.bindtexture(tsxz, 0);
-                copy_fb_near.bindtexture(tsxz, 0);
-                copy_fb_near2.bindtexture(tsxz, 0);
-                copy_fb_near3.bindtexture(tsxz, 0);
-            }
+          pause_fb_linear.bindtexture(tsxz, 0);
+          nvfxaa_fb_linear.bindtexture(tsxz, 0);
+          copy_fb_linear.bindtexture(tsxz, 0);
+          copy_fb_linear2.bindtexture(tsxz, 0);
+          copy_fb_linear3.bindtexture(tsxz, 0);
         }
 
         if ((qz->selectedIndex() > 3)&&((tsxz[0] > tsxz_orig[0]) || (tsxz[1] > tsxz_orig[1]))) {
@@ -813,23 +762,8 @@ if(doublefbo_ctrl)doublefbo=0;else doublefbo=1;
             glViewport(0, 0, tsxz_orig[0], tsxz_orig[1]);
         }
 
-        /*if (filtering->checked())grays_fb_linear.bind();
-        else grays_fb_near.bind();
-        grays_sh.bind();
-        if (filtering->checked())gmap_textured_fb_linear.bindtexture(tsxz, 0, true); //gmap_box2d_fb_linear for sdf
-        else gmap_textured_fb_near.bindtexture(tsxz, 0, true);
-        c_u_id = 0;
-        grays_sh.setUniform("u_texture1", 0, c_u_id++);
-        grays_sh.setUniform("u_resolution", screenSize, c_u_id++);
-        grays_sh.setUniform("u_time", (float) loctime, c_u_id++);
-        grays_sh.drawIndexed(GL_TRIANGLES, 0, 2);
-        if (filtering->checked())grays_fb_linear.release();
-        else grays_fb_near.release();
-         */
 
-
-        if (filtering->checked())bufA_fb_linear[doublefbo].bind();
-        else bufA_fb_near[doublefbo].bind();
+        bufA_fb_linear[doublefbo].bind();
         bufA.bind();
         c_u_id = 0;
 
@@ -838,13 +772,13 @@ if(doublefbo_ctrl)doublefbo=0;else doublefbo=1;
         bufA.setUniform("u_mouse", Vector4f(umouse.x(),umouse.y(),umousezw.x(),umousezw.y()), c_u_id++);
 		bufA.setUniform("u_keys", Vector4f(KEY_LEFT,KEY_UP,KEY_RIGHT,KEY_DOWN), c_u_id++);
 		bufA.setUniform("u_frames", u_frames, c_u_id++);
-        if (filtering->checked())bufA_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 0, true); else bufA_fb_near[std::abs(doublefbo-1)].bindtexture(tsxz, 0, true);
+        bufA_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 0, true);
         bufA.setUniform("u_texture1", 0);
-        if (filtering->checked())bufB_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 1, true); else bufB_fb_near[std::abs(doublefbo-1)].bindtexture(tsxz, 1, true);
+        bufB_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 1, true);
         bufA.setUniform("u_texture2", 1);
-        if (filtering->checked())bufC_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 2, true); else bufC_fb_near[std::abs(doublefbo-1)].bindtexture(tsxz, 2, true);
+        bufC_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 2, true);
         bufA.setUniform("u_texture3", 2);
-        if (filtering->checked())bufD_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 3, true); else bufD_fb_near[std::abs(doublefbo-1)].bindtexture(tsxz, 3, true);
+        bufD_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 3, true);
         bufA.setUniform("u_texture4", 3);
         glActiveTexture(GL_TEXTURE0 + 4);
         glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[0]].first.texture());
@@ -860,11 +794,9 @@ if(doublefbo_ctrl)doublefbo=0;else doublefbo=1;
         bufA.setUniform("u_tex_texture4", 7);
         bufA.drawIndexed(GL_TRIANGLES, 0, 2);
 
-        if (filtering->checked())bufA_fb_linear[doublefbo].release();
-        else bufA_fb_near[doublefbo].release();
+        bufA_fb_linear[doublefbo].release();
         
-        if (filtering->checked())bufB_fb_linear[doublefbo].bind();
-        else bufB_fb_near[doublefbo].bind();
+        bufB_fb_linear[doublefbo].bind();
         bufB.bind();
         c_u_id = 0;
         bufB.setUniform("u_time", (float) loctime, c_u_id++);
@@ -872,13 +804,13 @@ if(doublefbo_ctrl)doublefbo=0;else doublefbo=1;
         bufB.setUniform("u_mouse", Vector4f(umouse.x(),umouse.y(),umousezw.x(),umousezw.y()), c_u_id++);
 		bufB.setUniform("u_keys", Vector4f(KEY_LEFT, KEY_UP, KEY_RIGHT, KEY_DOWN), c_u_id++);
 		bufB.setUniform("u_frames", u_frames, c_u_id++);
-        if (filtering->checked())bufA_fb_linear[doublefbo].bindtexture(tsxz, 0, true); else bufA_fb_near[doublefbo].bindtexture(tsxz, 0, true);
+        bufA_fb_linear[doublefbo].bindtexture(tsxz, 0, true);
         bufB.setUniform("u_texture1", 0);
-        if (filtering->checked())bufB_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 1, true); else bufB_fb_near[std::abs(doublefbo-1)].bindtexture(tsxz, 1, true);
+        bufB_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 1, true);
         bufB.setUniform("u_texture2", 1);
-        if (filtering->checked())bufC_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 2, true); else bufC_fb_near[std::abs(doublefbo-1)].bindtexture(tsxz, 2, true);
+        bufC_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 2, true);
         bufB.setUniform("u_texture3", 2);
-        if (filtering->checked())bufD_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 3, true); else bufD_fb_near[std::abs(doublefbo-1)].bindtexture(tsxz, 3, true);
+        bufD_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 3, true);
         bufB.setUniform("u_texture4", 3);
         glActiveTexture(GL_TEXTURE0 + 4);
         glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[0]].first.texture());
@@ -894,11 +826,9 @@ if(doublefbo_ctrl)doublefbo=0;else doublefbo=1;
         bufB.setUniform("u_tex_texture4", 7);
         bufB.drawIndexed(GL_TRIANGLES, 0, 2);
 
-        if (filtering->checked())bufB_fb_linear[doublefbo].release();
-        else bufB_fb_near[doublefbo].release();
+        bufB_fb_linear[doublefbo].release();
         
-        if (filtering->checked())bufC_fb_linear[doublefbo].bind();
-        else bufC_fb_near[doublefbo].bind();
+        bufC_fb_linear[doublefbo].bind();
         bufC.bind();
         c_u_id = 0;
         bufC.setUniform("u_time", (float) loctime, c_u_id++);
@@ -906,13 +836,13 @@ if(doublefbo_ctrl)doublefbo=0;else doublefbo=1;
         bufC.setUniform("u_mouse", Vector4f(umouse.x(),umouse.y(),umousezw.x(),umousezw.y()), c_u_id++);
 		bufC.setUniform("u_keys", Vector4f(KEY_LEFT, KEY_UP, KEY_RIGHT, KEY_DOWN), c_u_id++);
 		bufC.setUniform("u_frames", u_frames, c_u_id++);
-        if (filtering->checked())bufA_fb_linear[doublefbo].bindtexture(tsxz, 0, true); else bufA_fb_near[doublefbo].bindtexture(tsxz, 0, true);
+        bufA_fb_linear[doublefbo].bindtexture(tsxz, 0, true);
         bufC.setUniform("u_texture1", 0);
-        if (filtering->checked())bufB_fb_linear[doublefbo].bindtexture(tsxz, 1, true); else bufB_fb_near[doublefbo].bindtexture(tsxz, 1, true);
+        bufB_fb_linear[doublefbo].bindtexture(tsxz, 1, true);
         bufC.setUniform("u_texture2", 1);
-        if (filtering->checked())bufC_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 2, true); else bufC_fb_near[std::abs(doublefbo-1)].bindtexture(tsxz, 2, true);
+        bufC_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 2, true);
         bufC.setUniform("u_texture3", 2);
-        if (filtering->checked())bufD_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 3, true); else bufD_fb_near[std::abs(doublefbo-1)].bindtexture(tsxz, 3, true);
+        bufD_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 3, true);
         bufC.setUniform("u_texture4", 3);
         glActiveTexture(GL_TEXTURE0 + 4);
         glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[0]].first.texture());
@@ -928,11 +858,9 @@ if(doublefbo_ctrl)doublefbo=0;else doublefbo=1;
         bufC.setUniform("u_tex_texture4", 7);
         bufC.drawIndexed(GL_TRIANGLES, 0, 2);
 
-        if (filtering->checked())bufC_fb_linear[doublefbo].release();
-        else bufC_fb_near[doublefbo].release();
+        bufC_fb_linear[doublefbo].release();
 
-        if (filtering->checked())bufD_fb_linear[doublefbo].bind();
-        else bufD_fb_near[doublefbo].bind();
+        bufD_fb_linear[doublefbo].bind();
         bufD.bind();
         c_u_id = 0;
         bufD.setUniform("u_time", (float) loctime, c_u_id++);
@@ -940,13 +868,13 @@ if(doublefbo_ctrl)doublefbo=0;else doublefbo=1;
         bufD.setUniform("u_mouse", Vector4f(umouse.x(),umouse.y(),umousezw.x(),umousezw.y()), c_u_id++);
 		bufD.setUniform("u_keys", Vector4f(KEY_LEFT, KEY_UP, KEY_RIGHT, KEY_DOWN), c_u_id++);
 		bufD.setUniform("u_frames", u_frames, c_u_id++);
-        if (filtering->checked())bufA_fb_linear[doublefbo].bindtexture(tsxz, 0, true); else bufA_fb_near[doublefbo].bindtexture(tsxz, 0, true);
+        bufA_fb_linear[doublefbo].bindtexture(tsxz, 0, true);
         bufD.setUniform("u_texture1", 0);
-        if (filtering->checked())bufB_fb_linear[doublefbo].bindtexture(tsxz, 1, true); else bufB_fb_near[doublefbo].bindtexture(tsxz, 1, true);
+        bufB_fb_linear[doublefbo].bindtexture(tsxz, 1, true);
         bufD.setUniform("u_texture2", 1);
-        if (filtering->checked())bufC_fb_linear[doublefbo].bindtexture(tsxz, 2, true); else bufC_fb_near[doublefbo].bindtexture(tsxz, 2, true);
+        bufC_fb_linear[doublefbo].bindtexture(tsxz, 2, true);
         bufD.setUniform("u_texture3", 2);
-        if (filtering->checked())bufD_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 3, true); else bufD_fb_near[std::abs(doublefbo-1)].bindtexture(tsxz, 3, true);
+        bufD_fb_linear[std::abs(doublefbo-1)].bindtexture(tsxz, 3, true);
         bufD.setUniform("u_texture4", 3);
         glActiveTexture(GL_TEXTURE0 + 4);
         glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[0]].first.texture());
@@ -962,36 +890,33 @@ if(doublefbo_ctrl)doublefbo=0;else doublefbo=1;
         bufD.setUniform("u_tex_texture4", 7);
         bufD.drawIndexed(GL_TRIANGLES, 0, 2);
 
-        if (filtering->checked())bufD_fb_linear[doublefbo].release();
-        else bufD_fb_near[doublefbo].release();
-        
+        bufD_fb_linear[doublefbo].release();
+}
 
         if (paused) {
-            if (filtering->checked())pause_fb_linear.bind();
-            else pause_fb_near.bind();
+            pause_fb_linear.bind();
         } else if (fxaa_box->checked()) {
-            if (filtering->checked())nvfxaa_fb_linear.bind();
-            else nvfxaa_fb_near.bind();
+            nvfxaa_fb_linear.bind();
         } else
             if (resize_to_copy) {
-            if (filtering->checked())copy_fb_linear.bind();
-            else copy_fb_near.bind();
-        }
+                copy_fb_linear.bind();
+            }
 
         main_screen.bind();
         c_u_id = 0;
         main_screen.setUniform("u_time", (float) loctime, c_u_id++);
         main_screen.setUniform("u_resolution", screenSize, c_u_id++);
         main_screen.setUniform("u_mouse", Vector4f(umouse.x(),umouse.y(),umousezw.x(),umousezw.y()), c_u_id++);
+        main_screen.setUniform("u_filter", filtering->checked(), c_u_id++);
 		main_screen.setUniform("u_keys", Vector4f(KEY_LEFT, KEY_UP, KEY_RIGHT, KEY_DOWN), c_u_id++);
 		main_screen.setUniform("u_frames", u_frames, c_u_id++);
-        if (filtering->checked())bufA_fb_linear[doublefbo].bindtexture(tsxz, 0, true); else bufA_fb_near[doublefbo].bindtexture(tsxz, 0, true);
+        bufA_fb_linear[doublefbo].bindtexture(tsxz, 0, true);
         main_screen.setUniform("u_texture1", 0);
-        if (filtering->checked())bufB_fb_linear[doublefbo].bindtexture(tsxz, 1, true); else bufB_fb_near[doublefbo].bindtexture(tsxz, 1, true);
+        bufB_fb_linear[doublefbo].bindtexture(tsxz, 1, true);
         main_screen.setUniform("u_texture2", 1);
-        if (filtering->checked())bufC_fb_linear[doublefbo].bindtexture(tsxz, 2, true); else bufC_fb_near[doublefbo].bindtexture(tsxz, 2, true);
+        bufC_fb_linear[doublefbo].bindtexture(tsxz, 2, true);
         main_screen.setUniform("u_texture3", 2);
-        if (filtering->checked())bufD_fb_linear[doublefbo].bindtexture(tsxz, 3, true); else bufD_fb_near[doublefbo].bindtexture(tsxz, 3, true);
+        bufD_fb_linear[doublefbo].bindtexture(tsxz, 3, true);
         main_screen.setUniform("u_texture4", 3);
         glActiveTexture(GL_TEXTURE0 + 4);
         glBindTexture(GL_TEXTURE_2D, texturesData[indexfx[0]].first.texture());
@@ -1009,37 +934,31 @@ if(doublefbo_ctrl)doublefbo=0;else doublefbo=1;
 
 
         if (paused) {
-            if (filtering->checked())pause_fb_linear.release();
-            else pause_fb_near.release();
+            pause_fb_linear.release();
         } else if (fxaa_box->checked()) {
-            if (filtering->checked())nvfxaa_fb_linear.release();
-            else nvfxaa_fb_near.release();
-        } else if (resize_to_copy) {
-            if (filtering->checked())copy_fb_linear.release();
-            else copy_fb_near.release();
-        }
+            nvfxaa_fb_linear.release();
+        } else
+            if (resize_to_copy) {
+                copy_fb_linear.release();
+            }
 
         if (paused) {
             if (fxaa_box->checked()) {
-                if (filtering->checked())nvfxaa_fb_linear.bind();
-                else nvfxaa_fb_near.bind();
-            } else if (resize_to_copy) {
-                if (filtering->checked())copy_fb_linear.bind();
-                else copy_fb_near.bind();
-            }
+                nvfxaa_fb_linear.bind();
+            } else
+                if (resize_to_copy) {
+                    copy_fb_linear.bind();
+                }
             pause_sh.bind();
-            if (filtering->checked())pause_fb_linear.bindtexture(tsxz, 0, true);
-            else pause_fb_near.bindtexture(tsxz, 0, true);
+            pause_fb_linear.bindtexture(tsxz, 0, true);
             c_u_id = 0;
             pause_sh.setUniform("u_texture1", 0, c_u_id++);
             pause_sh.setUniform("u_resolution", screenSize, c_u_id++);
             pause_sh.drawIndexed(GL_TRIANGLES, 0, 2);
             if (fxaa_box->checked()) {
-                if (filtering->checked())nvfxaa_fb_linear.release();
-                else nvfxaa_fb_near.release();
+                nvfxaa_fb_linear.release();
             } else if (resize_to_copy) {
-                if (filtering->checked())copy_fb_linear.release();
-                else copy_fb_near.release();
+                copy_fb_linear.release();
             }
         }
 
@@ -1069,48 +988,37 @@ if(doublefbo_ctrl)doublefbo=0;else doublefbo=1;
 
         if (fxaa_box->checked()) {
 
-            if (filtering->checked())copy_fb_linear2.bind();
-            else copy_fb_near2.bind();
+            copy_fb_linear2.bind();
             bloom_h_sh.bind();
-            if (filtering->checked())nvfxaa_fb_linear.bindtexture(tsxz, 0, true);
-            else nvfxaa_fb_near.bindtexture(tsxz, 0, true);
+            nvfxaa_fb_linear.bindtexture(tsxz, 0, true);
             c_u_id = 0;
             bloom_h_sh.setUniform("u_texture1", 0, c_u_id++);
             bloom_h_sh.setUniform("u_resolution", screenSize, c_u_id++);
             bloom_h_sh.drawIndexed(GL_TRIANGLES, 0, 2);
-            if (filtering->checked())copy_fb_linear2.release();
-            else copy_fb_near2.release();
+            copy_fb_linear2.release();
 
-            if (filtering->checked())copy_fb_linear3.bind();
-            else copy_fb_near3.bind();
+            copy_fb_linear3.bind();
             bloom_v_sh.bind();
-            if (filtering->checked())copy_fb_linear2.bindtexture(tsxz, 0, true);
-            else copy_fb_near2.bindtexture(tsxz, 0, true);
+            copy_fb_linear2.bindtexture(tsxz, 0, true);
             c_u_id = 0;
             bloom_v_sh.setUniform("u_texture1", 0, c_u_id++);
             bloom_v_sh.setUniform("u_resolution", screenSize, c_u_id++);
             bloom_v_sh.drawIndexed(GL_TRIANGLES, 0, 2);
-            if (filtering->checked())copy_fb_linear3.release();
-            else copy_fb_near3.release();
+            copy_fb_linear3.release();
 
-            if (filtering->checked())copy_fb_linear2.bind();
-            else copy_fb_near2.bind();
+            copy_fb_linear2.bind();
             bloom_p_sh.bind();
-            if (filtering->checked())nvfxaa_fb_linear.bindtexture(tsxz, 0, true);
-            else nvfxaa_fb_near.bindtexture(tsxz, 0, true);
+            nvfxaa_fb_linear.bindtexture(tsxz, 0, true);
             c_u_id = 0;
             bloom_p_sh.setUniform("u_texture1", 0, c_u_id++);
-            if (filtering->checked())copy_fb_linear3.bindtexture(tsxz, 1, true);
-            else copy_fb_near3.bindtexture(tsxz, 1, true);
+            copy_fb_linear3.bindtexture(tsxz, 1, true);
             bloom_p_sh.setUniform("u_texture2", 1, c_u_id++);
             bloom_p_sh.setUniform("u_resolution", screenSize, c_u_id++);
             bloom_p_sh.drawIndexed(GL_TRIANGLES, 0, 2);
-            if (filtering->checked())copy_fb_linear2.release();
-            else copy_fb_near2.release();
+            copy_fb_linear2.release();
 
             nvfxaa_sh.bind();
-            if (filtering->checked())copy_fb_linear2.bindtexture(tsxz, 0, true);
-            else copy_fb_near2.bindtexture(tsxz, 0, true);
+            copy_fb_linear2.bindtexture(tsxz, 0, true);
             c_u_id = 0;
             nvfxaa_sh.setUniform("u_texture1", 0, c_u_id++);
             if (resize_to_copy) {
@@ -1119,10 +1027,11 @@ if(doublefbo_ctrl)doublefbo=0;else doublefbo=1;
             nvfxaa_sh.drawIndexed(GL_TRIANGLES, 0, 2);
         } else if (resize_to_copy) {
             cp_sh.bind();
-            if (filtering->checked())copy_fb_linear.bindtexture(tsxz, 0, true);
-            else copy_fb_near.bindtexture(tsxz, 0, true);
+            copy_fb_linear.bindtexture(tsxz, 0, true);
             c_u_id = 0;
             cp_sh.setUniform("u_texture1", 0, c_u_id++);
+            cp_sh.setUniform("u_filter", filtering->checked(), c_u_id++);
+            cp_sh.setUniform("u_resolution_resize", screenSize, c_u_id++);
             cp_sh.setUniform("u_resolution", screenSize_orig, c_u_id++);
             cp_sh.drawIndexed(GL_TRIANGLES, 0, 2);
         }
@@ -1146,11 +1055,10 @@ if(doublefbo_ctrl)doublefbo=0;else doublefbo=1;
 
             endframetime = glfwGetTime() - ptime - ex_pause_skip_time;
         }
-
 		//click once
-		KEY_LEFT = false;
-		KEY_UP = false;
-		KEY_RIGHT = false;
+		//KEY_LEFT = false;
+		//KEY_UP = false;
+		//KEY_RIGHT = false;
 		//KEY_DOWN = false;
 
         //glfwPostEmptyEvent(); //win
@@ -1209,25 +1117,12 @@ private:
     nanogui::GLFramebuffer bufC_fb_linear[2];
     nanogui::GLFramebuffer bufD_fb_linear[2];
 
-    nanogui::GLFramebuffer bufA_fb_near[2];
-    nanogui::GLFramebuffer bufB_fb_near[2];
-    nanogui::GLFramebuffer bufC_fb_near[2];
-    nanogui::GLFramebuffer bufD_fb_near[2];
-    
-    nanogui::GLFramebuffer pause_fb_near;
-    nanogui::GLFramebuffer nvfxaa_fb_near;
-
     nanogui::GLFramebuffer pause_fb_linear;
     nanogui::GLFramebuffer nvfxaa_fb_linear;
     
     nanogui::GLShader cp_sh;
-    nanogui::GLFramebuffer copy_fb_near;
     nanogui::GLFramebuffer copy_fb_linear;
-
-    nanogui::GLFramebuffer copy_fb_near2;
     nanogui::GLFramebuffer copy_fb_linear2;
-    
-    nanogui::GLFramebuffer copy_fb_near3;
     nanogui::GLFramebuffer copy_fb_linear3;
 
 
@@ -1244,8 +1139,8 @@ private:
     Eigen::Vector2f scale_calc_all(Eigen::Vector2i &tsxz, Eigen::Vector2f umouse);
     Eigen::Vector2f umouse;
     Eigen::Vector2f umousezw;
-    nanogui::MatrixXu polygon_indices(int t);
-    nanogui::MatrixXf polygon_positions(int t, Eigen::Vector2f center, Eigen::Vector2f screen_prop, float size_of);
+    nanogui::MatrixXu polygon_indices();
+    nanogui::MatrixXf polygon_positions(Eigen::Vector2f center, Eigen::Vector2f screen_prop, float size_of);
     void init_glsl_s();
 
     using imagesDataType = vector<pair<GLTexture, GLTexture::handleType>>;
@@ -1263,21 +1158,11 @@ for(int i=0;i<2;i++){
     bufB_fb_linear[i].inittexture(Vector2i(1280, 720), false);
     bufC_fb_linear[i].inittexture(Vector2i(1280, 720), false);
     bufD_fb_linear[i].inittexture(Vector2i(1280, 720), false);
-
-    bufA_fb_near[i].inittexture(Vector2i(1280, 720), true);
-    bufB_fb_near[i].inittexture(Vector2i(1280, 720), true);
-    bufC_fb_near[i].inittexture(Vector2i(1280, 720), true);
-    bufD_fb_near[i].inittexture(Vector2i(1280, 720), true);
 }
-    pause_fb_near.inittexture(Vector2i(1280, 720), true);
-    nvfxaa_fb_near.inittexture(Vector2i(1280, 720), true);
     pause_fb_linear.inittexture(Vector2i(1280, 720), false);
     nvfxaa_fb_linear.inittexture(Vector2i(1280, 720), false);
-    copy_fb_near.inittexture(Vector2i(1280, 720), true);
-    copy_fb_near2.inittexture(Vector2i(1280, 720), true);
     copy_fb_linear.inittexture(Vector2i(1280, 720), false);
     copy_fb_linear2.inittexture(Vector2i(1280, 720), false);
-    copy_fb_near3.inittexture(Vector2i(1280, 720), true);
     copy_fb_linear3.inittexture(Vector2i(1280, 720), false);
 
     main_screen.initFromFiles("main_screen", "shaders/mainv.glsl", "shaders/main_screen.glsl");
@@ -1293,9 +1178,9 @@ for(int i=0;i<2;i++){
     bloom_p_sh.initFromFiles("bloom_p_sh", "shaders/mainv.glsl", "shaders/bloom_p.glsl");
 
 
-    MatrixXu indices = polygon_indices(B_RECT);
+    MatrixXu indices = polygon_indices();
 
-    MatrixXf positions = polygon_positions(B_RECT, Eigen::Vector2f(0., 0.), Eigen::Vector2f(1., 1.), 1.);
+    MatrixXf positions = polygon_positions(Eigen::Vector2f(0., 0.), Eigen::Vector2f(1., 1.), 1.);
     Vector2f screenSize = size().cast<float>();
 
     pause_fb_linear.bind();
@@ -1376,6 +1261,7 @@ void Ccgm::reset_x() {
         qz->setSelectedIndex(3);
         p_on_tab->setChecked(true);
         ptime = glfwGetTime() - ex_pause_skip_time;
+        u_frames=0;
         endframetime = 0;
     }
 }
@@ -1443,77 +1329,23 @@ void Ccgm::fadebuttons(float time) {
     }
 }
 
-nanogui::MatrixXu Ccgm::polygon_indices(int t) {
+nanogui::MatrixXu Ccgm::polygon_indices() {
     using namespace nanogui;
-    switch (t) {
-            /*case B_TRI:
-            {
-                MatrixXu indices(3, 2);
-                indices.col(0) << 0, 1, 2;
-                indices.col(1) << 2, 3, 0;
-                return indices;
-            }*/
-        case B_RECT:
-        {
-            MatrixXu indices(3, 2);
-            indices.col(0) << 0, 1, 2;
-            indices.col(1) << 2, 3, 0;
-            return indices;
-        }
-        default:
-        { //B_CIRCLE
-            MatrixXu indices(3, B_CIRCLE_vertexCount);
 
-            for (int i = 0; i < B_CIRCLE_vertexCount; i++) {
-
-                indices(0, i) = 0;
-                indices(1, i) = (i + 1) % B_CIRCLE_vertexCount;
-                indices(2, i) = (i + 2) % B_CIRCLE_vertexCount;
-            }
-            return indices;
-        }
-    }
+    MatrixXu indices(3, 2);
+    indices.col(0) << 0, 1, 2;
+    indices.col(1) << 2, 3, 0;
+    return indices;
 }
 
-nanogui::MatrixXf Ccgm::polygon_positions(int t, Eigen::Vector2f center, Eigen::Vector2f screen_prop, float size_of) {
+nanogui::MatrixXf Ccgm::polygon_positions(Eigen::Vector2f center, Eigen::Vector2f screen_prop, float size_of) {
     using namespace nanogui;
-    switch (t) {
-            /*case B_TRI:
-            {
-                MatrixXf positions(3, 3);
-                positions.col(0) << -(size_of) * screen_prop.x() + center.x(), -(size_of) * screen_prop.y() + center.y(), 0;
-                positions.col(1) << (size_of) * screen_prop.x() + center.x(), -(size_of) * screen_prop.y() + center.y(), 0;
-                positions.col(2) << 0. + center.x(), (size_of) * screen_prop.y() + center.y(), 0;
-                return positions;
-            }*/
-        case B_RECT:
-        {
-            MatrixXf positions(3, 4);
-            positions.col(0) << -(size_of) * screen_prop.x() + center.x(), -(size_of + 0.002) * screen_prop.y() + center.y(), 0; //0.002 for tiles
-            positions.col(1) << (size_of) * screen_prop.x() + center.x(), -(size_of + 0.002) * screen_prop.y() + center.y(), 0;
-            positions.col(2) << (size_of) * screen_prop.x() + center.x(), (size_of) * screen_prop.y() + center.y(), 0;
-            positions.col(3) << -(size_of) * screen_prop.x() + center.x(), (size_of) * screen_prop.y() + center.y(), 0;
-            return positions;
-        }
-        default:
-        { //B_CIRCLE
-            MatrixXf positions(3, B_CIRCLE_vertexCount);
-            const float segments = B_CIRCLE_vertexCount;
-
-            float theta = 0.0f;
-            const float k_increment = 2.0f * b2_pi / segments;
-            float radius = size_of;
-            for (int i = 0; i < segments; ++i) {
-
-                Eigen::Vector2f v = Eigen::Vector2f(+center.x() + radius * cosf(theta) * screen_prop.x(), +center.y() + radius * sinf(theta) * screen_prop.y());
-                positions(0, i) = v.x();
-                positions(1, i) = v.y();
-                positions(2, i) = 0;
-                theta += k_increment;
-            }
-            return positions;
-        };
-    }
+    MatrixXf positions(3, 4);
+    positions.col(0) << -(size_of) * screen_prop.x() + center.x(), -(size_of + 0.002) * screen_prop.y() + center.y(), 0;
+    positions.col(1) << (size_of) * screen_prop.x() + center.x(), -(size_of + 0.002) * screen_prop.y() + center.y(), 0;
+    positions.col(2) << (size_of) * screen_prop.x() + center.x(), (size_of) * screen_prop.y() + center.y(), 0;
+    positions.col(3) << -(size_of) * screen_prop.x() + center.x(), (size_of) * screen_prop.y() + center.y(), 0;
+    return positions;
 
 }
 
@@ -1525,23 +1357,12 @@ Eigen::Vector2f Ccgm::scale_calc_all(Eigen::Vector2i &tsxz, Eigen::Vector2f umou
     if (!(tsxz[1] > 0))tsxz[1] = 1;
     //to max size
     if ((tsxz[0] > max_fb_size) || (tsxz[1] > max_fb_size)) {
-        float prop = (float) tsxz[0] / tsxz[1];
-        if (prop >= 1) {
-            float oposx = (float) umouse[0] / tsxz[0];
-            float oposy = (float) umouse[1] / tsxz[1];
-            tsxz[0] = max_fb_size;
-            tsxz[1] = max_fb_size / prop;
-            umouse[0] = tsxz[0] * oposx;
-            umouse[1] = tsxz[1] * oposy;
-        } else {
-
-            float oposx = (float) umouse[0] / tsxz[0];
-            float oposy = (float) umouse[1] / tsxz[1];
-            tsxz[1] = max_fb_size;
-            tsxz[0] = max_fb_size*prop;
-            umouse[0] = tsxz[0] * oposx;
-            umouse[1] = tsxz[1] * oposy;
-        }
+      float prop = (float) tsxz[0] / tsxz[1];
+      if(tsxz[0]>tsxz[1]){
+        tsxz[0]=max_fb_size;tsxz[1]=tsxz[0]/prop;
+      }else{
+        tsxz[1]=max_fb_size;tsxz[0]=tsxz[1]*prop;
+      }
     }
     return umouse;
 }
@@ -1582,8 +1403,8 @@ void Ccgm::initall() {
 void Ccgm::update_vals(double loctime) {
     fadebuttons(loctime);
     max_fb_size = max_fb_size_w->value();
-    if (fps_ch->checked())fps_edit->setValue(std::max(fps_edit->value(), (int) fps));
-    fps_r->setCaption(to_string((int) fps));
+    //if (fps_ch->checked())fps_edit->setValue(std::max(fps_edit->value(), (int) fps));
+    //fps_r->setCaption(to_string((int) fps));
 }
 
 void mainloop() {

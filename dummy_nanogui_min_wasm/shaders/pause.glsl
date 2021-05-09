@@ -13,8 +13,6 @@ out vec4 glFragColor;
 #define iChannel0 u_texture1
 #define iMouse u_mouse
 
-// License Creative Commons Attribution-NonCommercial-ShareAlike
-// original source github.com/danilw
 void mainImage(out vec4 o,vec2 u)
 {
     o =  mix(o = texture(iChannel0, u /= iResolution.xy),

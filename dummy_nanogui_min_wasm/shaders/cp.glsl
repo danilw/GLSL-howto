@@ -4,8 +4,10 @@
 #endif
 uniform float rot;
 uniform vec2 u_resolution;
+uniform vec2 u_resolution_resize;
 uniform vec2 u_mouse;
 uniform sampler2D u_texture1;
+uniform bool u_filter;
 uniform float u_time;
 uniform vec2 pos;
 out vec4 glFragColor;
@@ -15,17 +17,17 @@ out vec4 glFragColor;
 #define iChannel0 u_texture1
 #define iMouse u_mouse
 
-// License Creative Commons Attribution-NonCommercial-ShareAlike
-// original source github.com/danilw
 
 vec4 getScene(vec2 fc)
 {
     vec2 uv=fc/iResolution;
-    return texture(iChannel0,uv);
+    vec4 tc=vec4(0.);
+    if(u_filter)tc=textureLod(iChannel0,uv,0.);
+    else tc=texelFetch(iChannel0,ivec2(uv*u_resolution_resize),0);
+    return tc;
 }
 
 
 void main() {
     glFragColor=getScene(vec2(gl_FragCoord.x,gl_FragCoord.y));
-//glFragColor=vec4(1.,0.,0.,0.5);
 }

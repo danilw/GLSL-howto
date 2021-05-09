@@ -3,8 +3,9 @@
  precision highp float;
 #endif
 uniform float u_time;
+uniform int u_frames;
 uniform vec2 u_resolution;
-uniform vec2 u_mouse;
+uniform vec4 u_mouse;
 uniform sampler2D u_texture1;
 uniform sampler2D u_texture2;
 uniform sampler2D u_texture3;
@@ -17,6 +18,7 @@ out vec4 glFragColor;
 
 
 #define iTime u_time
+#define iFrame u_frames
 #define iResolution u_resolution
 #define iMouse u_mouse
 #define iChannel0 u_texture1
@@ -25,30 +27,17 @@ out vec4 glFragColor;
 #define iChannel3 u_texture4
 
 
-// License Creative Commons Attribution-NonCommercial-ShareAlike
-// original source github.com/danilw
-
-// horizontal Gaussian blur pass
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
-    vec2 pixelSize = 1./ iResolution.xy;
-    vec2 uv = fragCoord.xy * pixelSize;
+    fragColor = vec4(0.0,0.0,0.0,1.0);
     
-    float h = pixelSize.x;
-	vec4 sum = vec4(0.0);
-	sum += texture(iChannel0, fract(vec2(uv.x - 4.0*h, uv.y)) ) * 0.05;
-	sum += texture(iChannel0, fract(vec2(uv.x - 3.0*h, uv.y)) ) * 0.09;
-	sum += texture(iChannel0, fract(vec2(uv.x - 2.0*h, uv.y)) ) * 0.12;
-	sum += texture(iChannel0, fract(vec2(uv.x - 1.0*h, uv.y)) ) * 0.15;
-	sum += texture(iChannel0, fract(vec2(uv.x + 0.0*h, uv.y)) ) * 0.16;
-	sum += texture(iChannel0, fract(vec2(uv.x + 1.0*h, uv.y)) ) * 0.15;
-	sum += texture(iChannel0, fract(vec2(uv.x + 2.0*h, uv.y)) ) * 0.12;
-	sum += texture(iChannel0, fract(vec2(uv.x + 3.0*h, uv.y)) ) * 0.09;
-	sum += texture(iChannel0, fract(vec2(uv.x + 4.0*h, uv.y)) ) * 0.05;
-    
-    fragColor.xyz = sum.xyz/0.98; // normalize
-	fragColor.a = 1.;
+    ivec2 ipx=ivec2(fragCoord);
+    if((ipx==ivec2(0,0))||(ipx==ivec2(iResolution.x-1.,0))
+    ||(ipx==ivec2(0,iResolution.y-1.))||(ipx==ivec2(iResolution.x-1.,iResolution.y-1.))){
+        vec4 data=texelFetch(iChannel1,ipx,0);
+        fragColor=vec4(iTime,iFrame,data.z+1.,0.);
+    }
 }
 
 void main(void) {

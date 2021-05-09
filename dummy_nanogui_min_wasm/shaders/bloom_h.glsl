@@ -21,8 +21,6 @@ out vec4 glFragColor;
 
 // Horizontal bloom blur
 
-// License Creative Commons Attribution-NonCommercial-ShareAlike
-// original source github.com/danilw
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {

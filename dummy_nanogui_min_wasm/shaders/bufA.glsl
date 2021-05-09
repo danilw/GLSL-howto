@@ -3,8 +3,9 @@
  precision highp float;
 #endif
 uniform float u_time;
+uniform int u_frames;
 uniform vec2 u_resolution;
-uniform vec2 u_mouse;
+uniform vec4 u_mouse;
 uniform sampler2D u_texture1;
 uniform sampler2D u_texture2;
 uniform sampler2D u_texture3;
@@ -17,126 +18,86 @@ out vec4 glFragColor;
 
 
 #define iTime u_time
+#define iFrame u_frames
 #define iResolution u_resolution
 #define iMouse u_mouse
 #define iChannel0 u_texture1
-#define iChannel1 u_texture3
-#define iChannel2 u_texture2
-#define iChannel3 u_tex_texture1
+#define iChannel1 u_texture2
+#define iChannel2 u_texture3
+#define iChannel3 u_texture4
 
 
-// License Creative Commons Attribution-NonCommercial-ShareAlike
-// original source github.com/danilw
 
-// line 112 iChannelResolution[3] 
-
-
-#define pi2_inv 0.159154943091895335768883763372
-
-vec2 complex_mul(vec2 factorA, vec2 factorB){
-    return vec2( factorA.x*factorB.x - factorA.y*factorB.y, factorA.x*factorB.y + factorA.y*factorB.x);
-}
-
-vec2 spiralzoom(vec2 domain, vec2 center, float n, float spiral_factor, float zoom_factor, vec2 pos){
-    vec2 uv = domain - center;
-    float d = length(uv);
-    return vec2( atan(uv.y, uv.x)*n*pi2_inv + d*spiral_factor, -log(d)*zoom_factor) + pos;
-}
-
-vec2 complex_div(vec2 numerator, vec2 denominator){
-    return vec2( numerator.x*denominator.x + numerator.y*denominator.y,
-                numerator.y*denominator.x - numerator.x*denominator.y)/
-        vec2(denominator.x*denominator.x + denominator.y*denominator.y);
-}
-
-float circle(vec2 uv, vec2 aspect, float scale){
-    return clamp( 1. - length((uv-0.5)*aspect*scale), 0., 1.);
-}
-
-float sigmoid(float x) {
-    return 2./(1. + exp2(-x)) - 1.;
-}
-
-float smoothcircle(vec2 uv, vec2 aspect, float radius, float ramp){
-    return 0.5 - sigmoid( ( length( (uv - 0.5) * aspect) - radius) * ramp) * 0.5;
-}
-
-float conetip(vec2 uv, vec2 pos, float size, float min)
+float DigitBin(in int x)
 {
-    vec2 aspect = vec2(1.,iResolution.y/iResolution.x);
-    return max( min, 1. - length((uv - pos) * aspect / size) );
+    if (x==0)return 480599.0;
+	else if(x==1) return 139810.0;
+	else if(x==2) return 476951.0;
+	else if(x==3) return 476999.0;
+	else if(x==4) return 350020.0;
+	else if(x==5) return 464711.0;
+	else if(x==6) return 464727.0;
+	else if(x==7) return 476228.0;
+	else if(x==8) return 481111.0;
+	else if(x==9) return 481095.0;
+	return 0.0;
 }
 
-float warpFilter(vec2 uv, vec2 pos, float size, float ramp)
-{
-    return 0.5 + sigmoid( conetip(uv, pos, size, -16.) * ramp) * 0.5;
+float PrintValue(vec2 fragCoord, vec2 pixelCoord, vec2 fontSize, float value,
+		float digits, float decimals) {
+	vec2 charCoord = (fragCoord - pixelCoord) / fontSize;
+	if(charCoord.y < 0.0 || charCoord.y >= 1.0) return 0.0;
+	float bits = 0.0;
+	float digitIndex1 = digits - floor(charCoord.x)+ 1.0;
+	if(- digitIndex1 <= decimals) {
+		float pow1 = pow(10.0, digitIndex1);
+		float absValue = abs(value);
+		float pivot = max(absValue, 1.5) * 10.0;
+		if(pivot < pow1) {
+			if(value < 0.0 && pivot >= pow1 * 0.1) bits = 1792.0;
+		} else if(digitIndex1 == 0.0) {
+			if(decimals > 0.0) bits = 2.0;
+		} else {
+			value = digitIndex1 < 0.0 ? fract(absValue) : absValue * 10.0;
+			bits = DigitBin(int (mod(value / pow1, 10.0)));
+		}
+	}
+	return floor(mod(bits / pow(2.0, floor(fract(charCoord.x) * 4.0) + floor(charCoord.y * 5.0) * 4.0), 2.0));
 }
 
-vec2 vortex_warp(vec2 uv, vec2 pos, float size, float ramp, vec2 rot)
-{
-    vec2 aspect = vec2(1.,iResolution.y/iResolution.x);
-
-    vec2 pos_correct = 0.5 + (pos - 0.5);
-    vec2 rot_uv = pos_correct + complex_mul((uv - pos_correct)*aspect, rot)/aspect;
-    float _filter = warpFilter(uv, pos_correct, size, ramp);
-    return mix(uv, rot_uv, _filter);
-}
-
-vec2 vortex_pair_warp(vec2 uv, vec2 pos, vec2 vel)
-{
-    vec2 aspect = vec2(1.,iResolution.y/iResolution.x);
-    float ramp = 5.;
-
-    float d = 0.2;
-
-    float l = length(vel);
-    vec2 p1 = pos;
-    vec2 p2 = pos;
-
-    if(l > 0.){
-        vec2 normal = normalize(vel.yx * vec2(-1., 1.))/aspect;
-        p1 = pos - normal * d / 2.;
-        p2 = pos + normal * d / 2.;
-    }
-
-    float w = l / d * 2.;
-
-    // two overlapping rotations that would annihilate when they were not displaced.
-    vec2 circle1 = vortex_warp(uv, p1, d, ramp, vec2(cos(w),sin(w)));
-    vec2 circle2 = vortex_warp(uv, p2, d, ramp, vec2(cos(-w),sin(-w)));
-    return (circle1 + circle2) / 2.;
+vec3 print_n(in vec2 uv ,float nm){
+    	vec2 vPixelCoord2 = vec2(0.);
+		float fValue2 = nm;
+		float fDigits = 1.0;
+		float fDecimalPlaces = 6.0;
+        vec2 fontSize = vec2(50.)/vec2(1280,720);
+		float fIsDigit2 = PrintValue(uv, vPixelCoord2, fontSize, fValue2, fDigits, fDecimalPlaces);
+        return vec3(1.0, 1.0, 1.0)* fIsDigit2;
 }
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
-	vec2 uv = fragCoord.xy / iResolution.xy;
-    vec2 pixelSize = 1. / iResolution.xy;
-
-    vec4 blur1 = texture(iChannel1, uv);
+    vec4 data1=texelFetch(iChannel1,ivec2(0,0),0);
+    vec4 data2=texelFetch(iChannel1,ivec2(iResolution.x-1.,0),0);
+    vec4 data3=texelFetch(iChannel1,ivec2(0,iResolution.y-1.),0);
+    vec4 data4=texelFetch(iChannel1,ivec2(iResolution.x-1.,iResolution.y-1.),0);
     
-    vec4 noise = texture(iChannel3, fragCoord.xy / vec2(256.) + fract(vec2(42,56)*iTime));
-
-    // get the gradients from the blurred image
-	vec2 d = pixelSize*4.;
-	vec4 dx = (texture(iChannel1, fract(uv + vec2(1,0)*d)) - texture(iChannel1, fract(uv - vec2(1,0)*d))) * 0.5;
-	vec4 dy = (texture(iChannel1, fract(uv + vec2(0,1)*d)) - texture(iChannel1, fract(uv - vec2(0,1)*d))) * 0.5;
+    vec2 res=iResolution.xy/iResolution.y;
+    vec2 uv=fragCoord/iResolution.y-0.5*res;
     
-    vec2 uv_red = uv + vec2(dx.x, dy.x)*pixelSize*8.; // add some diffusive expansion
+    vec3 col=vec3(0.);
+    if((data1==data2)&&(data1==data3)&&(data1==data4))col=vec3(1.);
+    else col=vec3(1.,0.,0.);
     
-    float new_red = texture(iChannel0, fract(uv_red)).x + (noise.x - 0.5) * 0.0025 - 0.002; // stochastic decay
-	new_red -= (texture(iChannel1, fract(uv_red + (noise.xy-0.5)*pixelSize)).x -
-				texture(iChannel0, fract(uv_red + (noise.xy-0.5)*pixelSize))).x * 0.047; // reaction-diffusion
-        
-    if(iTime<0.1)
-    {
-        fragColor = noise; 
-    }
-    else
-    {
-        fragColor.x = clamp(new_red, 0., 1.);
-    }
-
-//    fragColor = noise; // need a restart?
+    // expected data1.y==iFrame -1 and data1.z==iFrame
+    if((int(data1.y)!=iFrame-1)||(int(data1.z)!=iFrame))col=vec3(1.,0.,1.);
+    if((int(data4.z)!=iFrame))col=vec3(col.r,1.,col.b*0.5);
+    
+    vec3 c1=print_n(uv+vec2(0.,-0.2),data1.x);
+    c1+=print_n(uv+vec2(0.,0.0),data1.y);
+    c1+=print_n(uv+vec2(0.,0.2),data1.z);
+    
+    fragColor=vec4(c1*col,1.);
 }
 
 

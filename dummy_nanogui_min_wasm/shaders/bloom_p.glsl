@@ -22,8 +22,6 @@ out vec4 glFragColor;
 
 // Final composite/post pass
 
-// License Creative Commons Attribution-NonCommercial-ShareAlike
-// original source github.com/danilw
 
 vec3 hableTonemap(vec3 x)
 {
