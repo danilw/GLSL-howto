@@ -64,6 +64,12 @@
                     ErrorMessage += "\r\ngl.linkProgram(program) failed with error code 0.";
                     error = true;
                 }
+                gl.validateProgram(program);
+                if ( !gl.getProgramParameter( program, gl.LINK_STATUS) ) {
+                  var info = gl.getProgramInfoLog(program);
+                  ErrorMessage += "Could not compile WebGL program. \n\n" + info;
+                  error = true;
+                }
                 if (error) {
                     console.log(ErrorMessage + ' ...failed to initialize shader.');
                     return false;
