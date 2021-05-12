@@ -77,7 +77,8 @@
 		gl.validateProgram(program);
                 if ( !gl.getProgramParameter( program, gl.LINK_STATUS) ) {
                   var info = gl.getProgramInfoLog(program);
-                  ErrorMessage += "Could not compile WebGL program. \n\n" + info;
+                  ErrorMessage += "Could not compile WebGL program."+'\n\n' + info+'\n\n';
+                  ErrorMessage += gl.getExtension('WEBGL_debug_shaders').getTranslatedShaderSource(shader_frag)+'\n\n';
                   error = true;
                 }
                 if (error) {
