@@ -2,16 +2,16 @@
     <head>
         <title>Minimal GLSL viewer</title>
         <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+        
+        <!-- WebGL GLES2 template -->
+        
         <script type = "glsl" id = "standard-vs">precision mediump float;
             attribute vec4 a_Position;
-            attribute vec4 a_Color;
-            varying vec4 color;
             void main() {
             gl_Position = a_Position;
             }
         </script>
         <script type = "glsl" id = "standard-frag">precision mediump float;
-            varying vec4 color;
             uniform float u_time;
             uniform vec2 u_resolution;
             void main( void ) {
@@ -24,6 +24,34 @@
             gl_FragColor = f;
             }
         </script>
+        
+        
+        <!-- WebGL2 GLES3 template -->
+        <!--
+        <script type = "glsl" id = "standard-vs">#version 300 es
+            precision highp float;
+            in vec4 a_Position;
+            void main() {
+            gl_Position = a_Position;
+            }
+        </script>
+        <script type = "glsl" id = "standard-frag">#version 300 es
+            precision highp float;
+            uniform float u_time;
+            uniform vec2 u_resolution;
+            out vec4 out_color;
+            void main( void ) {
+            vec4 f=vec4(0.);
+            vec2 u = gl_FragCoord.xy / u_resolution.xy; 
+            float x,c;
+            for (float i = 1.; i < 20.; i++)   
+            f = u.y+.04*i < sin(c=floor(x= 2e2*u.x/i + 9.*i + u_time)) ? 
+            f + min(15.*((x-=c)-x*x),1.) *(i/20.-f)  : f; 
+            out_color = f;
+            }
+        </script>
+        -->
+        
     </head>
     <body style = "background: #202020; padding: 32px;">
         <canvas id = "gl" width = "800" height = "600"></canvas>
@@ -67,7 +95,8 @@
                 gl.validateProgram(program);
                 if ( !gl.getProgramParameter( program, gl.LINK_STATUS) ) {
                   var info = gl.getProgramInfoLog(program);
-                  ErrorMessage += "Could not compile WebGL program. \n\n" + info;
+                  ErrorMessage += "Could not compile WebGL program."+'\n\n' + info+'\n\n';
+                  ErrorMessage += gl.getExtension('WEBGL_debug_shaders').getTranslatedShaderSource(shader_frag)+'\n\n';
                   error = true;
                 }
                 if (error) {
