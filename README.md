@@ -63,6 +63,7 @@ Source advansed, for web only, loading shaders from html file without recompilin
 
 **gnome_gjs** Gnome Shell 3 Extension that display shader on Wallpaper in Gnome, *these extensions can not be uploaded to Gnome extensions website* because of the bugs in gjs and Gnome Shell there no method to free VRAM  (because of bugs - my extension dont recreate self, it just hide self on disabling), [**lineclock**](https://github.com/danilw/GLSL-howto/tree/master/gnome_gjs/extensions/lineclock%40morimea.shadertoy.com) extension can be used as *minimal example code to display Shaders in Gnome gjs Javascript using Clutter API*. More info: [medium blogpost](https://arugl.medium.com/live-dynamic-wallpaper-in-linux-using-extensions-and-python-with-shaders-4d656a31600f).
 
+[*ctest_js_opengl_basic*](https://danilw.github.io/GLSL-howto/ctest_js_opengl_basic/opengl_basic.html) update of old [js_opengl_basic](https://github.com/danilw/cputests) because threejs [removed geometry](https://discourse.threejs.org/t/three-geometry-will-be-removed-from-core-with-r125/22401?fbclid=IwAR1IOA5w7__0rsliPSCo0STmy95JF3ewQqIsy9cWsNWEB539K96nVCjf2Ug). Just to have it working in 2021+.
 
 
 ### Contact: [**Join discord server**](https://discord.gg/JKyqWgt)
