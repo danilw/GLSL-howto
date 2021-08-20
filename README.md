@@ -65,6 +65,8 @@ Source advansed, for web only, loading shaders from html file without recompilin
 
 [*ctest_js_opengl_basic*](https://danilw.github.io/GLSL-howto/ctest_js_opengl_basic/opengl_basic.html) update of old [js_opengl_basic](https://github.com/danilw/cputests) because threejs [removed geometry](https://discourse.threejs.org/t/three-geometry-will-be-removed-from-core-with-r125/22401?fbclid=IwAR1IOA5w7__0rsliPSCo0STmy95JF3ewQqIsy9cWsNWEB539K96nVCjf2Ug). Just to have it working in 2021+.
 
+**Float precision on GPU, bugs/features** (medium blog post link)[https://arugl.medium.com/float-precision-on-gpu-bugs-features-178ddd030f], info about float bits on GPU.
+
 
 ### Contact: [**Join discord server**](https://discord.gg/JKyqWgt)
 
