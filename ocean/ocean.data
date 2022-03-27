@@ -1,0 +1,106 @@
+#version 300 es
+
+#ifdef GL_ES
+precision highp float;
+#endif
+
+in vec3 normal_vector;
+in vec3 light_vector;
+in vec3 halfway_vector;
+// in vec2 tex_coord;
+in float fog_factor;
+
+out vec4 frag_col;
+
+// uniform sampler2D water_tex;
+
+// vec4 fog_color      = vec4(0.55, 0.55, 0.55, 1.0);
+const vec4 fog_color      = vec4(0., 0.35, 0.65, 1.0);
+const vec4 emissive_color = vec4(1.0, 1.0, 1.0,  1.0);
+const vec4 ambient_color  = vec4(0.0, 0.35, 0.75, 1.0);
+const vec4 diffuse_color  = vec4(0.5, 0.35, 0.75, 1.0);
+const vec4 specular_color = vec4(1.0, 0.25, 0.0,  1.0);
+
+const float emissive_contribution = 0.00;
+const float ambient_contribution  = 0.30;
+const float diffuse_contribution  = 0.30;
+const float specular_contribution = 1.80;
+
+void main(void) {
+    vec3 normal1         = normalize(normal_vector);
+    vec3 light_vector1   = normalize(light_vector);
+    vec3 halfway_vector1 = normalize(halfway_vector);
+
+    // vec4 c = texture2D(water_tex, tex_coord);
+    vec4 c = vec4(1., 1., 1., 1.);
+
+    float d = dot(normal1, light_vector1);
+    vec4 emissive_light = emissive_color * emissive_contribution;
+    vec4 ambient_light = ambient_color  * ambient_contribution * c;
+    vec4 diff_light = diffuse_color  * diffuse_contribution  * c *
+        max(d, 0.);
+
+    vec4 specular_light;
+    if (d > 0.) {
+        specular_light = specular_color * specular_contribution * c *
+            max(pow(dot(normal1, halfway_vector1), 120.), 0.);
+    }
+    else {
+        specular_light = vec4(0.);
+    }
+
+    frag_col = emissive_light + ambient_light +
+        diff_light + 2.*specular_light;
+    frag_col = mix(frag_col, fog_color, fog_factor);
+    frag_col.a = 1.;
+}
+# configuration file for Ocean Simulation
+
+# wave parameters
+waveAmplitude = 2e-5
+
+# wind parameters
+windDirX = 0.0
+windDirZ = 12.8
+
+oceanSize = 64
+oceanLen = 320.0
+oceanRepeat = 5
+#version 300 es
+
+#ifdef GL_ES
+precision highp float;
+#endif
+
+in vec3 vertex;
+in vec3 normal;
+// in vec3 texture;
+
+out vec3 light_vector;
+out vec3 normal_vector;
+out vec3 halfway_vector;
+// out vec2 tex_coord;
+out float fog_factor;
+
+uniform mat4 projection;
+uniform mat4 view;
+uniform mat4 model;
+//uniform mat4 mv_transp_inv;
+uniform vec3 light_pos;
+
+const float fog_distance = 1000.;
+
+void main(void) {
+    gl_Position = view * model * vec4(vertex, 1.0);
+    fog_factor = min(-gl_Position.z/fog_distance, 1.0);
+    gl_Position = projection * gl_Position;
+
+    vec4 v = view * model * vec4(vertex, 1.0);
+    vec3 normal1 = normalize(normal);
+
+    light_vector = normalize((view * vec4(light_pos, 1.)).xyz - v.xyz);
+    mat4 mv_transp_inv = inverse(transpose(view * model));
+    normal_vector = (mv_transp_inv * vec4(normal1, 0.)).xyz;
+    halfway_vector = light_vector + normalize(-v.xyz);
+    // tex_coord = texture.xy;
+}

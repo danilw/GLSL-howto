@@ -1,0 +1,824 @@
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>an art2</title>
+    <style>
+      body {
+          margin: 0;
+          font-family: monospace;
+      }
+      canvas {
+          display: block;
+          width: 100vw;
+          height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+<script>
+
+var paused=false;
+var pausego = function (e) {
+    var e = e || window.event;
+    var btnCode;
+
+    if ('object' === typeof e) {
+		paused=!paused;
+    }
+}
+
+var maskmi=false;
+var maskx = function (e) {
+    var e = e || window.event;
+    var btnCode;
+
+    if ('object' === typeof e) {
+		maskmi=!maskmi;
+    }
+}
+
+var drawmi=false;
+var drawx = function (e) {
+    var e = e || window.event;
+    var btnCode;
+
+    if ('object' === typeof e) {
+		drawmi=!drawmi;
+    }
+}
+
+var animmi=false;
+var animx = function (e) {
+    var e = e || window.event;
+    var btnCode;
+
+    if ('object' === typeof e) {
+		animmi=!animmi;
+    }
+}
+
+</script>
+  <div><button onmouseup="pausego(event);" oncontextmenu="event.preventDefault();">pause/continue</button></div>
+  <div><button onmouseup="maskx(event);" oncontextmenu="event.preventDefault();">draw mask on/off</button></div>
+  <div><button onmouseup="drawx(event);" oncontextmenu="event.preventDefault();">draw platform on/off</button></div>
+  <div><button onmouseup="animx(event);" oncontextmenu="event.preventDefault();">anim platform on/off</button></div>
+
+    <canvas id="c"></canvas>
+  </body>
+  <script id="vs" type="notjs">
+#version 300 es
+in vec4 position;
+
+void main() {
+  gl_Position = position;
+}
+  </script>
+
+  <script id="fs" type="notjs">
+#version 300 es
+precision mediump float;
+
+uniform vec2 u_resolution;
+uniform float u_time;
+uniform sampler2D u_texture1;
+uniform bool maskmi;
+uniform bool drawmi;
+uniform bool animmi;
+out vec4 glFragColor;
+#define iResolution u_resolution
+#define iTime u_time
+#define iChannel0 u_texture1
+
+#define STEPS 56
+#define PIXELR 01.5/iResolution.x
+#define FAR 25.0
+#define PI 3.14159265
+#define PHI (sqrt(5)*0.5 + 0.5)
+
+#define HASHSCALE1 0.1031
+
+const vec3 FOG_COLOR = vec3(0., 0., 0.);
+
+
+#define DENSE_DUST
+
+#define DITHERING
+
+
+#define pi 3.14159265
+#define R(p, a) p=cos(a)*p+sin(a)*vec2(p.y, -p.x)
+
+
+/*
+* License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
+*/
+
+vec2	marchx(vec3 pos, vec3 dir);
+vec3	camera(vec2 uv);
+void	rotate(inout vec2 v, float angle);
+
+vec3	ret_col;	
+vec3	h; 		
+
+#define I_MAX		200.
+#define E			0.00001
+
+vec3 blackbody(float Temp)
+{
+	vec3 col = vec3(255.);
+    col.x = 56100000. * pow(Temp,(-3. / 2.)) + 148.;
+   	col.y = 100.04 * log(Temp) - 623.6;
+   	if (Temp > 6500.) col.y = 35200000. * pow(Temp,(-3. / 2.)) + 184.;
+   	col.z = 194.18 * log(Temp) - 1448.6;
+   	col = clamp(col, 0., 255.)/255.;
+    if (Temp < 1000.) col *= Temp/1000.;
+   	return col;
+}
+
+vec4 pline( vec2 f)
+{
+	if(!drawmi) return vec4(0.,0.,0.,1.);
+    vec3	col = vec3(0., 0., 0.);
+	vec2 R = iResolution.xy/2.,
+          uv  = vec2(f-R) / R.y;
+    
+    uv.y-=0.1;
+    uv.x*=.7518;
+	vec3	dir = camera(uv);
+    vec3	pos = vec3(.0, .0, 0.0);
+
+    pos.z = 4.5+4.8;    
+    h*=0.;
+    vec2	inter = (marchx(pos, dir));
+    col.xyz = ret_col*(1.-inter.x*.0125);
+    col += h * .4;
+    vec4 c_out =  vec4(col,1.0);
+    c_out.rgb=min(vec3(1.),c_out.bgr);
+    
+    return c_out;
+}
+
+float	scene(vec3 p)
+{  
+    float	var;
+    float	mind = 1e5;
+    p.z += 10.;
+    
+    rotate(p.xz, .04457 );
+    rotate(p.yz, 2.229557);
+    var = atan(p.x,p.y);
+    vec2 q = vec2( ( length(p.xy) )-6.,p.z);
+    if(animmi)rotate(q, (var*.25+(iTime/5.)));
+    q = abs(q)-1.5;
+    float	oldvar = var;
+    ret_col = 1.-vec3(.8350, .2, .3);
+    mind = length(q)+.5+1.205*(length(fract(q*.05*(1.0+1.*sin(oldvar - iTime*2.)) )-.5)-1.215);
+    //h -= vec3(-3.20,.20,1.0)*vec3(1.)*.0025/(.051+(mind-sin(oldvar*1. - iTime*2. + 3.14)*.125 )*(mind-sin(oldvar*1. - iTime*2. + 3.14)*.125 ) );
+    //h -= vec3(1.20,-.50,-.50)*vec3(1.)*.025/(.501+(mind-sin(oldvar*1. - iTime*2.)*.5 )*(mind-sin(oldvar*1. - iTime*2.)*.5 ) );
+    h += vec3(2.25, 1., 1.)*.0025/(.021+mind*mind);
+    
+    return (mind);
+}
+
+vec2	marchx(vec3 pos, vec3 dir)
+{
+    vec2	dist = vec2(0.0, 0.0);
+    vec3	p = vec3(0.0, 0.0, 0.0);
+    vec2	s = vec2(0.0, 0.0);
+
+	    for (float i = -1.; i < I_MAX; ++i)
+	    {
+	    	p = pos + dir * dist.y;
+	        dist.x = scene(p);
+	        dist.y += dist.x*.2; 
+	        if (log(dist.y*dist.y/dist.x/1e5) > .0 || dist.x < E || dist.y > FAR+60.)
+            {
+                if(dist.y > FAR)s=vec2(100.);
+                break;
+            }
+	        s.x++;
+    }
+    s.y = dist.y;
+    return (s);
+}
+
+void rotate(inout vec2 v, float angle)
+{
+	v = vec2(cos(angle)*v.x+sin(angle)*v.y,-sin(angle)*v.x+cos(angle)*v.y);
+}
+
+vec3	camera(vec2 uv)
+{
+    float		fov = 1.;
+	vec3		forw  = vec3(0.0, 0.0, -1.0);
+	vec3    	right = vec3(1.0, 0.0, 0.0);
+	vec3    	up    = vec3(0.0, 1.0, 0.0);
+
+    return (normalize((uv.x) * right + (uv.y) * up + fov * forw));
+}
+
+
+
+
+mat2 Spin(float angle)
+{
+	return mat2(cos(angle),-sin(angle),sin(angle),cos(angle));
+}
+
+// iq's noise
+float pn( in vec3 x )
+{
+    vec3 p = floor(x);
+    vec3 f = fract(x);
+	f = f*f*(3.0-2.0*f);
+	vec2 uv = (p.xy+vec2(37.0,17.0)*p.z) + f.xy;
+	vec2 rg = texture( iChannel0, (uv+ 0.5)/256.0).yx;
+	return -1.0+2.4*mix( rg.x, rg.y, f.z );
+}
+
+float fpn(vec3 p)
+{
+   return pn(p*.06125)*.5 + pn(p*.125)*.25 + pn(p*.25)*.125;
+}
+
+float rand(vec2 co)
+{
+	return fract(sin(dot(co*0.123,vec2(12.9898,78.233))) * 43758.5453);
+}
+
+float Ring(vec3 p)
+{
+  vec2 q = vec2(length(p.xy)-2.3,p.z);
+  return length(q)-0.01;
+}
+
+float length2( vec2 p )
+{
+	return sqrt( p.x*p.x + p.y*p.y );
+}
+
+float length8( vec2 p )
+{
+	p = p*p; p = p*p; p = p*p;
+	return pow( p.x + p.y, 1.0/8.0 );
+}
+
+
+float Disk( vec3 p, vec3 t )
+{
+    vec2 q = vec2(length2(p.xy)-t.x,p.z*0.5);
+    return max(length8(q)-t.y, abs(p.z) - t.z);
+}
+
+float smin( float a, float b, float k )
+{
+	float h = clamp( 0.5 + 0.5*(b-a)/k, 0.0, 1.0 );
+	return mix( b, a, h ) - k*h*(1.0-h);
+}
+
+float map(vec3 p)
+{
+    float t=0.7*iTime;
+	float d1 = Disk(p,vec3(2.0,1.,0.05)) + fpn(vec3(Spin(t*0.25+p.z*.10)*p.xy*20.,p.z*20.-t)*5.0) * 0.545;
+    float d2 = Ring(p);
+    return smin(d1,d2,1.0);
+
+}
+
+vec3 computeColor( float density, float radius )
+{
+	vec3 result = mix( 1.1*vec3(1.0,0.9,0.8), vec3(0.4,0.15,0.1), density );
+	
+	vec3 colCenter = 6.*vec3(0.8,1.0,1.0);
+	vec3 colEdge = 2.*vec3(0.48,0.53,0.5);
+	result *= mix( colCenter, colEdge, min( (radius+.5)/2.0, 1.15 ) );
+	
+	return result;
+}
+
+bool Raycylinderintersect(vec3 org, vec3 dir, out float near, out float far)
+{
+
+	float a = dot(dir.xy, dir.xy);
+	float b = dot(org.xy, dir.xy);
+	float c = dot(org.xy, org.xy) - 12.;
+
+	float delta = b * b - a * c;
+	if( delta < 0.0 )
+		return false;
+
+	float deltasqrt = sqrt(delta);
+	float arcp = 1.0 / a;
+	near = (-b - deltasqrt) * arcp;
+	far = (-b + deltasqrt) * arcp;
+	float temp = min(far, near);
+	far = max(far, near);
+	near = temp;
+
+	float znear = org.z + near * dir.z;
+	float zfar = org.z + far * dir.z;
+	vec2 zcap = vec2(1.85, -1.85);
+	vec2 cap = (zcap - org.z) / dir.z;
+
+	if ( znear < zcap.y )
+		near = cap.y;
+	else if ( znear > zcap.x )
+		near = cap.x;
+
+	if ( zfar < zcap.y )
+		far = cap.y;
+	else if ( zfar > zcap.x )
+		far = cap.x;
+	
+	return far > 0.0 && far > near;
+}
+
+
+//Distance functions and helpper functions from Mercury's SDF library
+//http://mercury.sexy/hg_sdf/
+
+// Sign function that doesn't return 0
+float sgn(float x) {
+	return (x < 0.0)?-1.0:1.0;
+}
+
+// Maximum/minumum elements of a vector
+float vmax3(vec3 v) {
+	return max(max(v.x, v.y), v.z);
+}
+
+float fSphere(vec3 p, float r) {
+	return length(p) - r;
+}
+
+// Plane with normal n (n is normalized) at some distance from the origin
+float fPlane(vec3 p, vec3 n, float distanceFromOrigin) {
+	return dot(p, n) + distanceFromOrigin;
+}
+
+// Cheap Box: distance to corners is overestimated
+float fBoxCheap(vec3 p, vec3 b) { //cheap box
+	return vmax3(abs(p) - b);
+}
+
+// Box: correct distance to corners
+float fBox(vec3 p, vec3 b) {
+	vec3 d = abs(p) - b;
+	return length(max(d, vec3(0))) + vmax3(min(d, vec3(0)));
+}
+
+// Repeat space along one axis. Use like this to repeat along the x axis:
+// <float cell = pMod1(p.x,5);> - using the return value is optional.
+float pMod1(inout float p, float size) {
+	float halfsize = size*0.5;
+	float c = floor((p + halfsize)/size);
+	p = mod(p + halfsize, size) - halfsize;
+	return c;
+}
+
+// Repeat in two dimensions
+vec2 pMod2(inout vec2 p, vec2 size) {
+	vec2 c = floor((p + size*0.5)/size);
+	p = mod(p + size*0.5,size) - size*0.5;
+	return c;
+}
+
+// Repeat around the origin by a fixed angle.
+// For easier use, num of repetitions is use to specify the angle.
+float pModPolar(inout vec2 p, float repetitions) {
+	float angle = 2.0*PI/repetitions;
+	float a = atan(p.y, p.x) + angle/2.0;
+	float r = length(p);
+	float c = floor(a/angle);
+	a = mod(a,angle) - angle/2.0;
+	p = vec2(cos(a), sin(a))*r;
+	if (abs(c) >= (repetitions/2.0)) c = abs(c);
+	return c;
+}
+
+
+void pR(inout vec2 p, float a){
+	p = cos(a)*p + sin(a)*vec2(p.y, -p.x);
+}
+
+void pR45(inout vec2 p) {
+	p = (p + vec2(p.y, -p.x))*sqrt(0.5);
+}
+
+float fOpUnionColumns(float a, float b, float r, float n) {
+	if ((a < r) && (b < r)) {
+		vec2 p = vec2(a, b);
+		float columnradius = r*sqrt(2.0)/((n-1.0)*2.0+sqrt(2.0));
+		pR45(p);
+		p.x -= sqrt(2.0)/2.0*r;
+		p.x += columnradius*sqrt(2.0);
+		if (mod(n,2.0) == 1.0) {
+			p.y += columnradius;
+		}
+		pMod1(p.y, columnradius*2.0);
+		float result = length(p) - columnradius;
+		result = min(result, p.x);
+		result = min(result, a);
+		return min(result, b);
+	} else {
+		return min(a, b);
+	}
+}
+
+float fOpEngrave(float a, float b, float r) {
+	return max(a>b?a:b, (a + r - abs(b))*sqrt(0.5));
+}
+vec3 txtrr;
+
+
+float sdf(vec3 p){
+    float flr = fPlane(p, vec3(0.0, 1.0, 0.0), 2.0);
+    float ball = fSphere(p-vec3(0.0, 2.0, 0.0), 1.5);
+        float t=0.7*iTime;
+    p.xz*=Spin(-t*0.15);
+    
+    
+    vec3 disp = vec3(14., 0.0, 0.0); 
+
+    vec3 pp = p;
+    
+    float index = pModPolar(pp.xz, disp.x);
+    pp -= disp;
+    pMod2(pp.xz, vec2(5.10, 4.0));
+    float box = fBox(pp, vec3(1.0, 1.5, 1.0));
+    float sphere = fSphere(pp-vec3(0.0, 1.0, 0.0), 1.0);
+    float sphere2 = fSphere(p-vec3(0.0, 1.0, 0.0), 2.0);
+    float sphere3 = 1.-fSphere(p-vec3(0.0, 1.0, 0.0), 4.9);
+
+    float field = fOpEngrave(box, sphere, 0.5);
+    return (field>sphere3?1.:field>sphere2?1.:field);
+
+}
+
+vec3 normals(vec3 p){
+	vec3 eps = vec3(PIXELR, 0.0, 0.0 );
+    return normalize(vec3(
+        sdf(p+eps.xyy) - sdf(p-eps.xyy),
+        sdf(p+eps.yxy) - sdf(p-eps.yxy),
+        sdf(p+eps.yyx) - sdf(p-eps.yyx)
+    ));
+}
+
+float hash(float p){
+	vec3 p3  = fract(vec3(p+10.) * HASHSCALE1);
+    p3 += dot(p3, p3.yzx + 19.19);
+    return fract((p3.x + p3.y) * p3.z);
+}
+
+vec3 randomSphereDir(vec2 rnd){
+	float s = rnd.x*PI*2.;
+	float t = rnd.y*2.-1.;
+	return vec3(sin(s), cos(s), t) / sqrt(1.0 + t * t);
+}
+vec3 randomHemisphereDir(vec3 dir, float i){
+	vec3 v = randomSphereDir( vec2(hash(i+1.), hash(i+2.)) );
+	return v * sign(dot(v, dir));
+}
+
+vec3 fog(vec3 col, vec3 p, vec3 ro, vec3 rd, vec3 ld, vec3 lc){
+    float dist = length(p-ro);
+	float sunAmount = max( dot( rd, ld ), 0.0 );
+	float fogAmount = 1.0 - exp( -dist*0.03);
+	vec3  fogColor = mix(FOG_COLOR, lc, pow(sunAmount, 4.0));
+    return mix(col, fogColor, fogAmount);
+}
+
+
+vec3 rdx,rox;
+float min_distx, max_distx;
+float tx,dx,tdx,ldx,wx;
+vec4 sumx = vec4(0.0);
+vec2 seedx;
+
+
+bool starworker(int i,float tuu){
+    
+	 
+		vec3 pos = rox + tx*rdx;
+    pos.y+=0.5;
+
+		float fld = 0.0;
+        if(tdx>(1.-1./80.) || dx<0.008*tx || tx>10. || sumx.a > 0.99 || tx>max_distx) return true;
+		dx = map(pos); 
+		vec3 stardir = normalize(vec3(0.0)-pos);
+		dx = max(dx,0.08);
+      
+		if (dx<0.1) 
+		{
+			ldx = 0.1 - dx;
+			
+            #ifdef DENSE_DUST          
+			fld = clamp((ldx - map(pos+0.2*stardir))/0.4, 0.0, 1.0 );
+			ldx += fld;
+            #endif
+			wx = (1. - tdx) * ldx;
+			tdx += wx + 1./200.;
+		
+			float radiusFromCenter = length(pos - vec3(0.0));
+			vec4 col = vec4( computeColor(tdx,radiusFromCenter), tdx );
+			col.a *= 0.2;
+			col.rgb *= col.a/0.8;
+			sumx = sumx + col*(1.0 - sumx.a);  
+		}
+      
+		tdx += 1./70.;
+       
+        vec3 ldst = vec3(0.0)-pos;
+    ldst.z*=1.19;
+        float lDist = max(length(ldst), 0.001);
+
+        // star in center
+        vec3 lightColor=vec3(.0,0.12,0.35);
+        sumx.rgb+=lightColor/(lDist*lDist*lDist);
+
+        dx = max(dx, 0.04); 
+      
+        #ifdef DITHERING
+        dx=abs(dx)*(1.+0.28*rand(seedx*vec2(i)));
+        #endif 
+	  
+        tx +=  max(dx * 0.3, 0.02);
+    tx=tx<tuu?tx:1.-tuu*tx;
+      return false;
+}
+
+void fwk(){
+    sumx = clamp( sumx, 0.0, 1.0 );
+   
+    sumx.xyz = sumx.xyz*sumx.xyz*(3.0-2.0*sumx.xyz);
+}
+
+vec4 getcc(vec2 cx){
+        vec2 coord = cx*iResolution.xy- iResolution.xy * 0.5;
+    float time=iTime/10.;
+
+    float phi = atan(coord.y, coord.x + 1e-6);
+    phi = phi / PI * 0.5 + 0.5;
+    float seg = floor(phi * 0.);
+
+    float theta = (seg + 0.5) / 6. * PI * 2.;
+    vec2 dir1 = vec2(cos(theta), sin(theta));
+    vec2 dir2 = vec2(-dir1.y, dir1.x);
+
+    float l = dot(dir1, coord);
+    float w = sin(seg * 31.374) * 18. + 20.;
+    float prog = l / w + time * 2.;
+    float idx = floor(prog);
+
+    float phase = time * 0.8;
+    float th1 = fract(273.84937 * sin(idx * 54.67458 + floor(phase    )));
+    float th2 = fract(273.84937 * sin(idx * 54.67458 + floor(phase + 1.)));
+    float thresh = mix(th1, th2, smoothstep(0.75, 1., fract(phase)));
+
+    float l2 = dot(dir2, coord);
+    float slide = fract(idx * 32.74853) * 200. * time;
+    float w2 = fract(idx * 39.721784) * 15000.;
+    float prog2 = (l2 + slide) / w2;
+
+    float c = clamp((fract(prog) - thresh) * w * 0.3, 0., 1.);
+    c *= clamp((fract(prog2) - 1. + thresh) * w2 * 0.3, 0., 1.);
+
+    return vec4(c, c, c, 1);
+}
+
+void texturing(vec3 p){
+    float t=0.7*iTime;
+    p.xz*=Spin(-t*0.15);
+    float prec = 0.35;
+    float disp =  smoothstep(0., 1., dot(getcc( p.xy/6.8).rgb, vec3(prec)));
+    txtrr.z = disp;
+    float disp2 =smoothstep(0., 1., dot(getcc( p.yz/6.8).rgb, vec3(prec)));
+    txtrr.x = disp2;
+     float disp3 = smoothstep(0., 1., dot(getcc( p.xz/6.8).rgb, vec3(prec)));
+    txtrr.y = disp3;
+}
+
+
+
+//Enhanced sphere tracing algorithm introduced by Mercury
+float march(vec3 ro, vec3 rd){
+    float t = 0.001;
+    float stepx = 0.0;
+
+    float omega = 1.3;
+    float prev_radius = 0.0;
+
+    float candidate_t = t;
+    float candidate_error = 1000.0;
+    float sg = sgn(sdf(ro));
+
+    vec3 p = vec3(0.0);
+    bool mii=Raycylinderintersect(rox, rdx, min_distx, max_distx);
+    if(mii)tx = min_distx*step(t,min_distx);
+    bool tres=false;
+    bool isb=false;
+    bool isd=false;
+	for(int i = 0; i < STEPS; ++i){
+        if(!isb){
+        p = rd*t+ro;
+        texturing(p);
+		float sg_radius = sg*sdf(p);
+        
+		float radius = abs(sg_radius);
+		stepx = sg_radius;
+		bool fail = omega > 1. && (radius+prev_radius) < stepx;
+		if(fail){txtrr=vec3(0.);
+			stepx -= omega * stepx;
+			omega = 1.;
+		}
+		else{
+			stepx = sg_radius*omega;
+		}
+		prev_radius = radius;
+		float error = radius/t;
+
+		if(!fail && error < candidate_error){
+			candidate_t = t;
+			candidate_error = error;
+		}else txtrr=vec3(0.);
+
+		if(!fail && error < PIXELR || t > FAR){
+            isb=true;
+		}
+        t += stepx;
+        }else if(!isd){
+            isd=true;
+            float er = candidate_error;
+    for(int j = 0; j < 6; ++j){
+        float radius = abs(sg*sdf(p));
+        p += rd*(radius-er);
+        t = length(p-ro);
+        er = radius/t;
+
+        if(er < candidate_error){
+            candidate_t = t;
+            candidate_error = er; 
+        }
+    }
+	if(t <= FAR || candidate_error <= PIXELR){
+		t = candidate_t;
+	}else txtrr=vec3(0.);
+        }
+        if((!tres)&&mii)tres=starworker(i,t);
+	}
+     if(mii)fwk();
+	return t;
+}
+
+void starpre(vec2 fragCoord ){
+
+     vec2 ires=iResolution.xy;
+    vec2 tv=(fragCoord.xy-0.5*ires.xy)/ires.y;
+    tv.y*=1.125;
+    tv.y-=0.0485;
+    tv.x*=1.45;
+	vec3 rd = normalize(vec3(tv, 1.52));
+	vec3 ro = vec3(0., 00.951, -7.5);
+
+    float xx=1.+0.562;
+    float yy=1.+0.2555;
+    R(rd.yz, -yy*pi*3.65);
+    R(rd.xz, xx*pi*3.2);
+    R(ro.yz, -yy*pi*3.65);
+   	R(ro.xz, xx*pi*3.2);   
+    ro.y+=0.85;
+    
+    #ifdef DITHERING
+	vec2 dpos = ( fragCoord.xy / ires.xy );
+	vec2 seed = dpos + fract(iTime);
+	#endif 
+
+	float ld=0., td=0., w=0.;
+	float d=1., t=0.;
+   
+	vec4 sum = vec4(0.0);
+   
+     min_distx=max_distx=0.0;
+    rdx=rd;
+    rox=ro;
+    tx=t;
+    dx=d;
+    tdx=td;
+    ldx=ld;
+    sumx=sum;
+    wx=w;
+    seedx=seed;
+
+}
+
+float ellipse(in vec2 position, in vec2 centre, in float radius1, in float radius2)
+{
+    vec2 pc = position-centre;
+    return (pc.x*pc.x)/(radius1*radius1) + (pc.y*pc.y)/(radius2*radius2) - 1.0;
+}
+
+vec4 mi( vec2 fragCoord ){
+	vec4 fragColor=vec4(0.,0.,0.,1.);
+	vec2 uv = fragCoord.xy / iResolution.xy;
+    starpre(fragCoord);
+    vec2 q = -1.0+2.0*uv;
+    q.x *= iResolution.x/iResolution.y;
+    
+    vec3 ro = vec3(10.0*0.455, 5.5, 12.0*0.55);
+    vec3 rt = vec3(.0,.75, 0.0);
+    
+    vec3 z = normalize(rt-ro);
+    vec3 x = normalize(cross(z, vec3(0.0, 1.0, 0.0)));
+    vec3 y = normalize(cross(x, z));
+    vec3 rd = normalize(mat3(x, y, z)*vec3(q, radians(90.0)));
+    
+    vec3 ld = (ro-rt)/distance(ro, rt);
+    vec3 ld2 = (rt-vec3(0.0, -2.0, -8.0))/distance(vec3(0.0, -2.0, -8.0), rt);
+    
+    vec3 lcol = vec3(01.00, 01.00, 01.00);
+    vec3 col = FOG_COLOR;
+    vec4 lcolx=pline(fragCoord);
+    
+    
+    float t = march(ro, rd);
+	vec3 p = rd*t+ro;
+    float mask=0.;
+    if(t <= FAR){
+        mask=t;
+
+	}
+    if(tx <= FAR){
+        mask+=tdx;}
+    bool hit=(lcolx.g)<1.;
+    
+    sumx.r=sumx.r*step(0.5,sumx.r);
+    mask+=sumx.b+1.-float(hit);
+
+    fragColor = vec4(sumx.xyz,1.);
+    txtrr.x=txtrr.y+txtrr.z;
+    txtrr.xyz=txtrr.xxx*sumx.xyz*2.5; 
+    fragColor += vec4(txtrr*(1.) ,1.0);
+    fragColor.xyz=fragColor.xyz*float(hit)+max(vec3(0.),lcolx.xyz);
+    if (maskmi)fragColor.xyz=vec3(min(1.,mask));
+    /*float valx=min(1.,(1.-5.*ellipse(uv,vec2(0.5,0.4),0.26,0.295)));
+    fragColor.xyz*=valx;*/
+    return fragColor;
+}
+
+
+void main() {
+	vec2 stc=gl_FragCoord.xy;
+    glFragColor = mi(stc);
+}
+
+  </script>
+  <script src="twgl.min.js"></script>
+  <script>
+    "use strict";
+    const gl = twgl.getContext(document.getElementById("c"));
+    var lasttime=0;
+    var shifttime=0;
+  if (!twgl.isWebGL2(gl)) {
+    alert("Sorry, requires WebGL 2.0");
+  }
+    const programInfo = twgl.createProgramInfo(gl, ["vs", "fs"]);
+    const arrays = {
+      position: [-1, -1, 0, 1, -1, 0, -1, 1, 0, -1, 1, 0, 1, -1, 0, 1, 1, 0],
+    };
+    const bufferInfo = twgl.createBufferInfoFromArrays(gl, arrays);
+
+const textures = twgl.createTextures(gl, {
+tx1: { src: "iqn.png" },
+
+});
+
+
+    function render(time) {
+      twgl.resizeCanvasToDisplaySize(gl.canvas);
+      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+      lasttime=paused?lasttime:time-shifttime;
+      shifttime=paused?time-lasttime:shifttime;
+      const uniforms = {
+        u_time: paused?lasttime* 0.001:(time-shifttime) * 0.001,
+        u_resolution: [gl.canvas.width, gl.canvas.height],
+        u_texture1:textures.tx1,
+        maskmi:maskmi,
+        drawmi:drawmi,
+        animmi:animmi,
+      };
+
+      gl.useProgram(programInfo.program);
+      twgl.setBuffersAndAttributes(gl, programInfo, bufferInfo);
+      twgl.setUniforms(programInfo, uniforms);
+      twgl.drawBufferInfo(gl, bufferInfo);
+
+      requestAnimationFrame(render);
+    }
+    requestAnimationFrame(render);
+  </script>
+</html>
+
+

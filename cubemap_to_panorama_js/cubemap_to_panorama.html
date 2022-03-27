@@ -1,0 +1,646 @@
+
+<html>
+    <head>
+        <title>Cubemap to panorama</title>
+        <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+        <style>
+            .imageDrop{ 
+                background:#fff;
+                width:120px;
+                height:30px;
+                font-size:14px;
+                font-style:italic;
+                font-weight: bold;
+                border-radius:18px;
+                border:2px dashed #444; 
+            }
+
+            .uploadImage{
+                visibility: hidden;
+                height:0px;
+                width: 0px;
+            }
+
+            .button {
+                background-color: #af4c50;
+                border: none;
+                color: white;
+                padding: 5px 10px;
+                text-align: center;
+                text-decoration: none;
+                display: inline-block;
+                font-size: 16px;
+            }
+            .button_ex {
+                background-color: #c48924;
+                border: none;
+                color: white;
+                padding: 5px 10px;
+                text-align: center;
+                text-decoration: none;
+                display: inline-block;
+                font-size: 16px;
+            }
+
+            a {
+                color: hotpink;
+            }
+            
+            table {
+                border-collapse: collapse;
+                table-layout:fixed;
+                width: 1000px;
+            }
+
+            td, th {
+                table-layout:fixed;
+                width: 600px;
+                border: 1px solid #202020;
+                text-align: left;
+                padding: 8px;
+            }
+
+
+        </style>
+    </head>
+    <body style = "background: #202020; padding: 32px;">
+        <canvas id = "gl" width = "800" height = "600"></canvas>
+        <br>
+
+        <p><font color="white"><b><button onclick="load_ex1()" class="button_ex" title="Click to laod">Example 1</button> cubemap from: <a href="https://opengameart.org/content/interstellar-skybox">link</a> by <a href="https://opengameart.org/users/arikel">opengameart.org/users/arikel</a></b></font>
+        || <font color="pink"><input type="checkbox" id="sphere_map" onclick="set_smap()"> Display on sphere</font><br>
+        <font color="white"><b><button onclick="load_ex2()" class="button_ex" title="Click to laod">Example 2</button> cubemap from: <a href="https://opengameart.org/content/field-skyboxes">link</a> by <a href="https://opengameart.org/users/tapio">opengameart.org/users/tapio</a></b></font>
+        </p>
+        <table>
+        <tr>
+        <th>
+        <p><font color="white">Select files (image, <b>png or jpg</b>):</font></p>
+        <button style="position: relative; left: 128px;" id="up" class="imageDrop" onclick="document.getElementById('uploadImageup').click()" title="Click"><font color="#af4c50">Up</font> (posy)</button>
+        <input id="uploadImageup" class="uploadImage" type="file" onchange="load_side_file(0, this);"/><br>
+
+        <button id="back" class="imageDrop" onclick="document.getElementById('uploadImageback').click()" title="Click"><font color="#af4c50">Back</font> (negz)</button>
+        <input id="uploadImageback" class="uploadImage" type="file"  onchange="load_side_file(1, this);"/>
+
+        <button id="left" class="imageDrop" onclick="document.getElementById('uploadImageLeft').click()" title="Click"><font color="#af4c50">Left</font> (posx)</button>
+        <input id="uploadImageLeft" class="uploadImage" type="file"  onchange="load_side_file(2, this);"/>
+
+        <button id="front" class="imageDrop" onclick="document.getElementById('uploadImagefront').click()" title="Click"><font color="#af4c50">Front</font> (posz)</button>
+        <input id="uploadImagefront" class="uploadImage" type="file"  onchange="load_side_file(3, this);"/>
+
+        <button id="right" class="imageDrop" onclick="document.getElementById('uploadImageright').click()" title="Click"><font color="#af4c50">Right</font> (negx)</button>
+        <input id="uploadImageright" class="uploadImage" type="file"  onchange="load_side_file(4, this);"/><br>
+
+        <button style="position: relative; left: 128px;" id="down" class="imageDrop" onclick="document.getElementById('uploadImagedown').click()" title="Click"><font color="#af4c50">Down</font> (negy)</button>
+        <input id="uploadImagedown" class="uploadImage" type="file"  onchange="load_side_file(5, this);"/>
+        </th>
+        <th>
+            <p><font color="white">Set rotation (deg): <button onclick="set_reload()">Update</button></font></p>
+            <input style="position: relative; left: 104px; width: 100px;" type="number" id="up_r" value=90><br>
+            <input style="width: 100px;" type="number" id="back_r" value=0>
+            <input style="width: 100px;" type="number" id="left_r" value=0>
+            <input style="width: 100px;" type="number" id="front_r" value=0>
+            <input style="width: 100px;" type="number" id="right_r" value=0>
+            <br>
+            <input style="position: relative; left: 104px; width: 100px;" type="number" id="down_r" value=-90>
+        </th>
+        </tr>
+        </table>
+
+        <br>
+        <font color="white"><div id="status">Status: </div></font>
+        <br>
+        <div><button onclick="set_req_draw()" class="button">Download(save) result</button></div>
+        <div><button onclick="set_reg_open()" class="button">Open result image in browser (below on this page, scroll down)</button></div>
+        <br>
+        <div><font color="white">Save Panorama image resolution (x,y):</font>
+            <input type="number" id="width" value=1280>
+            <input type="number" id="height" value=720></div>
+        <br>
+        <font color="white">
+        <input type="checkbox" id="mips" onclick="set_reload()" checked> apply Mipmap<br>
+        <input type="checkbox" id="sqrt" onclick="set_efsqrt()"> effect sqrt(color)<br>
+        <input type="checkbox" id="pow" onclick="set_efpow()"> effect color*color<br>
+        <input type="checkbox" id="stop_mov" onclick="set_stopmov()"> Animate scroll<br>
+        </font>
+        <br>
+        <div id="image_holder" style="visibility:hidden"><img id="image_prev"></img></div>
+        
+        <script type = "text/javascript">
+            "use strict";
+            var width = 800;
+            var height = 600;
+            var gl = null;
+            var Shader = null;
+            var shadersloaded = false;
+            var cubemap_reload = false;
+            var left_tex = null;
+            var right_tex = null;
+            var front_tex = null;
+            var back_tex = null;
+            var down_tex = null;
+            var up_tex = null;
+            var free_tex = null;
+            var cubemap_tex = null;
+            var gen_mips = false;
+            var ef_sqrt = false;
+            var ef_pow = false;
+            var stop_mov = true;
+            var req_draw = false;
+            var req_open = false;
+            var sphere_map =false;
+            var mouse_x=0;
+            var mouse_y=0;
+            var mouse_x_spos=0;
+            var mouse_y_spos=0;
+            var next_frame_draw = false;
+            
+            function mouse_move(event)
+            {
+                event.preventDefault();
+                mouse_x_spos+=event.clientX-mouse_x;
+                mouse_y_spos+=event.clientY-mouse_y;
+                mouse_x = event.clientX;
+                mouse_y = event.clientY;
+            }
+            
+            function mouse_down(event)
+            {
+                mouse_x = event.clientX;
+                mouse_y = event.clientY;
+                document.addEventListener("mousemove", mouse_move, false);
+            }
+            
+            function mouse_up(event)
+            {
+                document.removeEventListener("mousemove", mouse_move, false);
+            }
+
+            function load_side_file(tex, e)
+            {
+                if (e.files.length < 1)
+                    return;
+                switch (tex) {
+                    case 0:
+                        up_tex = load_new_text(up_tex, window.URL.createObjectURL(e.files[0]));
+                        break;
+                    case 1:
+                        back_tex = load_new_text(back_tex, window.URL.createObjectURL(e.files[0]));
+                        break;
+                    case 2:
+                        left_tex = load_new_text(left_tex, window.URL.createObjectURL(e.files[0]));
+                        break;
+                    case 3:
+                        front_tex = load_new_text(front_tex, window.URL.createObjectURL(e.files[0]));
+                        break;
+                    case 4:
+                        right_tex = load_new_text(right_tex, window.URL.createObjectURL(e.files[0]));
+                        break;
+                    case 5:
+                        down_tex = load_new_text(down_tex, window.URL.createObjectURL(e.files[0]));
+                        break;
+                }
+            }
+            
+            var imgtmp = document.createElement("img");
+            function openImage()
+            {
+                var canvas = document.getElementById('gl');
+                var image = canvas.toDataURL('image/png');
+                var imghold = document.getElementById('image_holder');
+                imghold.style.visibility = "visible";
+                var imgprev = document.getElementById('image_prev');
+                imgprev.src=image;
+            }
+            
+            function downloadImage()
+            {
+                var canvas = document.getElementById('gl');
+                var MIME_TYPE = "image/png";
+                var imgURL = canvas.toDataURL(MIME_TYPE);
+                var dlLink = document.createElement('a');
+                dlLink.download = "panorama_image.png";
+                dlLink.href = imgURL;
+                dlLink.dataset.downloadurl = [MIME_TYPE, dlLink.download, dlLink.href].join(':');
+                document.body.appendChild(dlLink);
+                dlLink.click();
+                document.body.removeChild(dlLink);
+            }
+
+            function set_req_draw()
+            {
+                req_draw = true;
+            }
+            
+            function set_reg_open()
+            {
+                req_open = true;
+                req_draw = true;
+            }
+
+
+            function LoadShader(filenameVertexShader, filenameFragmentShader, index)
+            {
+                var filename_vs = filenameVertexShader;
+                var filename_fs = filenameFragmentShader;
+
+                var v = "";
+                var f = "";
+                var xmlhttp = new XMLHttpRequest();
+                xmlhttp.onreadystatechange = function () {
+                    if (xmlhttp.readyState == XMLHttpRequest.DONE) {
+                        if (xmlhttp.status == 200) {
+                            v = xmlhttp.responseText;
+                            var xmlhttp2 = new XMLHttpRequest();
+                            xmlhttp2.onreadystatechange = function () {
+                                if (xmlhttp2.readyState == XMLHttpRequest.DONE)
+                                    if (xmlhttp2.status == 200) {
+                                        f = xmlhttp2.responseText;
+                                        Shader = InitializeShader(v, f, filenameVertexShader, filenameFragmentShader);
+                                        shadersloaded = true;
+                                    }
+                            };
+                            xmlhttp2.open("GET", filename_fs, true);
+                            xmlhttp2.send();
+                        }
+                    }
+                };
+                xmlhttp.open("GET", filename_vs, true);
+                xmlhttp.send();
+            }
+            
+            function InitializeShader(source_vs, source_frag, fv, ff)
+            {
+                var ErrorMessage = "Initializing Shader Program: <" + fv + ">, <" + ff + ">";
+                var shader_vs = gl.createShader(gl.VERTEX_SHADER);
+                var shader_frag = gl.createShader(gl.FRAGMENT_SHADER);
+                gl.shaderSource(shader_vs, source_vs);
+                gl.shaderSource(shader_frag, source_frag);
+                gl.compileShader(shader_vs);
+                gl.compileShader(shader_frag);
+                var error = false;
+                if (!gl.getShaderParameter(shader_vs, gl.COMPILE_STATUS)) {
+                    ErrorMessage += gl.getShaderInfoLog(shader_vs);
+                    error = true;
+                }
+                if (!gl.getShaderParameter(shader_frag, gl.COMPILE_STATUS)) {
+                    ErrorMessage += gl.getShaderInfoLog(shader_frag);
+                    error = true;
+                }
+                var program = gl.createProgram();
+                var ret = gl.getProgramInfoLog(program);
+                if (ret != "")
+                    ErrorMessage += ret;
+                gl.attachShader(program, shader_vs);
+                gl.attachShader(program, shader_frag);
+                if (gl.linkProgram(program) == 0) {
+                    ErrorMessage += "\r\ngl.linkProgram(program) failed with error code 0.";
+                    error = true;
+                }
+                if (error) {
+                    console.log(ErrorMessage + ' ...failed to initialize shader.');
+                    return false;
+                } else {
+                    console.log(ErrorMessage + ' ...shader successfully created.');
+                    return program;
+                }
+            }
+
+            function isPowerOf2(value) {
+                return (value & (value - 1)) == 0;
+            }
+            
+            function createSolidTexture(t, r, g, b, a) {
+                var data = new Uint8Array([r, g, b, a]);
+                t.data = data;
+                //var texture = gl.createTexture();
+                //gl.bindTexture(gl.TEXTURE_2D, texture);
+                //gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+                //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+                //t.texture = texture;
+                return t;
+            }
+            
+            var ctmp = document.createElement("canvas");
+            function rotate_img(img, angle) {
+                ctmp.width = img.width;
+                ctmp.height = img.height;
+                var ctx = ctmp.getContext("2d");
+                ctx.translate(ctmp.width/2,ctmp.height/2);
+                ctx.rotate(angle*Math.PI/180);
+                ctx.drawImage(img, -img.width/2, -img.width/2);
+                ctx.restore();
+                var imageData = ctx.getImageData(0,0,img.width,img.height);
+                return imageData.data.buffer;
+            }
+            
+
+            var Texture = function (fn) {
+                var that = this;
+                this.filename = fn;
+                this.isload = false;
+                this.width = 0;
+                this.height = 0;
+                this.image = null;
+
+                if (fn === "dummy") {
+                    that = createSolidTexture(that, 0, 0, 0, 0);
+                    return that;
+                }
+                this.load = function (filename) {
+                    that.image = new Image();
+                    that.image.onload = function (event) {
+                        var file = fn.split("/");
+                        that.width = this.width;
+                        that.height = this.height;
+                        console.log("Loaded texture (" + that.width + "x" + that.height + ") filename = " + file[file.length - 1]);
+                        that.isload = true;
+                        cubemap_reload = true;
+                    };
+                    that.image.src = filename;
+                    return that;
+                };
+                if (fn != undefined && fn != "" && fn != null)
+                    this.load(fn);
+                else
+                    console.log("Unable to load texture. Filename '" +
+                            fn + "' is undefined or null.");
+            }
+
+            var atmpt = 100;
+            var catmpt = 0;
+
+            function waiting() {
+                catmpt++;
+                console.log('waiting for shaders loading, try left: ' + (atmpt - catmpt));
+                document.getElementById('status').innerHTML = 'Status: <b>waiting for shaders loading, try left: ' + (atmpt - catmpt)+'</b>';
+                setTimeout(function () {
+                    if (catmpt < atmpt) {
+                        if (!shadersloaded)
+                            waiting();
+                        else
+                        {
+                            catmpt = 0;
+                            document.getElementById('status').innerHTML = "Status: <b>downloading demo textres...</b>";
+                            loadtextures();
+                        }
+                    } else{
+                        console.log('failed loading shaders');
+                        document.getElementById('status').innerHTML = 'Status: <b>failed loading shaders</b>';
+                    }
+                        
+                }, 500);
+            }
+
+
+            function load_cubemap() {
+                gen_mips = document.getElementById('mips').checked;
+                cubemap_tex = gl.createTexture();
+                gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubemap_tex);
+                var isload = (left_tex.isload) && (right_tex.isload) && (front_tex.isload) && (back_tex.isload) && (down_tex.isload) && (up_tex.isload);
+                var isreseq=false
+                if(isload){
+                isreseq=(left_tex.image.width==right_tex.image.width)&&(right_tex.image.width==up_tex.image.width)&&
+                (up_tex.image.width==down_tex.image.width)&&(down_tex.image.width==front_tex.image.width)&&(front_tex.image.width==back_tex.image.width);
+                if(!isreseq){console.log("not rendered: resolution of images not equal");document.getElementById('status').innerHTML = "Status: <b>not rendered: resolution of images not equal, please load ALL images same size(when all loaded it render)</b>";}
+                }
+                isload=isload&&isreseq;
+                if (isload) {
+                    var dataTypedArray = new Uint8Array(rotate_img(left_tex.image, document.getElementById('left_r').value));
+                    gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X, 0, gl.RGBA, left_tex.image.width, left_tex.image.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, dataTypedArray);
+                } else
+                    gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, free_tex.data);
+                if (isload) {
+                    var dataTypedArray = new Uint8Array(rotate_img(right_tex.image, document.getElementById('right_r').value));
+                    gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 0, gl.RGBA, right_tex.image.width, right_tex.image.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, dataTypedArray);
+                } else
+                    gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, free_tex.data);
+                if (isload) {
+                    var dataTypedArray = new Uint8Array(rotate_img(up_tex.image, document.getElementById('up_r').value));
+                    gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, gl.RGBA, up_tex.image.width, up_tex.image.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, dataTypedArray);
+                } else
+                    gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, free_tex.data);
+                if (isload) {
+                    var dataTypedArray = new Uint8Array(rotate_img(down_tex.image, document.getElementById('down_r').value));
+                    gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, gl.RGBA, down_tex.image.width, down_tex.image.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, dataTypedArray);
+                } else
+                    gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, free_tex.data);
+                if (isload) {
+                    var dataTypedArray = new Uint8Array(rotate_img(front_tex.image, document.getElementById('front_r').value));
+                    gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z, 0, gl.RGBA, front_tex.image.width, front_tex.image.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, dataTypedArray);
+                } else
+                    gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, free_tex.data);
+                if (isload) {
+                    var dataTypedArray = new Uint8Array(rotate_img(back_tex.image, document.getElementById('back_r').value));
+                    gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, gl.RGBA, back_tex.image.width, back_tex.image.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, dataTypedArray);
+                } else
+                    gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, free_tex.data);
+
+                if (!gen_mips) {
+                    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                } else {
+                    gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+                    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+                }
+                if(isload){console.log("cubemap rendered");document.getElementById('status').innerHTML = "Status: <b>cubemap rendered</b>";}
+            }
+
+            function reload_cubemap() {
+                if (!cubemap_reload)
+                    return;
+                gl.deleteTexture(cubemap_tex);
+                load_cubemap();
+                cubemap_reload = false;
+            }
+
+            function set_reload() {
+                cubemap_reload = true;
+            }
+
+            function set_efsqrt() {
+                ef_sqrt = document.getElementById('sqrt').checked;
+            }
+
+            function set_efpow() {
+                ef_pow = document.getElementById('pow').checked;
+            }
+
+            function set_stopmov() {
+                stop_mov = !document.getElementById('stop_mov').checked;
+            }
+            
+            function set_smap() {
+                sphere_map = document.getElementById('sphere_map').checked;
+            }
+            
+
+            function initdtextr() {
+                left_tex = new Texture("dummy");
+                right_tex = new Texture("dummy");
+                front_tex = new Texture("dummy");
+                back_tex = new Texture("dummy");
+                down_tex = new Texture("dummy");
+                up_tex = new Texture("dummy");
+                free_tex = new Texture("dummy");
+                load_cubemap();
+            }
+
+            function load_new_text(old, path) {
+                old.isload = false;
+                //gl.deleteTexture(old.texture);
+                var nextext = new Texture(path);
+                return nextext;
+            }
+
+            function loadtextures() {
+                left_tex = load_new_text(left_tex, "test/left.jpg");
+                right_tex = load_new_text(right_tex, "test/right.jpg");
+                front_tex = load_new_text(front_tex, "test/front.jpg");
+                back_tex = load_new_text(back_tex, "test/back.jpg");
+                down_tex = load_new_text(down_tex, "test/down.jpg");
+                up_tex = load_new_text(up_tex, "test/up.jpg");
+                launchwebgl();
+            }
+            
+            function reset_x(){
+                document.getElementById('left_r').value="0";
+                document.getElementById('right_r').value="0";
+                document.getElementById('front_r').value="0";
+                document.getElementById('back_r').value="0";
+                document.getElementById('up_r').value="0";
+                document.getElementById('down_r').value="0";
+            }
+            
+            function load_ex1(){
+                reset_x();
+                document.getElementById('status').innerHTML = "Status: <b>downloading demo textres...</b>";
+                document.getElementById('up_r').value="90";
+                document.getElementById('down_r').value="-90";
+                left_tex = load_new_text(left_tex, "test/left.jpg");
+                right_tex = load_new_text(right_tex, "test/right.jpg");
+                front_tex = load_new_text(front_tex, "test/front.jpg");
+                back_tex = load_new_text(back_tex, "test/back.jpg");
+                down_tex = load_new_text(down_tex, "test/down.jpg");
+                up_tex = load_new_text(up_tex, "test/up.jpg");
+            }
+            
+            function load_ex2(){
+                reset_x();
+                document.getElementById('status').innerHTML = "Status: <b>downloading demo 2 textres...</b>";
+                left_tex = load_new_text(left_tex, "test2/posx.jpg");
+                right_tex = load_new_text(right_tex, "test2/negx.jpg");
+                front_tex = load_new_text(front_tex, "test2/posz.jpg");
+                back_tex = load_new_text(back_tex, "test2/negz.jpg");
+                down_tex = load_new_text(down_tex, "test2/negy.jpg");
+                up_tex = load_new_text(up_tex, "test2/posy.jpg");
+                
+            }
+
+            var gtimex = -1;
+
+            function frame_step(T) {
+                if (gtimex == -1)
+                    gtimex = T;
+                if (!gl)
+                    return;
+                var timex = (T - gtimex) / 1000;
+                if (timex > 6000)
+                    gtimex = T;
+
+                gl.clearColor(0.0, 0.0, 0.0, 1.0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+                gl.useProgram(Shader);
+                gl.uniform1f(gl.getUniformLocation(Shader, "u_time"), timex);
+                gl.uniform2f(gl.getUniformLocation(Shader, "u_resolution"), width, height);
+                gl.uniform2f(gl.getUniformLocation(Shader, "u_mouse"), mouse_x_spos, mouse_y_spos);
+                gl.uniform1i(gl.getUniformLocation(Shader, "ef_sqrt"), ef_sqrt ? 1 : 0);
+                gl.uniform1i(gl.getUniformLocation(Shader, "ef_pow"), ef_pow ? 1 : 0);
+                gl.uniform1i(gl.getUniformLocation(Shader, "stop_mov"), stop_mov ? 1 : 0);
+                gl.uniform1i(gl.getUniformLocation(Shader, "sphere_map"), sphere_map ? 1 : 0);
+                //gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubemap_tex);
+                gl.uniform1i(gl.getUniformLocation(Shader, 'u_cubemap1'), 0);
+
+                gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+                reload_cubemap();
+
+                if (next_frame_draw)
+                {
+                    if(req_open)openImage();
+                    else downloadImage();
+                    req_draw = false;
+                    req_open = false;
+                    next_frame_draw = false;
+                    width = 800;
+                    height = 600;
+                    document.getElementById('gl').height = height;
+                    document.getElementById('gl').width = width;
+                    gl.viewport(0, 0, width, height);
+                    set_smap();
+                }
+                if (req_draw) {
+                    width = document.getElementById('width').value;
+                    height = document.getElementById('height').value;
+                    document.getElementById('gl').height = height;
+                    document.getElementById('gl').width = width;
+                    gl.viewport(0, 0, width, height);
+                    next_frame_draw = true;
+                    sphere_map=false;
+                }
+                window.requestAnimationFrame(frame_step);
+            }
+
+            function launchwebgl() {
+                var vertices = new Float32Array([
+                    -1.0, 1.0, 0.0,
+                    -1.0, -1.0, 0.0,
+                    1.0, -1.0, 0.0,
+                    1.0, 1.0, 0.0,
+                ]);
+                var indices = [0, 1, 2, 2, 3, 0];
+                var vertexbuffer = gl.createBuffer();
+                var indexbuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, vertexbuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+                gl.bindBuffer(gl.ARRAY_BUFFER, null);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexbuffer);
+                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+                gl.bindBuffer(gl.ARRAY_BUFFER, vertexbuffer);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexbuffer);
+                gl.viewport(0, 0, width, height);
+                var coords = gl.getAttribLocation(Shader, "a_Position");
+                gl.vertexAttribPointer(coords, 3, gl.FLOAT, false, 0, 0);
+                gl.enableVertexAttribArray(coords);
+
+                window.requestAnimationFrame(frame_step);
+
+            }
+            
+            document.addEventListener("mouseup", mouse_up, false);
+            document.addEventListener("DOMContentLoaded", function (event) {
+                var canvas = document.getElementById('gl');
+                canvas.addEventListener("mousedown", mouse_down, false);
+                gl = canvas.getContext("webgl2");
+                if (!gl) {
+                    console.log('webgl2 not supported, trying webgl');
+                    gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl") || canvas.getContext("moz-webgl") || canvas.getContext("webkit-3d");
+                    if (!gl) {
+                        console.log('webgl not suported');
+                        document.getElementById('status').innerHTML = 'Status: <b>webgl not suported</b>';
+                        return;
+                    } else {
+                        console.log('continue using webgl');
+                    }
+                } else {
+                    console.log('continue with webgl2');
+                }
+                LoadShader("shaders/vs.glsl", "shaders/fs.glsl");
+                initdtextr();
+                waiting();
+            });
+
+        </script>
+    </body>
+</html>

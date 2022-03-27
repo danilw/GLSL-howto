@@ -1,0 +1,546 @@
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>an art</title>
+    <style>
+      body {
+          margin: 0;
+          font-family: monospace;
+      }
+      canvas {
+          display: block;
+          width: 100vw;
+          height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+<script>
+var paused=false;
+var pausego = function (e) {
+    var e = e || window.event;
+    var btnCode;
+
+    if ('object' === typeof e) {
+		paused=!paused;
+    }
+}
+</script>
+  <button onmouseup="pausego(event);" oncontextmenu="event.preventDefault();">pause/continue</button>
+    <canvas id="c"></canvas>
+  </body>
+  <script id="vs" type="notjs">
+#version 300 es
+in vec4 position;
+
+void main() {
+  gl_Position = position;
+}
+  </script>
+
+  <script id="fs" type="notjs">
+#version 300 es
+#extension GL_OES_standard_derivatives : enable
+precision mediump float;
+
+uniform vec2 u_resolution;
+uniform float u_time;
+uniform sampler2D u_texture1;
+uniform sampler2D u_texture2;
+uniform sampler2D u_texture3;
+uniform sampler2D u_texture4;
+
+//egg mask
+//-------
+#define  rac mix(.5,3.,sin(3.85)*.5+.5)
+
+#define v0 float
+#define v1 vec2
+#define v2 vec3
+#define v3 vec4
+#define fra(u) (u-.5*u_resolution.xy)*1.5/u_resolution.y
+v0 mav(v1 a){return max(a.y,a.x);}
+v0 mav(v2 a){return max(a.z,mav(a.xy));}
+v0 mav(v3 a){return max(mav(a.zw),mav(a.xy));}
+#define miv(a) -maxv(-a)
+#define dd(a) dot(a,a)
+#define fr(a) fract(a)
+#define ss2t(a) a=abs(a*2.-1.)
+#define grid(u) mav(abs(fr(u)*2.-1.))
+#define mStretch(u,m) .5*(sign(u)*m-u)*((sign(abs(u)-m))+1.)
+#define mStretchM(u,m) mStretch((u*2.+m),m)*.5
+#define mStretchP(u,m) mStretch((u*2.-m),m)*.5
+#define greater(a,b,c)   mix(a,b,step(c,0.))
+#define less(a,b,c)      mix(a,b,step(0.,c))
+#define equals(a,b,c)    mix(b,a,step(c,0.)+step(0.,c)-1.)
+#define unequal(a,b,c)   mix(a,b,step(c,0.)+step(0.,c)-1.)
+#define unless(a,b,c)    mix(b,a,step(0.,c))
+#define ungreater(a,b,c) mix(b,a,step(c,0.))
+v0 sat(v0 a,v1 m){    
+ a=.5*(sign(a)+m.x)*a+m.y;
+ a=(sign(2.-a)+1.)*(a-2.)+2.; 
+ return a*.5;}
+v0 sat(v0 a){return sat(a,v1(1));}
+v2 rg(v2 c,v1 u){v0 fsaa=1./min(u_resolution.x,u_resolution.y);
+ return vec3(c.rg=mix(fract(c.rg*4.),smoothstep(fsaa,-fsaa,c.rg),
+  .5+(atan(c.rg))/acos(-1.)),grid(u));}
+
+float cci(vec3 r){float d=r.z*2.;r*=r;return(r.x-r.y+r.z)/d;}
+v0 rect(v1 u,v3 m){return mav(abs(u*2.-m.xy)-m.xy)*.5;}
+v1 arc(v1 u,v3 m){return v1(m.x-abs(m.y),dd(u));}
+float sd2l(vec2 u, vec4 m){
+ vec2 f=m.zw-m.xy;f=vec2(-f.y,f.x);
+ return dot(u-m.xy,(f));
+}
+
+v0 c(v1 U){
+ v1 u=fra(U);
+ v2 c=v2(0);
+ v3 m=v3(0.353,-0.384,0.,0.); 
+ u.y+=.5; 
+ m.y+=.5;
+ m.xy=min(m.xy,vec2(.49999));
+ m.xy=max(m.xy,vec2(-.49999));
+ m=abs(m);
+ if(m.x>m.y)m.xy=m.yx;
+ vec3 ad=vec3(m.y-rac,m.y,rac);  
+ vec3 d=vec3(0,m.y,m.y);          
+ vec3 ae=vec3(m.x-rac,1.-m.x,rac); 
+ vec3 e=vec3(0,1.-m.x,m.x);      
+ vec3 hig=vec3(0,1.-m.x,rac-m.x);
+ vec3 low=vec3(0,m.y,rac-m.y);
+  vec2 i=vec2(0);
+  i.y=ad.y-cci(vec3(low.z,hig.z,ad.y-ae.y));
+  float y=m.y-i.y;
+  i.x=-sqrt(low.z*low.z-y*y);
+    u.x=abs(u.x);
+ float da=sd2l(u,vec4(i,d.xy));
+ float db=sd2l(u,vec4(i,e.xy));
+    c=vec3(0);
+         if(da<.0)c.g=length(u-d.xy)-d.z;
+ else if(db>.0)   c.g=length(u-e.xy)-e.z; 
+  else c.g=length(u-i)-low.z-m.y;
+ c=min(v2(1.),mix(fract(c),50.*-c,.86));
+ c=c.ggb;    
+return c.r;
+}
+
+float egg(vec2 U){
+    return c(U);
+}
+
+//-------
+
+
+//egg bg1
+//-------
+
+
+const mat2 m = mat2( 0.80,  0.60, -0.60,  0.80 );
+
+float hash( vec2 p )
+{
+	float h = dot(p,vec2(127.1,311.7));	
+    return -1.0 + 2.0*fract(sin(h)*43758.5453123);
+}
+
+float noise( in vec2 p )
+{
+    vec2 i = floor( p );
+    vec2 f = fract( p );	
+	vec2 u = f*f*(3.0-2.0*f);
+    return mix( mix( hash( i + vec2(0.0,0.0) ), 
+                     hash( i + vec2(1.0,0.0) ), u.x),
+                mix( hash( i + vec2(0.0,1.0) ), 
+                     hash( i + vec2(1.0,1.0) ), u.x), u.y);
+}
+
+float fbm( vec2 p )
+{
+    float f = 0.0;
+    f += 0.5000*noise( p ); p = m*p*2.02; p.y += 0.02*u_time;
+    f += 0.2500*noise( p ); p = m*p*2.03; p.y -= 0.02*u_time;
+    f += 0.1250*noise( p ); p = m*p*2.01; p.y += 0.02*u_time;
+    f += 0.0625*noise( p );
+    return f/0.9375;
+}
+
+vec2 fbm2( vec2 p )
+{
+    return vec2( fbm(p.xy), fbm(p.yx) );
+}
+
+vec3 doImage( vec2 p, vec2 q )
+{   
+    p *= 0.25;    
+    float f = 0.35 + fbm( 1.0*(p + fbm2(2.0*(p + fbm2(4.0*p)))) );
+    vec2 r = p.yx*2.0;
+    f -= 0.2*(1.0-2.0*abs(f))*0.1;
+    float v = 16.0*q.x*q.y*(1.0-q.x)*(1.0-q.y);
+    f += 1.1*(1.0-smoothstep( 0.0, 0.6, v ));    
+    float w = fwidth(f);
+    float bl = smoothstep( -w, w, f );
+    float ti = smoothstep( -0.9, 0.7, fbm(3.0*p+0.5) );    
+	return mix( mix( vec3(0.0,0.0,0.0), 
+                     vec3(0.9,0.0,0.0), ti ), 
+                     vec3(1.0,1.0,1.0), bl );
+}
+
+vec4 ebg1( vec2 fragCoord )
+{
+    vec2 p = (-u_resolution.xy+2.0*fragCoord.xy)/ u_resolution.y;
+    vec2 q = p;    
+    q = 0.5 + 0.5*q/vec2(600.0/800.0,1.0);    
+    vec3 col = doImage( (p-0.0), clamp(q,0.0,1.0) );    
+    col *= 1.0 - smoothstep( 0.0, 1.0/u_resolution.y, abs(q.x - 0.5)-0.5 );
+    vec4 fc = vec4( col.bgr, 1.0 );
+    return fc;
+}
+
+
+
+//-------
+
+
+//egg bg2
+//-------
+vec3 rgb2hsv(vec3 c)
+{
+    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+
+    float d = q.x - min(q.w, q.y);
+    float e = 1.0e-10;
+    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+
+vec3 hsv2rgb(vec3 c)
+{
+    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+
+float length2(vec2 p){
+    return dot(p,p);
+}
+
+float noisex(vec2 n) {
+    return abs(1.0 - 2.0 * fract(sin(cos(dot(n, vec2(1297.98,123.14)))) * 83758.5456));
+}
+
+float worley(vec2 p) {
+ float d = 1e10;
+ for (int xo = -1; xo <= 1; ++xo) 
+ {
+  for (int yo = -1; yo <= 1; ++yo) 
+  {
+   vec2 tp = floor(p) + vec2(xo, yo);
+   d = min(d, length2(p - tp - noisex(tp)));
+  }
+ }
+    float r = 1.18-sin(sqrt(d));
+      return r;
+}
+
+float worley_layered(vec2 n)
+{
+    
+    return (worley(n)*2.0 + worley(n*2.0)*3.0 + worley(n*4.0) + worley(n*8.0))/7.0 + noisex(n)/80.0;
+}
+
+float intensity(vec2 uv)
+{
+    vec2 uv2 = uv;
+    uv.x += 0.001;
+   float w = worley_layered(uv) +
+       worley_layered(uv + u_time/8.0)/5.0;
+    return w*w*w*w*sqrt(w)*0.81;
+}
+
+void HyperbolicDisc(inout vec2 fragCoord,float msk,bool ifc ) {
+    fragCoord.y += u_resolution.y * 0.15;
+    fragCoord -= u_resolution.xy * 0.5;
+    fragCoord /= u_resolution.x;
+    float r = length(fragCoord);
+    vec2 d = fragCoord / r *1.8 ;
+    if(ifc)d=d*msk;
+    fragCoord = d / atanh(r * (msk)) / 5.0;
+    fragCoord *= u_resolution.x;
+    fragCoord += u_resolution.xy *0.5;
+    fragCoord *= 0.24;
+}
+
+vec4 ebg2( vec2 fragCoord,float msk,bool ifc )
+{
+    HyperbolicDisc(fragCoord,msk,ifc);
+	vec2 uv = fragCoord.xy / u_resolution.xy;   
+    vec2 oldUV = uv;
+    uv -= u_time/18.0;
+    uv.y /= 1.7;
+    float bi = intensity(1.2 * uv );
+    bi *= bi + sin(u_time)/5.0 + .3;
+    vec3 tint = vec3(0.25, 0.47, 0.97);
+    vec3 color = tint * bi;
+    vec3 lowrangeTint = vec3(0.98, 0.8, 0.7);
+    if (bi < 0.3)
+        color *= lowrangeTint * 0.97;
+    vec3 hsv = rgb2hsv(color);
+    hsv.z *= 1.2;
+    hsv.z -= hsv.y/7.0;
+    hsv.z += oldUV.x/3.5;
+    hsv.z += 0.4;
+    hsv.z *= hsv.z * hsv.z;
+    hsv.z /= 1.7;
+    color = hsv2rgb(hsv);
+	return ( vec4(color, 1.0) )*msk;
+
+}
+
+
+//-------
+
+vec4 frame(vec2 U, out float mskk){
+    float msk=egg(U);
+    mskk=msk;
+    vec4 tcc1=ebg1(U);
+    vec4 tcc11=1.-tcc1;
+    vec4 tcc2=ebg2(U,msk,true).ggra*(1.-(1.-tcc1.abra));
+    vec4 tcc22=ebg2(U,tcc1.b*msk,false);
+    vec4 O=max(vec4(0.),tcc2)*msk;
+    return O;
+}
+
+//texture aa
+//-------
+float w0(float a)
+{
+    return (1.0/6.0)*(a*(a*(-a + 3.0) - 3.0) + 1.0);
+}
+
+float w1(float a)
+{
+    return (1.0/6.0)*(a*a*(3.0*a - 6.0) + 4.0);
+}
+
+float w2(float a)
+{
+    return (1.0/6.0)*(a*(a*(-3.0*a + 3.0) + 3.0) + 1.0);
+}
+
+float w3(float a)
+{
+    return (1.0/6.0)*(a*a*a);
+}
+
+float g0(float a)
+{
+    return w0(a) + w1(a);
+}
+
+float g1(float a)
+{
+    return w2(a) + w3(a);
+}
+
+float h0(float a)
+{
+    return -1.0 + w1(a) / (w0(a) + w1(a));
+}
+
+float h1(float a)
+{
+    return 1.0 + w3(a) / (w2(a) + w3(a));
+}
+
+vec4 texture_bicubic(sampler2D tex, vec2 uv, vec4 texelSize)
+{
+	uv = uv*texelSize.zw + 0.5;
+	vec2 iuv = floor( uv );
+	vec2 fuv = fract( uv );
+
+    float g0x = g0(fuv.x);
+    float g1x = g1(fuv.x);
+    float h0x = h0(fuv.x);
+    float h1x = h1(fuv.x);
+    float h0y = h0(fuv.y);
+    float h1y = h1(fuv.y);
+
+	vec2 p0 = (vec2(iuv.x + h0x, iuv.y + h0y) - 0.5) * texelSize.xy;
+	vec2 p1 = (vec2(iuv.x + h1x, iuv.y + h0y) - 0.5) * texelSize.xy;
+	vec2 p2 = (vec2(iuv.x + h0x, iuv.y + h1y) - 0.5) * texelSize.xy;
+	vec2 p3 = (vec2(iuv.x + h1x, iuv.y + h1y) - 0.5) * texelSize.xy;
+	
+    return g0(fuv.y) * (g0x * texture(tex, p0)  +
+                        g1x * texture(tex, p1)) +
+           g1(fuv.y) * (g0x * texture(tex, p2)  +
+                        g1x * texture(tex, p3));
+}
+
+
+vec4 texture_f(sampler2D tex,vec2 uv, vec2 texres){
+	vec3 colA = (texture(u_texture1,uv).a*vec4(1.,0.,0.,1.)).xyz;
+    vec4 texelSize = vec4( 1.0 / texres.xy,  texres.xy);
+	vec3 colB = (texture_bicubic( tex, uv, texelSize )	.a*vec4(1.,0.,0.,1.)).xyz;
+	vec3 col = mix( colA, colB, 1. );
+    return vec4( col, 1.0 );
+
+}
+//-------
+
+//textures color
+//-------
+vec4 colsh1=vec4(253./255.,13./255.,0.,1.);
+vec4 colsh2=vec4(.05490/1.3,.83921/1.3,.10588/1.3,1.);
+vec4 colsh3=vec4(.20000/1.3,.90588/1.3,.27450/1.3,1.);
+vec4 colsh4=vec4(.01260,.40000,.08941,1.);
+
+vec4 stext(vec2 fragCoord ,vec2 texres, out float mask)
+{
+	vec2 tmpresxx=u_resolution.xy;
+    vec2 margin = vec2(tmpresxx.y/tmpresxx.x>texres.y/texres.x?(-tmpresxx.y+tmpresxx.x*texres.y/texres.x):1.),
+    Sres =tmpresxx.xy  -2.*margin,
+         Tres = texres,
+         ratio = Sres/Tres;
+    vec2 U = fragCoord;
+    U -= margin;
+    
+    U -= .5*Tres*max(vec2(ratio.x-ratio.y,ratio.y-ratio.x),0.);
+    U /= Tres*min(ratio.x,ratio.y);  
+    U *= 2.;   
+    U -= 0.5;    
+    U.y -= 0.2;            
+    
+    float bg2=fract(U)==U 
+        ? texture_f(u_texture2,U,texres).r
+        : 0.;
+    vec4 bg1=fract(U)==U 
+        ? (texture_f(u_texture1,U,texres).r*colsh1+texture_f(u_texture3,U,texres).r*colsh3+texture_f(u_texture4,U,texres).r*colsh4)*(1.-bg2)+bg2*colsh2
+        : vec4(0.);
+        mask=fract(U)==U 
+        ? (texture_f(u_texture1,U,texres).r+texture_f(u_texture3,U,texres).r+texture_f(u_texture4,U,texres).r)*(1.-bg2)+bg2
+        : 0.;
+    return vec4(bg1);
+}
+//-------
+
+
+//rays
+//-------
+vec4 rayColor(vec2 fragToCenterPos, vec2 fragCoord) {
+	float d = length(fragToCenterPos);
+	fragToCenterPos = normalize(fragToCenterPos);
+		
+	float multiplier = 0.0;
+	const float loop = 60.0;
+	const float dotTreshold = 0.90;
+	const float timeScale = 0.75;
+	const float fstep = 10.0;
+	
+	float c = 0.5/(d*d);
+	float freq = 0.25;		
+	for (float i = 1.0; i < loop; i++) {
+		float attn = c;
+		attn *= 1.85*(sin(i*0.3*u_time)*0.5+0.5);
+		float t = u_time*timeScale - fstep*i;
+		vec2 dir = vec2(cos(freq*t), sin(freq*t));
+		float m = dot(dir, fragToCenterPos);
+		m = pow(abs(m), 4.0);
+		m *= float((m) > dotTreshold);
+		multiplier += 0.10*attn*m/(i);
+	}
+
+
+	float f = 1.0;
+
+		
+
+	const vec4 rayColor = vec4(0.84 ,0.21, 0.84, 1.0);
+		
+	float pat = abs(sin(10.0*mod(fragCoord.y*fragCoord.x, 1.5)));
+	f += pat;
+	vec4 color = f*multiplier*rayColor;
+	return color;
+}
+
+
+vec4 bg3 (vec2 fragCoord ) {
+    
+    float aspect = u_resolution.x / u_resolution.y;	
+	vec3 pos = vec3(fragCoord.xy / u_resolution.xy, 1.0);
+	pos.y+=0.2;
+	pos.x *= aspect;
+	vec2 fragToCenterPos = vec2(pos.x - 0.5*aspect, pos.y - 0.5);
+	vec4 rayCol = rayColor(fragToCenterPos,fragCoord);
+	fragToCenterPos.y-=0.3;
+    return rayCol*smoothstep(0.45,0.3,length(fragToCenterPos));
+}
+//-------
+
+
+out vec4 glFragColor;
+void main() {
+	vec2 stc=gl_FragCoord.xy;
+	stc.y=u_resolution.y-stc.y;
+	float msk;
+	vec4 tc1=stext(stc,vec2(2966.,1686.),msk);
+	float mskk;
+	vec4 ecc=frame(gl_FragCoord.xy,mskk);
+    glFragColor = ecc*(1.-msk)+bg3(gl_FragCoord.xy)*(1.-msk)/2.*mskk+tc1;
+}
+
+  </script>
+  <script src="twgl.min.js"></script>
+  <script>
+    "use strict";
+    const gl = twgl.getContext(document.getElementById("c"));
+    var lasttime=0;
+    var shifttime=0;
+  if (!twgl.isWebGL2(gl)) {
+    alert("Sorry, requires WebGL 2.0");
+  }
+    const programInfo = twgl.createProgramInfo(gl, ["vs", "fs"]);
+    const arrays = {
+      position: [-1, -1, 0, 1, -1, 0, -1, 1, 0, -1, 1, 0, 1, -1, 0, 1, 1, 0],
+    };
+    const bufferInfo = twgl.createBufferInfoFromArrays(gl, arrays);
+
+const textures = twgl.createTextures(gl, {
+tx1: { src: "maskf_1.png" },
+tx2: { src: "maskf_2.png" },
+tx3: { src: "maskf_3.png" },
+tx4: { src: "maskf_4.png" },
+
+});
+
+
+    function render(time) {
+      twgl.resizeCanvasToDisplaySize(gl.canvas);
+      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+      lasttime=paused?lasttime:time-shifttime;
+      shifttime=paused?time-lasttime:shifttime;
+      const uniforms = {
+        u_time: paused?lasttime* 0.001:(time-shifttime) * 0.001,
+        u_resolution: [gl.canvas.width, gl.canvas.height],
+        u_texture1:textures.tx1,
+        u_texture2:textures.tx2,
+        u_texture3:textures.tx3,
+        u_texture4:textures.tx4,
+      };
+
+      gl.useProgram(programInfo.program);
+      twgl.setBuffersAndAttributes(gl, programInfo, bufferInfo);
+      twgl.setUniforms(programInfo, uniforms);
+      twgl.drawBufferInfo(gl, bufferInfo);
+
+      requestAnimationFrame(render);
+    }
+    requestAnimationFrame(render);
+  </script>
+</html>
+
+

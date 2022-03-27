@@ -1,0 +1,1625 @@
+#version 300 es
+
+#ifdef GL_ES
+precision highp float;
+#endif
+
+// Entrées
+in vec3 in_Vertex;
+in vec2 in_TexCoord0;
+
+// Sorties
+out vec2 tcoord;
+
+void main()
+{
+    tcoord = in_TexCoord0;
+	gl_Position = vec4(in_Vertex, 1.0);
+}
+#version 300 es
+
+#ifdef GL_ES
+precision highp float;
+#endif
+
+//
+// Atmospheric scattering vertex shader
+//
+// Author: Sean O'Neil
+//
+// Copyright (c) 2004 Sean O'Neil
+//
+
+in vec3 in_Vertex;
+
+uniform mat4 modelview;
+uniform mat4 projection;
+uniform vec3 v3CameraPos;		// The camera's current position
+uniform vec3 v3LightPos;		// The direction vector to the light source
+uniform vec3 v3InvWavelength;	// 1 / pow(wavelength, 4) for the red, green, and blue channels
+uniform float fCameraHeight;	// The camera's current height
+uniform float fCameraHeight2;	// fCameraHeight^2
+uniform float fOuterRadius;		// The outer (atmosphere) radius
+uniform float fOuterRadius2;	// fOuterRadius^2
+uniform float fInnerRadius;		// The inner (planetary) radius
+uniform float fInnerRadius2;	// fInnerRadius^2
+uniform float fKrESun;			// Kr * ESun
+uniform float fKmESun;			// Km * ESun
+uniform float fKr4PI;			// Kr * 4 * PI
+uniform float fKm4PI;			// Km * 4 * PI
+uniform float fScale;			// 1 / (fOuterRadius - fInnerRadius)
+uniform float fScaleDepth;		// The scale depth (i.e. the altitude at which the atmosphere's average density is found)
+uniform float fScaleOverScaleDepth;	// fScale / fScaleDepth
+
+uniform int nSamples;
+uniform float fSamples;
+
+out vec3 v3Direction;
+out vec4 color;
+out vec4 secondaryColor;
+out vec4 spaceColor;
+
+const float PI = 3.141592654;
+
+float scale(float fCos)
+{
+	float x = 1.0 - fCos;
+	return fScaleDepth * exp(-0.00287 + x*(0.459 + x*(3.83 + x*(-6.80 + x*5.25))));
+}
+
+void main(void)
+{
+	vec3 pos = normalize(in_Vertex.xyz) * fOuterRadius;
+	// Get the ray from the camera to the vertex and its length (which is the far point of the ray passing through the atmosphere)
+	vec3 v3Pos = pos;
+	vec3 v3Ray = v3Pos - v3CameraPos;
+	float fFar = length(v3Ray);
+	v3Ray /= fFar;
+	
+	float fStartOffset;
+	vec3 v3Start;
+	if(fCameraHeight > fOuterRadius){
+		// Calculate the closest intersection of the ray with the outer atmosphere (which is the near point of the ray passing through the atmosphere)
+		float B = 2.0 * dot(v3CameraPos, v3Ray);
+		float C = fCameraHeight2 - fOuterRadius2;
+		float fDet = max(0.0, B*B - 4.0 * C);
+		float fNear = 0.5 * (-B - sqrt(fDet));
+
+		// Calculate the ray's starting position, then calculate its scattering offset
+		v3Start = v3CameraPos + v3Ray * fNear;
+		fFar -= fNear;
+		float fStartAngle = dot(v3Ray, v3Start) / fOuterRadius;
+		float fStartDepth = exp(-1.0 / fScaleDepth);
+		fStartOffset = fStartDepth*scale(fStartAngle);
+	}
+	else{
+		// Calculate the ray's starting position, then calculate its scattering offset
+		v3Start = v3CameraPos;
+		float fHeight = length(v3Start);
+		float fDepth = exp(fScaleOverScaleDepth * (fInnerRadius - fCameraHeight));
+		float fStartAngle = dot(v3Ray, v3Start) / fHeight;
+		fStartOffset = fDepth*scale(fStartAngle);
+	}
+	// Initialize the scattering loop variables
+	//gl_FrontColor = vec4(0.0, 0.0, 0.0, 0.0);
+	float fSampleLength = fFar / fSamples;
+	float fScaledLength = fSampleLength * fScale;
+	vec3 v3SampleRay = v3Ray * fSampleLength;
+	vec3 v3SamplePoint = v3Start + v3SampleRay * 0.5;
+	
+	// Now loop through the sample rays
+	vec3 v3FrontColor = vec3(0.0, 0.0, 0.0);
+	for(int i=0; i<nSamples; i++)
+	{
+		float fHeight = length(v3SamplePoint);
+		float fDepth = exp(fScaleOverScaleDepth * (fInnerRadius - fHeight));
+		float fLightAngle = dot(v3LightPos, v3SamplePoint) / fHeight;
+		float fCameraAngle = dot(v3Ray, v3SamplePoint) / fHeight;
+		float fScatter = (fStartOffset + fDepth*(scale(fLightAngle) - scale(fCameraAngle)));
+		vec3 v3Attenuate = exp(-fScatter * (v3InvWavelength * fKr4PI + fKm4PI));
+		v3FrontColor += v3Attenuate * (fDepth * fScaledLength);
+		v3SamplePoint += v3SampleRay;
+	}
+
+	// Finally, scale the Mie and Rayleigh colors and set up the varying variables for the pixel shader
+	secondaryColor.rgb = v3FrontColor * fKmESun;
+	color.rgb = v3FrontColor * (v3InvWavelength * fKrESun);
+	spaceColor.rgb = exp(-PI/4. * (v3InvWavelength * fKr4PI + fKm4PI));
+	
+	gl_Position = projection * modelview * vec4(pos, 1.0);
+	v3Direction = v3CameraPos - v3Pos;
+}
+#version 300 es
+
+#ifdef GL_ES
+precision highp float;
+#endif
+
+//
+// Description : Array and textureless GLSL 2D/3D/4D simplex
+// noise functions.
+// Author : Ian McEwan, Ashima Arts.
+// Maintainer : ijm
+// Lastmod : 20110822 (ijm)
+// License : Copyright (C) 2011 Ashima Arts. All rights reserved.
+// Distributed under the MIT License. See LICENSE file.
+// https://github.com/ashima/webgl-noise
+//
+
+
+
+
+vec3 mod289(vec3 x) {
+  return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+
+vec4 mod289(vec4 x) {
+  return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+
+vec4 permute(vec4 x) {
+     return mod289(((x*34.0)+1.0)*x);
+}
+
+vec4 taylorInvSqrt(vec4 r)
+{
+  return 1.79284291400159 - 0.85373472095314 * r;
+}
+
+float simplexNoise(vec3 v)
+  {
+  const vec2 C = vec2(1.0/6.0, 1.0/3.0) ;
+  const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+
+// First corner
+  vec3 i = floor(v + dot(v, C.yyy) );
+  vec3 x0 = v - i + dot(i, C.xxx) ;
+
+// Other corners
+  vec3 g = step(x0.yzx, x0.xyz);
+  vec3 l = 1.0 - g;
+  vec3 i1 = min( g.xyz, l.zxy );
+  vec3 i2 = max( g.xyz, l.zxy );
+
+  // x0 = x0 - 0.0 + 0.0 * C.xxx;
+  // x1 = x0 - i1 + 1.0 * C.xxx;
+  // x2 = x0 - i2 + 2.0 * C.xxx;
+  // x3 = x0 - 1.0 + 3.0 * C.xxx;
+  vec3 x1 = x0 - i1 + C.xxx;
+  vec3 x2 = x0 - i2 + C.yyy; // 2.0*C.x = 1/3 = C.y
+  vec3 x3 = x0 - D.yyy; // -1.0+3.0*C.x = -0.5 = -D.y
+
+// Permutations
+  i = mod289(i);
+  vec4 p = permute( permute( permute(
+             i.z + vec4(0.0, i1.z, i2.z, 1.0 ))
+           + i.y + vec4(0.0, i1.y, i2.y, 1.0 ))
+           + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
+
+// Gradients: 7x7 points over a square, mapped onto an octahedron.
+// The ring size 17*17 = 289 is close to a multiple of 49 (49*6 = 294)
+  float n_ = 0.142857142857; // 1.0/7.0
+  vec3 ns = n_ * D.wyz - D.xzx;
+
+  vec4 j = p - 49.0 * floor(p * ns.z * ns.z); // mod(p,7*7)
+
+  vec4 x_ = floor(j * ns.z);
+  vec4 y_ = floor(j - 7.0 * x_ ); // mod(j,N)
+
+  vec4 x = x_ *ns.x + ns.yyyy;
+  vec4 y = y_ *ns.x + ns.yyyy;
+  vec4 h = 1.0 - abs(x) - abs(y);
+
+  vec4 b0 = vec4( x.xy, y.xy );
+  vec4 b1 = vec4( x.zw, y.zw );
+
+  //vec4 s0 = vec4(lessThan(b0,0.0))*2.0 - 1.0;
+  //vec4 s1 = vec4(lessThan(b1,0.0))*2.0 - 1.0;
+  vec4 s0 = floor(b0)*2.0 + 1.0;
+  vec4 s1 = floor(b1)*2.0 + 1.0;
+  vec4 sh = -step(h, vec4(0.0));
+
+  vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
+  vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
+
+  vec3 p0 = vec3(a0.xy,h.x);
+  vec3 p1 = vec3(a0.zw,h.y);
+  vec3 p2 = vec3(a1.xy,h.z);
+  vec3 p3 = vec3(a1.zw,h.w);
+
+//Normalise gradients
+  vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+  p0 *= norm.x;
+  p1 *= norm.y;
+  p2 *= norm.z;
+  p3 *= norm.w;
+
+// Mix final noise value
+  vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+  m = m * m;
+  return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1),
+                                dot(p2,x2), dot(p3,x3) ) );
+}
+    
+/* Ridged multifractal terrain model.
+ *
+ * Copyright 1994 F. Kenton Musgrave
+ *
+ * Some good parameter values to start with:
+ *
+ *      H:           1.0
+ *      offset:      1.0
+ *      gain:        2.0
+ */
+float ridgedMultifractal( vec3 point, float H, float lacunarity,
+                    float octaves, float offset, float gain )
+{
+      float           result, frequency, signal, weight;
+      int              i;
+
+      float    exponent_array[21];
+
+      /* precompute and store spectral weights */
+                      
+      frequency = 1.0;
+      for (i=0; i<=int(octaves); i++) {
+        /* compute weight for each frequency */
+        exponent_array[i] = pow( frequency, -H );
+        frequency *= lacunarity;
+      }
+   
+
+      /* get first octave */
+      signal = simplexNoise( point );
+      /* get absolute value of signal (this creates the ridges) */
+      if ( signal < 0.0 ) signal = -signal;
+      /* invert and translate (note that "offset" should be ~= 1.0) */
+      signal = offset - signal;
+      /* square the signal, to increase "sharpness" of ridges */
+      signal *= signal;
+      /* assign initial values */
+      result = signal;
+      weight = 1.0;
+
+      for( i=1; i<int(octaves); i++ ) {
+            /* increase the frequency */
+            point.x *= lacunarity;
+            point.y *= lacunarity;
+            point.z *= lacunarity;
+
+            /* weight successive contributions by previous signal */
+            weight = signal * gain;
+            if ( weight > 1.0 ) weight = 1.0;
+            if ( weight < 0.0 ) weight = 0.0;
+            signal = simplexNoise( point );
+            if ( signal < 0.0 ) signal = -signal;
+            signal = offset - signal;
+            signal *= signal;
+            /* weight the contribution */
+            signal *= weight;
+            result += signal * exponent_array[i];
+      }
+
+      return( result );
+
+} /* RidgedMultifractal() */
+
+// Entrée
+in vec3 pos;
+
+// Uniform
+//uniform float radius;
+uniform float scale;
+// Sortie 
+	
+layout(location = 0)out vec4 out_Color;
+
+const float minAlt = 0.008;
+const float maxAlt = 1.75;
+//const float scale = 1.0;
+const float lacunarity = 2.5;
+const float octaves = 15.0;
+const float offset = 1.0;
+const float gain = 1.6;
+const float HH = 0.87;
+
+// Fonction main
+void main()
+{
+    //float h = ridgedMultifractal( pos * 1.0, 0.87, 2.5, 15, 1.0, 1.6);
+	float h = ridgedMultifractal( pos*scale, HH, lacunarity, octaves , offset, gain);
+    h = (h  + minAlt)/(minAlt + maxAlt);
+    h = pow(h, 3.);
+    h = clamp(h, 0.0, 1.0);
+    
+    out_Color = vec4(h,h,h,1.0);
+}
+#version 300 es
+
+#ifdef GL_ES
+precision highp float;
+#endif
+
+in vec2 tcoord;
+
+uniform sampler2D map;
+uniform float exposure;
+
+out vec4 out_Color;
+
+void main()
+{
+	vec4 color = texture(map, tcoord);
+	out_Color = 1.0 - exp(color * - exposure);
+}
+
+#version 300 es
+
+#ifdef GL_ES
+precision highp float;
+#endif
+
+// Entrées
+in vec3 in_Vertex;
+
+// Sortie
+out vec3 pos;
+
+// Uniform
+uniform mat4 projection;
+uniform mat4 modelview;
+uniform mat4 transform;
+
+// Fonction main
+void main()
+{
+	vec4 newPos = transform * vec4(in_Vertex, 1.0);
+    gl_Position = projection * modelview * newPos;
+    pos = newPos.xyz;
+}
+#version 300 es
+
+#ifdef GL_ES
+precision highp float;
+#endif
+
+// Entrées
+in vec3 in_Vertex;
+
+// Sortie
+out vec3 pos;
+
+// Uniform
+uniform mat4 projection;
+uniform mat4 modelview;
+uniform mat4 transform;
+
+// Fonction main
+void main()
+{
+	vec4 newPos = transform * vec4(in_Vertex, 1.0);
+    gl_Position = projection * modelview * newPos;
+    pos = newPos.xyz;
+}
+#version 300 es
+
+#ifdef GL_ES
+precision highp float;
+#endif
+
+vec3 cubeToSphereMapping(vec3 v) {
+    vec3 res;
+    res.x = v.x * sqrt( 1. - (v.y * v.y)/2.0 - (v.z * v.z)/2.0 + (v.y*v.y * v.z*v.z)/3.0);
+    res.y = v.y * sqrt( 1. - (v.z * v.z)/2.0 - (v.x * v.x)/2.0 + (v.x*v.x * v.z*v.z)/3.0);
+    res.z = v.z * sqrt( 1. - (v.x * v.x)/2.0 - (v.y * v.y)/2.0 + (v.y*v.y * v.x*v.x)/3.0);
+
+    return (res);
+}
+
+//
+// Description : Array and textureless GLSL 2D/3D/4D simplex
+// noise functions.
+// Author : Ian McEwan, Ashima Arts.
+// Maintainer : ijm
+// Lastmod : 20110822 (ijm)
+// License : Copyright (C) 2011 Ashima Arts. All rights reserved.
+// Distributed under the MIT License. See LICENSE file.
+// https://github.com/ashima/webgl-noise
+//
+
+
+vec3 mod289(vec3 x) {
+  return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+
+vec4 mod289(vec4 x) {
+  return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+
+vec4 permute(vec4 x) {
+     return mod289(((x*34.0)+1.0)*x);
+}
+
+vec4 taylorInvSqrt(vec4 r)
+{
+  return 1.79284291400159 - 0.85373472095314 * r;
+}
+
+float simplexNoise(vec3 v)
+  {
+  const vec2 C = vec2(1.0/6.0, 1.0/3.0) ;
+  const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+
+// First corner
+  vec3 i = floor(v + dot(v, C.yyy) );
+  vec3 x0 = v - i + dot(i, C.xxx) ;
+
+// Other corners
+  vec3 g = step(x0.yzx, x0.xyz);
+  vec3 l = 1.0 - g;
+  vec3 i1 = min( g.xyz, l.zxy );
+  vec3 i2 = max( g.xyz, l.zxy );
+
+  // x0 = x0 - 0.0 + 0.0 * C.xxx;
+  // x1 = x0 - i1 + 1.0 * C.xxx;
+  // x2 = x0 - i2 + 2.0 * C.xxx;
+  // x3 = x0 - 1.0 + 3.0 * C.xxx;
+  vec3 x1 = x0 - i1 + C.xxx;
+  vec3 x2 = x0 - i2 + C.yyy; // 2.0*C.x = 1/3 = C.y
+  vec3 x3 = x0 - D.yyy; // -1.0+3.0*C.x = -0.5 = -D.y
+
+// Permutations
+  i = mod289(i);
+  vec4 p = permute( permute( permute(
+             i.z + vec4(0.0, i1.z, i2.z, 1.0 ))
+           + i.y + vec4(0.0, i1.y, i2.y, 1.0 ))
+           + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
+
+// Gradients: 7x7 points over a square, mapped onto an octahedron.
+// The ring size 17*17 = 289 is close to a multiple of 49 (49*6 = 294)
+  float n_ = 0.142857142857; // 1.0/7.0
+  vec3 ns = n_ * D.wyz - D.xzx;
+
+  vec4 j = p - 49.0 * floor(p * ns.z * ns.z); // mod(p,7*7)
+
+  vec4 x_ = floor(j * ns.z);
+  vec4 y_ = floor(j - 7.0 * x_ ); // mod(j,N)
+
+  vec4 x = x_ *ns.x + ns.yyyy;
+  vec4 y = y_ *ns.x + ns.yyyy;
+  vec4 h = 1.0 - abs(x) - abs(y);
+
+  vec4 b0 = vec4( x.xy, y.xy );
+  vec4 b1 = vec4( x.zw, y.zw );
+
+  //vec4 s0 = vec4(lessThan(b0,0.0))*2.0 - 1.0;
+  //vec4 s1 = vec4(lessThan(b1,0.0))*2.0 - 1.0;
+  vec4 s0 = floor(b0)*2.0 + 1.0;
+  vec4 s1 = floor(b1)*2.0 + 1.0;
+  vec4 sh = -step(h, vec4(0.0));
+
+  vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
+  vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
+
+  vec3 p0 = vec3(a0.xy,h.x);
+  vec3 p1 = vec3(a0.zw,h.y);
+  vec3 p2 = vec3(a1.xy,h.z);
+  vec3 p3 = vec3(a1.zw,h.w);
+
+//Normalise gradients
+  vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+  p0 *= norm.x;
+  p1 *= norm.y;
+  p2 *= norm.z;
+  p3 *= norm.w;
+
+// Mix final noise value
+  vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+  m = m * m;
+  return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1),
+                                dot(p2,x2), dot(p3,x3) ) );
+}
+
+/* Ridged multifractal terrain model.
+ *
+ * Copyright 1994 F. Kenton Musgrave
+ *
+ * Some good parameter values to start with:
+ *
+ *      H:           1.0
+ *      offset:      1.0
+ *      gain:        2.0
+ */
+float ridgedMultifractal( vec3 point, float H, float lacunarity,
+                    float octaves, float offset, float gain )
+{
+      float           result, frequency, signal, weight;
+      int              i;
+
+      float    exponent_array[21];
+
+      /* precompute and store spectral weights */
+                      
+      frequency = 1.0;
+      for (i=0; i<=int(octaves); i++) {
+        /* compute weight for each frequency */
+        exponent_array[i] = pow( frequency, -H );
+        frequency *= lacunarity;
+      }
+   
+
+      /* get first octave */
+      signal = simplexNoise( point );
+      /* get absolute value of signal (this creates the ridges) */
+      if ( signal < 0.0 ) signal = -signal;
+      /* invert and translate (note that "offset" should be ~= 1.0) */
+      signal = offset - signal;
+      /* square the signal, to increase "sharpness" of ridges */
+      signal *= signal;
+      /* assign initial values */
+      result = signal;
+      weight = 1.0;
+
+      for( i=1; i<int(octaves); i++ ) {
+            /* increase the frequency */
+            point.x *= lacunarity;
+            point.y *= lacunarity;
+            point.z *= lacunarity;
+
+            /* weight successive contributions by previous signal */
+            weight = signal * gain;
+            if ( weight > 1.0 ) weight = 1.0;
+            if ( weight < 0.0 ) weight = 0.0;
+            signal = simplexNoise( point );
+            if ( signal < 0.0 ) signal = -signal;
+            signal = offset - signal;
+            signal *= signal;
+            /* weight the contribution */
+            signal *= weight;
+            result += signal * exponent_array[i];
+      }
+
+      return( result );
+
+} /* RidgedMultifractal() */
+
+
+const float PI = 3.141592654 ;
+const float PI2 = 6.283185307;
+
+float atan2(float y, float x){
+if(x>0.)
+	return atan(y/x);
+if(y>=0. && x<0.)
+	return atan(y/x) + PI;
+if(y<0. && x<0.)
+	return atan(y/x) - PI;
+if(y>0. && x==0.)
+	return PI/2.;
+if(y<0. && x==0.)
+	return -PI/2.;
+}
+
+const float lacunarity = 2.5;
+const float octaves = 13.0;
+const float offset = 1.0;
+const float gain = 1.6;
+const float HH = 0.87;
+const float minCoeff = 0.008;
+const float maxCoeff = 1.75;
+
+vec3 noiseNormal( vec3 pos, float scale, float strength, float definition, float width, float mapSize){
+	vec3 e,w,n,s;
+	
+	/*
+	//variante 1
+	float phi = acos(pos.y / length(pos));
+	float theta = atan2(pos.x, pos.z);
+	phi+= PI/2;
+	
+	vec3 T = normalize( vec3( sin(phi)*cos(theta), sin(phi)*sin(theta), cos(phi) ) );
+	vec3 N = normalize(pos);
+	vec3 B = cross(N, T);
+	*/
+	
+	//variante 2
+	float r = length(pos);
+	float phi = asin(pos.y / r);
+	float theta = atan2(pos.z, pos.x);
+
+	vec3 T = normalize( vec3( -cos(theta)*sin(phi), -sin(theta)*sin(phi), cos(phi) ) );
+	vec3 B = normalize( vec3( -sin(theta), cos(theta), 0.0f ) );
+	vec3 N = normalize(pos);
+	
+	
+    float off = width * 1.0/(mapSize * definition);
+    
+    e = (pos + T * off);  
+    w = (pos - T * off);
+    
+    n = (pos + B * off);
+    s = (pos - B * off);
+	
+    float he = ridgedMultifractal( e*scale, HH, lacunarity, octaves , offset, gain);
+    float hw = ridgedMultifractal( w*scale, HH, lacunarity, octaves , offset, gain);
+    float hs = ridgedMultifractal( s*scale, HH, lacunarity, octaves , offset, gain);
+    float hn = ridgedMultifractal( n*scale, HH, lacunarity, octaves , offset, gain);
+	he = pow(he, 3.);
+	hw = pow(hw, 3.);
+	hs = pow(hs, 3.);
+	hn = pow(hn, 3.);
+	
+	vec3 NN;
+	NN.x = hw - he;
+    NN.y = hs - hn;
+    NN.z = strength * width;
+	//NN.z = 0.1 * width;
+    NN = normalize(NN);
+	return NN;
+}
+
+in vec2 tcoord;
+in vec3 normal;
+in vec3 pos;
+
+uniform int plane;
+uniform int level;
+uniform sampler2D heightmap;
+uniform vec4 uniform_color;
+uniform int mapSize;
+uniform float width;
+uniform float scale;
+
+out vec4 out_Color;
+
+void main( void )
+{
+	
+	vec3 N = noiseNormal( pos, scale, 2.5, 1.0, width, float(mapSize));
+    out_Color = vec4( N , 1.0);
+
+}
+#version 300 es
+
+#ifdef GL_ES
+precision highp float;
+#endif
+
+// Entrées
+in vec3 in_Vertex;
+in vec2 in_TexCoord0;
+in vec3 in_Normal;
+
+// Sortie
+out vec2 tcoord;
+out vec3 pos;
+out vec3 normal;
+
+// Uniform
+uniform mat4 projection;
+uniform mat4 modelview;
+uniform mat4 transform;
+//uniform mat4 texMatrix;
+
+// Fonction main
+void main()
+{
+	vec4 newPos = transform * vec4(in_Vertex, 1.0);
+    gl_Position = projection * modelview * newPos;
+    pos = newPos.xyz;
+    
+    tcoord = in_TexCoord0;
+    //tcoord = (texMatrix * vec4(tcoord, 0.0, 1.0)).xy;
+
+    normal = in_Normal;
+}
+#version 300 es
+
+#ifdef GL_ES
+precision highp float;
+#endif
+
+//
+// Atmospheric scattering vertex shader
+//
+// Author: Sean O'Neil
+//
+// Copyright (c) 2004 Sean O'Neil
+//
+
+in vec3 in_Vertex;
+
+uniform mat4 modelview;
+uniform mat4 projection;
+uniform vec3 v3CameraPos;		// The camera's current position
+uniform vec3 v3LightPos;		// The direction vector to the light source
+uniform vec3 v3InvWavelength;	// 1 / pow(wavelength, 4) for the red, green, and blue channels
+uniform float fCameraHeight;	// The camera's current height
+uniform float fCameraHeight2;	// fCameraHeight^2
+uniform float fOuterRadius;		// The outer (atmosphere) radius
+uniform float fOuterRadius2;	// fOuterRadius^2
+uniform float fInnerRadius;		// The inner (planetary) radius
+uniform float fInnerRadius2;	// fInnerRadius^2
+uniform float fKrESun;			// Kr * ESun
+uniform float fKmESun;			// Km * ESun
+uniform float fKr4PI;			// Kr * 4 * PI
+uniform float fKm4PI;			// Km * 4 * PI
+uniform float fScale;			// 1 / (fOuterRadius - fInnerRadius)
+uniform float fScaleDepth;		// The scale depth (i.e. the altitude at which the atmosphere's average density is found)
+uniform float fScaleOverScaleDepth;	// fScale / fScaleDepth
+
+uniform int nSamples;
+uniform float fSamples;
+
+out vec3 v3Direction;
+out vec4 color;
+out vec4 secondaryColor;
+
+float scale(float fCos)
+{
+	float x = 1.0 - fCos;
+	return fScaleDepth * exp(-0.00287 + x*(0.459 + x*(3.83 + x*(-6.80 + x*5.25))));
+}
+
+void main(void)
+{
+	vec3 pos = normalize(in_Vertex.xyz) * fOuterRadius;
+	// Get the ray from the camera to the vertex and its length (which is the far point of the ray passing through the atmosphere)
+	vec3 v3Pos = pos;
+	vec3 v3Ray = v3Pos - v3CameraPos;
+	float fFar = length(v3Ray);
+	v3Ray /= fFar;
+	
+	float fStartOffset;
+	vec3 v3Start;
+	if(fCameraHeight > fOuterRadius){
+		// Calculate the closest intersection of the ray with the outer atmosphere (which is the near point of the ray passing through the atmosphere)
+		float B = 2.0 * dot(v3CameraPos, v3Ray);
+		float C = fCameraHeight2 - fOuterRadius2;
+		float fDet = max(0.0, B*B - 4.0 * C);
+		float fNear = 0.5 * (-B - sqrt(fDet));
+
+		// Calculate the ray's starting position, then calculate its scattering offset
+		v3Start = v3CameraPos + v3Ray * fNear;
+		fFar -= fNear;
+		float fStartAngle = dot(v3Ray, v3Start) / fOuterRadius;
+		float fStartDepth = exp(-1.0 / fScaleDepth);
+		fStartOffset = fStartDepth*scale(fStartAngle);
+	}
+	else{
+		// Calculate the ray's starting position, then calculate its scattering offset
+		v3Start = v3CameraPos;
+		float fHeight = length(v3Start);
+		float fDepth = exp(fScaleOverScaleDepth * (fInnerRadius - fCameraHeight));
+		float fStartAngle = dot(v3Ray, v3Start) / fHeight;
+		fStartOffset = fDepth*scale(fStartAngle);
+	}
+	// Initialize the scattering loop variables
+	//gl_FrontColor = vec4(0.0, 0.0, 0.0, 0.0);
+	float fSampleLength = fFar / fSamples;
+	float fScaledLength = fSampleLength * fScale;
+	vec3 v3SampleRay = v3Ray * fSampleLength;
+	vec3 v3SamplePoint = v3Start + v3SampleRay * 0.5;
+	
+	// Now loop through the sample rays
+	vec3 v3FrontColor = vec3(0.0, 0.0, 0.0);
+	for(int i=0; i<nSamples; i++)
+	{
+		float fHeight = length(v3SamplePoint);
+		float fDepth = exp(fScaleOverScaleDepth * (fInnerRadius - fHeight));
+		float fLightAngle = dot(v3LightPos, v3SamplePoint) / fHeight;
+		float fCameraAngle = dot(v3Ray, v3SamplePoint) / fHeight;
+		float fScatter = (fStartOffset + fDepth*(scale(fLightAngle) - scale(fCameraAngle)));
+		vec3 v3Attenuate = exp(-fScatter * (v3InvWavelength * fKr4PI + fKm4PI));
+		v3FrontColor += v3Attenuate * (fDepth * fScaledLength);
+		v3SamplePoint += v3SampleRay;
+	}
+
+	// Finally, scale the Mie and Rayleigh colors and set up the varying variables for the pixel shader
+	secondaryColor.rgb = v3FrontColor * fKmESun;
+	color.rgb = v3FrontColor * (v3InvWavelength * fKrESun);
+
+	gl_Position = projection * modelview * vec4(pos, 1.0);
+	v3Direction = v3CameraPos - v3Pos;
+}
+#version 300 es
+
+#ifdef GL_ES
+precision highp float;
+#endif
+
+//
+// Atmospheric scattering fragment shader
+//
+// Author: Sean O'Neil
+//
+// Copyright (c) 2004 Sean O'Neil
+//
+in vec4 color;
+in vec4 secondaryColor;
+in vec4 spaceColor;
+in vec3 v3Direction;
+
+uniform vec3 v3CameraPos;
+uniform vec3 v3LightPos;
+uniform float fInnerRadius;
+uniform float g;
+uniform float g2;
+
+out vec4 out_Color;
+
+void main (void)
+{
+	float fCos = dot(v3LightPos, v3Direction) / length(v3Direction);
+	float fRayleighPhase = 0.75 * (1. + fCos*fCos);
+	float fMiePhase = 1.5 * ((1.0 - g2) / (2.0 + g2)) * (1.0 + fCos*fCos) / pow(1.0 + g2 - 2.0*g*fCos, 1.5);
+
+	out_Color = 0.005 * vec4(fMiePhase + fRayleighPhase)* spaceColor;
+
+}
+#version 300 es
+
+#ifdef GL_ES
+precision highp float;
+precision highp int;
+#endif
+
+vec3 cubeToSphereMapping(vec3 v) {
+    vec3 res;
+    res.x = v.x * sqrt( 1. - (v.y * v.y)/2.0 - (v.z * v.z)/2.0 + (v.y*v.y * v.z*v.z)/3.0);
+    res.y = v.y * sqrt( 1. - (v.z * v.z)/2.0 - (v.x * v.x)/2.0 + (v.x*v.x * v.z*v.z)/3.0);
+    res.z = v.z * sqrt( 1. - (v.x * v.x)/2.0 - (v.y * v.y)/2.0 + (v.y*v.y * v.x*v.x)/3.0);
+
+    return (res);
+}
+
+const float PI = 3.141592654 ;
+const float PI2 = 6.283185307;
+
+float atan2(float y, float x){
+if(x>0.)
+	return atan(y/x);
+if(y>=0. && x<0.)
+	return atan(y/x) + PI;
+if(y<0. && x<0.)
+	return atan(y/x) - PI;
+if(y>0. && x==0.)
+	return PI/2.;
+if(y<0. && x==0.)
+	return -PI/2.;
+}
+
+mat3 TBNFrame( vec3 N, vec3 p)
+{
+	float r = length(p);
+	float phi = asin(p.y / r);
+	float theta = atan2(p.z, p.x);
+	
+	vec3 T = normalize( vec3( -cos(theta)*sin(phi), -sin(theta)*sin(phi), cos(phi) ) );
+	vec3 B = cross(N, T);
+	
+    return mat3( T , B , N );
+}
+
+// Entrées
+in vec2 in_TexCoord0;
+in vec3 in_Vertex;
+in vec3 in_Normal;
+
+// Uniform
+uniform sampler2D heightmap;
+uniform sampler2D displacementmap;
+uniform mat4 projection;
+uniform mat4 modelview;
+uniform mat4 transform;
+uniform mat4 hmapMatrix;
+uniform mat4 nmapMatrix;
+uniform mat4 dmapMatrix;
+
+uniform int hmapSize;
+uniform int nmapSize;
+uniform int dmapSize;
+uniform float maxHeight;
+uniform float radius;
+
+// Sortie
+out vec2 tcoord;
+out vec3 pos;
+out vec3 origPos;
+out vec2 tcoordNmap;
+out vec2 tcoordDmap;
+out vec3 normal;
+out vec3 viewDirC;//camera space
+out vec3 lightDirC;//camera space
+out mat3 modelview3;
+out mat3 TBN;
+
+//
+// Atmospheric scattering vertex shader
+//
+// Author: Sean O'Neil
+//
+// Copyright (c) 2004 Sean O'Neil
+//
+uniform vec3 v3CameraPos;		// The camera's current position
+uniform vec3 v3LightPos;		// The direction vector to the light source
+uniform vec3 v3InvWavelength;	// 1 / pow(wavelength, 4) for the red, green, and blue channels
+uniform float fCameraHeight;	// The camera's current height
+uniform float fCameraHeight2;	// fCameraHeight^2
+uniform float fOuterRadius;		// The outer (atmosphere) radius
+uniform float fOuterRadius2;	// fOuterRadius^2
+uniform float fInnerRadius;		// The inner (planetary) radius
+uniform float fInnerRadius2;	// fInnerRadius^2
+uniform float fKrESun;			// Kr * ESun
+uniform float fKmESun;			// Km * ESun
+uniform float fKr4PI;			// Kr * 4 * PI
+uniform float fKm4PI;			// Km * 4 * PI
+uniform float fScale;			// 1 / (fOuterRadius - fInnerRadius)
+uniform float fScaleDepth;		// The scale depth (i.e. the altitude at which the atmosphere's average density is found)
+uniform float fScaleOverScaleDepth;	// fScale / fScaleDepth
+
+uniform int nSamples;
+uniform float fSamples;
+
+out vec4 color;
+out vec4 secondaryColor;
+
+float scale(float fCos)
+{
+	float x = 1.0 - fCos;
+	return fScaleDepth * exp(-0.00287 + x*(0.459 + x*(3.83 + x*(-6.80 + x*5.25))));
+}
+
+void main( void )
+{
+    tcoord = in_TexCoord0;
+    tcoordNmap = in_TexCoord0;
+	tcoordDmap = in_TexCoord0;
+    tcoord = (hmapMatrix * vec4(in_TexCoord0, 0.0, 1.0)).xy;
+    tcoordNmap = (nmapMatrix * vec4(in_TexCoord0, 0.0, 1.0)).xy;
+	tcoordDmap = (dmapMatrix * vec4(in_TexCoord0, 0.0, 1.0)).xy;
+    
+    float h = texture(displacementmap, tcoordDmap).r;
+    h = clamp ( h, 0.1f, 1.0f );//océans
+    h -= 0.1f;
+    h*=maxHeight;
+    
+	//h=0.0;
+    //vec4 newPosition = vec4(in_Vertex, 1.0);
+	vec4 newPosition = transform * vec4( in_Vertex, 1.0 );
+	newPosition = vec4( cubeToSphereMapping( newPosition.xyz ) * radius, 1.0 );
+	//newPosition = vec4( normalize( newPosition.xyz ) * radius, 1.0 );
+	origPos = newPosition.xyz;
+    newPosition = vec4( normalize( newPosition.xyz ) * h + newPosition.xyz, 1.0 );
+    pos = newPosition.xyz;
+
+    //normal = in_Normal;
+	normal = normalize(pos);
+
+	TBN = TBNFrame(normal, origPos);
+	
+    modelview3 = mat3(modelview);
+
+    viewDirC = - ( modelview * newPosition ).xyz;
+    lightDirC = normalize( modelview3 * v3LightPos );
+	
+    gl_Position = projection * modelview * newPosition;
+	
+	//
+	// Atmospheric scattering
+	//
+	
+	// Get the ray from the camera to the vertex and its length (which is the far point of the ray passing through the atmosphere)
+	vec3 v3Pos = origPos;//in_Vertex.xyz;
+	vec3 v3Ray = v3Pos - v3CameraPos;
+	float fFar = length(v3Ray);
+	v3Ray /= fFar;
+	
+	vec3 v3Start;
+	if(fCameraHeight > fOuterRadius){
+		// Calculate the closest intersection of the ray with the outer atmosphere (which is the near point of the ray passing through the atmosphere)
+		float B = 2.0 * dot(v3CameraPos, v3Ray);
+		float C = fCameraHeight2 - fOuterRadius2;
+		float fDet = max(0.0, B*B - 4.0 * C);
+		float fNear = 0.5 * (-B - sqrt(fDet));
+
+		// Calculate the ray's starting position
+		v3Start = v3CameraPos + v3Ray * fNear;
+		fFar -= fNear;
+	}else{
+		// Calculate the ray's starting position
+		v3Start = v3CameraPos;
+	}
+	// Then calculate its scattering offset
+	float fDepth = exp((fInnerRadius - fOuterRadius) / fScaleDepth);
+	float fCameraAngle = dot(-v3Ray, v3Pos) / length(v3Pos);
+	float fLightAngle = dot(v3LightPos, v3Pos) / length(v3Pos);
+	float fCameraScale = scale(fCameraAngle);
+	float fLightScale = scale(fLightAngle);
+	float fCameraOffset = fDepth*fCameraScale;
+	float fTemp = (fLightScale + fCameraScale);
+
+	// Initialize the scattering loop variables
+	float fSampleLength = fFar / fSamples;
+	float fScaledLength = fSampleLength * fScale;
+	vec3 v3SampleRay = v3Ray * fSampleLength;
+	vec3 v3SamplePoint = v3Start + v3SampleRay * 0.5;
+
+	// Now loop through the sample rays
+	vec3 v3FrontColor = vec3(0.0, 0.0, 0.0);
+	vec3 v3Attenuate;
+
+	for(int i=0; i<nSamples; i++)
+	{
+		float fHeight = length(v3SamplePoint);
+		float fDepth = exp(fScaleOverScaleDepth * (fInnerRadius - fHeight));
+		float fScatter = fDepth*fTemp - fCameraOffset;
+		v3Attenuate = exp(-fScatter * (v3InvWavelength * fKr4PI + fKm4PI));
+		v3FrontColor += v3Attenuate * (fDepth * fScaledLength);
+		v3SamplePoint += v3SampleRay;
+	}
+
+	color.rgb = v3FrontColor * (v3InvWavelength * fKrESun + fKmESun);
+
+	// Calculate the attenuation factor for the ground
+	secondaryColor.rgb = v3Attenuate;
+}
+
+
+
+
+#version 300 es
+
+#ifdef GL_ES
+precision highp float;
+#endif
+
+//
+// Atmospheric scattering fragment shader
+//
+// Author: Sean O'Neil
+//
+// Copyright (c) 2004 Sean O'Neil
+//
+in vec4 color;
+in vec4 secondaryColor;
+in vec3 v3Direction;
+
+uniform vec3 v3LightPos;
+uniform float g;
+uniform float g2;
+
+out vec4 out_Color;
+
+void main (void)
+{
+	float fCos = dot(v3LightPos, v3Direction) / length(v3Direction);
+	float fRayleighPhase = 0.75 * (1. + fCos*fCos);
+	float fMiePhase = 1.5 * ((1.0 - g2) / (2.0 + g2)) * (1.0 + fCos*fCos) / pow(1.0 + g2 - 2.0*g*fCos, 1.5);
+	out_Color = fRayleighPhase * color + fMiePhase * secondaryColor;
+}
+#version 300 es
+
+#ifdef GL_ES
+precision highp float;
+#endif
+
+//
+// Description : Array and textureless GLSL 2D/3D/4D simplex
+// noise functions.
+// Author : Ian McEwan, Ashima Arts.
+// Maintainer : ijm
+// Lastmod : 20110822 (ijm)
+// License : Copyright (C) 2011 Ashima Arts. All rights reserved.
+// Distributed under the MIT License. See LICENSE file.
+// https://github.com/ashima/webgl-noise
+//
+
+vec3 mod289(vec3 x) {
+  return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+
+vec4 mod289(vec4 x) {
+  return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+
+vec4 permute(vec4 x) {
+     return mod289(((x*34.0)+1.0)*x);
+}
+
+vec4 taylorInvSqrt(vec4 r)
+{
+  return 1.79284291400159 - 0.85373472095314 * r;
+}
+
+float simplexNoise(vec3 v)
+  {
+  const vec2 C = vec2(1.0/6.0, 1.0/3.0) ;
+  const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+
+// First corner
+  vec3 i = floor(v + dot(v, C.yyy) );
+  vec3 x0 = v - i + dot(i, C.xxx) ;
+
+// Other corners
+  vec3 g = step(x0.yzx, x0.xyz);
+  vec3 l = 1.0 - g;
+  vec3 i1 = min( g.xyz, l.zxy );
+  vec3 i2 = max( g.xyz, l.zxy );
+
+  // x0 = x0 - 0.0 + 0.0 * C.xxx;
+  // x1 = x0 - i1 + 1.0 * C.xxx;
+  // x2 = x0 - i2 + 2.0 * C.xxx;
+  // x3 = x0 - 1.0 + 3.0 * C.xxx;
+  vec3 x1 = x0 - i1 + C.xxx;
+  vec3 x2 = x0 - i2 + C.yyy; // 2.0*C.x = 1/3 = C.y
+  vec3 x3 = x0 - D.yyy; // -1.0+3.0*C.x = -0.5 = -D.y
+
+// Permutations
+  i = mod289(i);
+  vec4 p = permute( permute( permute(
+             i.z + vec4(0.0, i1.z, i2.z, 1.0 ))
+           + i.y + vec4(0.0, i1.y, i2.y, 1.0 ))
+           + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
+
+// Gradients: 7x7 points over a square, mapped onto an octahedron.
+// The ring size 17*17 = 289 is close to a multiple of 49 (49*6 = 294)
+  float n_ = 0.142857142857; // 1.0/7.0
+  vec3 ns = n_ * D.wyz - D.xzx;
+
+  vec4 j = p - 49.0 * floor(p * ns.z * ns.z); // mod(p,7*7)
+
+  vec4 x_ = floor(j * ns.z);
+  vec4 y_ = floor(j - 7.0 * x_ ); // mod(j,N)
+
+  vec4 x = x_ *ns.x + ns.yyyy;
+  vec4 y = y_ *ns.x + ns.yyyy;
+  vec4 h = 1.0 - abs(x) - abs(y);
+
+  vec4 b0 = vec4( x.xy, y.xy );
+  vec4 b1 = vec4( x.zw, y.zw );
+
+  //vec4 s0 = vec4(lessThan(b0,0.0))*2.0 - 1.0;
+  //vec4 s1 = vec4(lessThan(b1,0.0))*2.0 - 1.0;
+  vec4 s0 = floor(b0)*2.0 + 1.0;
+  vec4 s1 = floor(b1)*2.0 + 1.0;
+  vec4 sh = -step(h, vec4(0.0));
+
+  vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
+  vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
+
+  vec3 p0 = vec3(a0.xy,h.x);
+  vec3 p1 = vec3(a0.zw,h.y);
+  vec3 p2 = vec3(a1.xy,h.z);
+  vec3 p3 = vec3(a1.zw,h.w);
+
+//Normalise gradients
+  vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+  p0 *= norm.x;
+  p1 *= norm.y;
+  p2 *= norm.z;
+  p3 *= norm.w;
+
+// Mix final noise value
+  vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+  m = m * m;
+  return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1),
+                                dot(p2,x2), dot(p3,x3) ) );
+}
+    
+/* Ridged multifractal terrain model.
+ *
+ * Copyright 1994 F. Kenton Musgrave
+ *
+ * Some good parameter values to start with:
+ *
+ *      H:           1.0
+ *      offset:      1.0
+ *      gain:        2.0
+ */
+float ridgedMultifractal( vec3 point, float H, float lacunarity,
+                    float octaves, float offset, float gain )
+{
+      float           result, frequency, signal, weight;
+      int              i;
+
+      float    exponent_array[21];
+
+      /* precompute and store spectral weights */
+                      
+      frequency = 1.0;
+      for (i=0; i<=int(octaves); i++) {
+        /* compute weight for each frequency */
+        exponent_array[i] = pow( frequency, -H );
+        frequency *= lacunarity;
+      }
+   
+
+      /* get first octave */
+      signal = simplexNoise( point );
+      /* get absolute value of signal (this creates the ridges) */
+      if ( signal < 0.0 ) signal = -signal;
+      /* invert and translate (note that "offset" should be ~= 1.0) */
+      signal = offset - signal;
+      /* square the signal, to increase "sharpness" of ridges */
+      signal *= signal;
+      /* assign initial values */
+      result = signal;
+      weight = 1.0;
+
+      for( i=1; i<int(octaves); i++ ) {
+            /* increase the frequency */
+            point.x *= lacunarity;
+            point.y *= lacunarity;
+            point.z *= lacunarity;
+
+            /* weight successive contributions by previous signal */
+            weight = signal * gain;
+            if ( weight > 1.0 ) weight = 1.0;
+            if ( weight < 0.0 ) weight = 0.0;
+            signal = simplexNoise( point );
+            if ( signal < 0.0 ) signal = -signal;
+            signal = offset - signal;
+            signal *= signal;
+            /* weight the contribution */
+            signal *= weight;
+            result += signal * exponent_array[i];
+      }
+
+      return( result );
+
+} /* RidgedMultifractal() */
+
+// Entrée
+in vec3 pos;
+
+// Uniform
+uniform float scale;
+// Sortie 
+layout(location = 0)out vec4 out_Color;
+
+const float minAlt = 0.008;
+const float maxAlt = 1.75;
+const float lacunarity = 2.5;
+const float octaves = 11.0;
+const float offset = 1.0;
+const float gain = 1.6;
+const float HH = 0.87;
+
+// Fonction main
+void main()
+{
+	float h = ridgedMultifractal( pos*scale, HH, lacunarity, octaves , offset, gain);
+    h = (h  + minAlt)/(minAlt + maxAlt);
+    h = pow(h, 3.);
+    h = clamp(h, 0.0, 1.0);
+    
+    out_Color = vec4(h,h,h,1.0);
+}
+#version 300 es
+
+#ifdef GL_ES
+precision highp float;
+#endif
+
+// Entrée
+in vec4 color;
+
+// Sortie 
+out vec4 out_Color;
+
+void main()
+{
+    out_Color = color;
+}
+#version 300 es
+
+#ifdef GL_ES
+precision highp float;
+#endif
+
+// Entrées
+in vec3 in_Vertex;
+
+// Uniform
+uniform mat4 modelview;
+uniform mat4 projection;
+uniform vec4 uniform_color;
+
+// Sortie
+out vec4 color;
+
+void main()
+{
+    gl_Position = projection * modelview * vec4(in_Vertex, 1.0);
+    color = uniform_color;
+}
+#version 300 es
+
+#ifdef GL_ES
+precision highp float;
+precision highp int;
+#endif
+
+//
+// Description : Array and textureless GLSL 2D/3D/4D simplex
+// noise functions.
+// Author : Ian McEwan, Ashima Arts.
+// Maintainer : ijm
+// Lastmod : 20110822 (ijm)
+// License : Copyright (C) 2011 Ashima Arts. All rights reserved.
+// Distributed under the MIT License. See LICENSE file.
+// https://github.com/ashima/webgl-noise
+// 
+
+
+vec2 mod289(vec2 x) {
+  return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+
+vec3 mod289(vec3 x) {
+  return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+
+vec4 mod289(vec4 x) {
+  return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+
+vec3 permute(vec3 x) {
+  return mod289(((x*34.0)+1.0)*x);
+}
+
+vec4 permute(vec4 x) {
+     return mod289(((x*34.0)+1.0)*x);
+}
+
+vec4 taylorInvSqrt(vec4 r)
+{
+  return 1.79284291400159 - 0.85373472095314 * r;
+}
+
+float snoise(vec3 v)
+  {
+  const vec2 C = vec2(1.0/6.0, 1.0/3.0) ;
+  const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+
+// First corner
+  vec3 i = floor(v + dot(v, C.yyy) );
+  vec3 x0 = v - i + dot(i, C.xxx) ;
+
+// Other corners
+  vec3 g = step(x0.yzx, x0.xyz);
+  vec3 l = 1.0 - g;
+  vec3 i1 = min( g.xyz, l.zxy );
+  vec3 i2 = max( g.xyz, l.zxy );
+
+  // x0 = x0 - 0.0 + 0.0 * C.xxx;
+  // x1 = x0 - i1 + 1.0 * C.xxx;
+  // x2 = x0 - i2 + 2.0 * C.xxx;
+  // x3 = x0 - 1.0 + 3.0 * C.xxx;
+  vec3 x1 = x0 - i1 + C.xxx;
+  vec3 x2 = x0 - i2 + C.yyy; // 2.0*C.x = 1/3 = C.y
+  vec3 x3 = x0 - D.yyy; // -1.0+3.0*C.x = -0.5 = -D.y
+
+// Permutations
+  i = mod289(i);
+  vec4 p = permute( permute( permute(
+             i.z + vec4(0.0, i1.z, i2.z, 1.0 ))
+           + i.y + vec4(0.0, i1.y, i2.y, 1.0 ))
+           + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
+
+// Gradients: 7x7 points over a square, mapped onto an octahedron.
+// The ring size 17*17 = 289 is close to a multiple of 49 (49*6 = 294)
+  float n_ = 0.142857142857; // 1.0/7.0
+  vec3 ns = n_ * D.wyz - D.xzx;
+
+  vec4 j = p - 49.0 * floor(p * ns.z * ns.z); // mod(p,7*7)
+
+  vec4 x_ = floor(j * ns.z);
+  vec4 y_ = floor(j - 7.0 * x_ ); // mod(j,N)
+
+  vec4 x = x_ *ns.x + ns.yyyy;
+  vec4 y = y_ *ns.x + ns.yyyy;
+  vec4 h = 1.0 - abs(x) - abs(y);
+
+  vec4 b0 = vec4( x.xy, y.xy );
+  vec4 b1 = vec4( x.zw, y.zw );
+
+  //vec4 s0 = vec4(lessThan(b0,0.0))*2.0 - 1.0;
+  //vec4 s1 = vec4(lessThan(b1,0.0))*2.0 - 1.0;
+  vec4 s0 = floor(b0)*2.0 + 1.0;
+  vec4 s1 = floor(b1)*2.0 + 1.0;
+  vec4 sh = -step(h, vec4(0.0));
+
+  vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
+  vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
+
+  vec3 p0 = vec3(a0.xy,h.x);
+  vec3 p1 = vec3(a0.zw,h.y);
+  vec3 p2 = vec3(a1.xy,h.z);
+  vec3 p3 = vec3(a1.zw,h.w);
+
+//Normalise gradients
+  vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+  p0 *= norm.x;
+  p1 *= norm.y;
+  p2 *= norm.z;
+  p3 *= norm.w;
+
+// Mix final noise value
+  vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+  m = m * m;
+  return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1),
+                                dot(p2,x2), dot(p3,x3) ) );
+  }
+  
+float snoise(vec2 v)
+  {
+  const vec4 C = vec4(0.211324865405187, // (3.0-sqrt(3.0))/6.0
+                      0.366025403784439, // 0.5*(sqrt(3.0)-1.0)
+                     -0.577350269189626, // -1.0 + 2.0 * C.x
+                      0.024390243902439); // 1.0 / 41.0
+// First corner
+  vec2 i = floor(v + dot(v, C.yy) );
+  vec2 x0 = v - i + dot(i, C.xx);
+
+// Other corners
+  vec2 i1;
+  //i1.x = step( x0.y, x0.x ); // x0.x > x0.y ? 1.0 : 0.0
+  //i1.y = 1.0 - i1.x;
+  i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+  // x0 = x0 - 0.0 + 0.0 * C.xx ;
+  // x1 = x0 - i1 + 1.0 * C.xx ;
+  // x2 = x0 - 1.0 + 2.0 * C.xx ;
+  vec4 x12 = x0.xyxy + C.xxzz;
+  x12.xy -= i1;
+
+// Permutations
+  i = mod289(i); // Avoid truncation effects in permutation
+  vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 ))
+                + i.x + vec3(0.0, i1.x, 1.0 ));
+
+  vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+  m = m*m ;
+  m = m*m ;
+
+// Gradients: 41 points uniformly over a line, mapped onto a diamond.
+// The ring size 17*17 = 289 is close to a multiple of 41 (41*7 = 287)
+
+  vec3 x = 2.0 * fract(p * C.www) - 1.0;
+  vec3 h = abs(x) - 0.5;
+  vec3 ox = floor(x + 0.5);
+  vec3 a0 = x - ox;
+
+// Normalise gradients implicitly by scaling m
+// Approximation of: m *= inversesqrt( a0*a0 + h*h );
+  m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
+
+// Compute final noise value at P
+  vec3 g;
+  g.x = a0.x * x0.x + h.x * x0.y;
+  g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+  return 130.0 * dot(m, g);
+}
+
+vec4 createGradient(vec4 minColor, vec4 maxColor, float h){
+    return minColor + ( maxColor - minColor ) * h ;
+}
+
+vec3 createGradient(vec3 minColor, vec3 maxColor, float h){
+    return minColor + ( maxColor - minColor ) * h ;
+}
+
+float createGradient(float minValue, float maxValue, float coeff){
+    return minValue + ( maxValue - minValue ) * coeff ;
+}
+
+vec3 saturate(vec3 color, float sat){
+	vec3 s = vec3(sat);
+	s = clamp(color * s, vec3(0.0), vec3(1.0));
+	return s;
+}
+
+vec3 perturbNormalByHeight(float h, vec3 normal, vec3 N){
+
+    if( h <= 0.1 && h > 0.06 )
+		return normal;
+    else if( h <= 0.06)
+		return normal;
+    else
+		return N;
+ 
+}
+
+vec3 getColor(float h, float slope, sampler2D colormap){
+	vec2 coord = vec2(slope, h);
+	coord.y = coord.y + 0.05 * snoise( 2.0 * coord );
+	return texture(colormap, coord).rgb ;
+}
+
+const float PI = 3.141592654 ;
+
+float atan2(float y, float x){
+if(x>0.)
+	return atan(y/x);
+if(y>=0. && x<0.)
+	return atan(y/x) + PI;
+if(y<0. && x<0.)
+	return atan(y/x) - PI;
+if(y>0. && x==0.)
+	return PI/2.;
+if(y<0. && x==0.)
+	return -PI/2.;
+}
+
+vec3 perturbNormal(sampler2D color_map, vec3 N, vec3 P, vec2 texcoord, mat3 TBN )
+{
+    vec3 map = texture( color_map, texcoord ).xyz;
+
+    map.z = sqrt( 1.0 - dot( map.xy, map.xy ) );
+
+    return normalize( TBN * map );
+}
+
+in vec2 tcoord;
+in vec2 tcoordNmap;
+in vec2 tcoordDmap;
+in vec3 normal;
+in vec3 tangent;
+in vec3 binormal;
+in vec3 normalC; //camera space
+in vec3 pos;
+in vec3 origPos;
+in vec3 viewDirC; //camera space
+in vec3 lightDirC; //camera space
+in mat3 modelview3;
+in mat3 TBN;
+in vec4 color;
+in vec4 secondaryColor;
+
+uniform sampler2D heightmap;
+uniform sampler2D normalmap;
+uniform sampler2D displacementmap;
+uniform sampler2D colormap;
+uniform int plane;
+uniform int level;
+uniform float width;
+uniform int hmapSize;
+uniform int nmapSize;
+
+out vec4 out_Color;
+
+void main( void )
+{
+    vec3 V = normalize(viewDirC);
+    vec3 L = lightDirC;
+    vec3 pertubedNormal = perturbNormal(normalmap, normal, pos, tcoordNmap, TBN);
+    float h = texture(heightmap, tcoord).r;
+
+    float slope =  abs(dot(normal, pertubedNormal));
+    vec4 diffuseColor = vec4( getColor(h, slope, colormap), 1.0);
+
+    pertubedNormal = perturbNormalByHeight( h, normal, pertubedNormal);
+	
+    pertubedNormal = modelview3 * pertubedNormal;
+
+    //Diffuse
+    float intensity = max( 0.0, dot( pertubedNormal, L ));
+    
+    //Specular
+    vec4 spec = vec4(0.0);
+    float shininess = 25.0;
+    float specular =  0.2;
+    
+    if (intensity > 0.0 && h <= 0.1) {
+        //hv : half vector
+        vec3 hv = normalize(L + V);
+        float intSpec = max(dot(hv, pertubedNormal), 0.0);
+        spec = vec4(vec3(specular * pow(intSpec,shininess)), 1.0);
+    }
+
+
+	diffuseColor = color * 1.0 + (diffuseColor * intensity + spec  * intensity) * secondaryColor;
+
+    out_Color = diffuseColor ;
+}

@@ -1,0 +1,5560 @@
+#version 300 es
+#ifdef GL_ES
+ precision highp float;
+#endif
+uniform float u_time;
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+uniform sampler2D u_texture1;
+uniform sampler2D u_texture2;
+uniform sampler2D u_texture3;
+uniform sampler2D u_texture4;
+out vec4 glFragColor;
+
+
+#define iTime u_time
+#define iResolution u_resolution
+#define iMouse u_mouse
+#define iChannel0 u_texture1
+#define iChannel1 u_texture2
+#define iChannel2 u_texture3
+#define iChannel3 u_texture4
+
+
+// License Creative Commons Attribution-NonCommercial-ShareAlike
+// original source github.com/danilw
+
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+    vec2 res = iResolution.xy / iResolution.y;
+    vec2 uv = (fragCoord.xy) / iResolution.y - res/2.0;
+    
+    vec3 col = 0.5 + 0.5*cos(iTime+uv.xyx+vec3(0,2,4));
+    
+    fragColor = vec4(col,1.0);
+}
+
+void main(void) {
+	discard;
+    vec4 fragColor = vec4(0.);
+    mainImage(fragColor,gl_FragCoord.xy);
+    glFragColor = fragColor;
+}
+#version 300 es
+#ifdef GL_ES
+ precision highp float;
+#endif
+uniform float rot;
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+uniform sampler2D u_texture1;
+uniform float u_time;
+uniform vec2 pos;
+out vec4 glFragColor;
+
+#define iTime u_time
+#define iResolution u_resolution
+#define iChannel0 u_texture1
+#define iMouse u_mouse
+
+// FXAA with some defines in front and bootstrapping at the end :)
+//  Also replaced some texture lookup functions in the FXAA code in order to
+//  please some shader compilers.
+
+// NOTE: This shader has issues with some GL versions. If this is the case,
+//  this shader can be disabled by uncommenting the following line (disabling
+//  anti-aliasing altogether):
+//#define NO_FXAA
+
+#ifndef NO_FXAA
+
+#define FXAA_PC 1
+#define FXAA_GLSL_130 1
+#define FXAA_QUALITY__PRESET 39
+
+/*============================================================================
+
+
+                    NVIDIA FXAA 3.11 by TIMOTHY LOTTES
+
+
+------------------------------------------------------------------------------
+COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
+------------------------------------------------------------------------------
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THIS SOFTWARE IS PROVIDED
+*AS IS* AND NVIDIA AND ITS SUPPLIERS DISCLAIM ALL WARRANTIES, EITHER EXPRESS
+OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. IN NO EVENT SHALL NVIDIA
+OR ITS SUPPLIERS BE LIABLE FOR ANY SPECIAL, INCIDENTAL, INDIRECT, OR
+CONSEQUENTIAL DAMAGES WHATSOEVER (INCLUDING, WITHOUT LIMITATION, DAMAGES FOR
+LOSS OF BUSINESS PROFITS, BUSINESS INTERRUPTION, LOSS OF BUSINESS INFORMATION,
+OR ANY OTHER PECUNIARY LOSS) ARISING OUT OF THE USE OF OR INABILITY TO USE
+THIS SOFTWARE, EVEN IF NVIDIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH
+DAMAGES.
+
+------------------------------------------------------------------------------
+                           INTEGRATION CHECKLIST
+------------------------------------------------------------------------------
+(1.)
+In the shader source, setup defines for the desired configuration.
+When providing multiple shaders (for different presets),
+simply setup the defines differently in multiple files.
+Example,
+
+  #define FXAA_PC 1
+  #define FXAA_HLSL_5 1
+  #define FXAA_QUALITY__PRESET 12
+
+Or,
+
+  #define FXAA_360 1
+  
+Or,
+
+  #define FXAA_PS3 1
+  
+Etc.
+
+(2.)
+Then include this file,
+
+  #include "Fxaa3_11.h"
+
+(3.)
+Then call the FXAA pixel shader from within your desired shader.
+Look at the FXAA Quality FxaaPixelShader() for docs on inputs.
+As for FXAA 3.11 all inputs for all shaders are the same 
+to enable easy porting between platforms.
+
+  return FxaaPixelShader(...);
+
+(4.)
+Insure pass prior to FXAA outputs RGBL (see next section).
+Or use,
+
+  #define FXAA_GREEN_AS_LUMA 1
+
+(5.)
+Setup engine to provide the following constants
+which are used in the FxaaPixelShader() inputs,
+
+  FxaaFloat2 fxaaQualityRcpFrame,
+  FxaaFloat4 fxaaConsoleRcpFrameOpt,
+  FxaaFloat4 fxaaConsoleRcpFrameOpt2,
+  FxaaFloat4 fxaaConsole360RcpFrameOpt2,
+  FxaaFloat fxaaQualitySubpix,
+  FxaaFloat fxaaQualityEdgeThreshold,
+  FxaaFloat fxaaQualityEdgeThresholdMin,
+  FxaaFloat fxaaConsoleEdgeSharpness,
+  FxaaFloat fxaaConsoleEdgeThreshold,
+  FxaaFloat fxaaConsoleEdgeThresholdMin,
+  FxaaFloat4 fxaaConsole360ConstDir
+
+Look at the FXAA Quality FxaaPixelShader() for docs on inputs.
+
+(6.)
+Have FXAA vertex shader run as a full screen triangle,
+and output "pos" and "fxaaConsolePosPos" 
+such that inputs in the pixel shader provide,
+
+  // {xy} = center of pixel
+  FxaaFloat2 pos,
+
+  // {xy__} = upper left of pixel
+  // {__zw} = lower right of pixel
+  FxaaFloat4 fxaaConsolePosPos,
+
+(7.)
+Insure the texture sampler(s) used by FXAA are set to bilinear filtering.
+
+
+------------------------------------------------------------------------------
+                    INTEGRATION - RGBL AND COLORSPACE
+------------------------------------------------------------------------------
+FXAA3 requires RGBL as input unless the following is set, 
+
+  #define FXAA_GREEN_AS_LUMA 1
+
+In which case the engine uses green in place of luma,
+and requires RGB input is in a non-linear colorspace.
+
+RGB should be LDR (low dynamic range).
+Specifically do FXAA after tonemapping.
+
+RGB data as returned by a texture fetch can be non-linear,
+or linear when FXAA_GREEN_AS_LUMA is not set.
+Note an "sRGB format" texture counts as linear,
+because the result of a texture fetch is linear data.
+Regular "RGBA8" textures in the sRGB colorspace are non-linear.
+
+If FXAA_GREEN_AS_LUMA is not set,
+luma must be stored in the alpha channel prior to running FXAA.
+This luma should be in a perceptual space (could be gamma 2.0).
+Example pass before FXAA where output is gamma 2.0 encoded,
+
+  color.rgb = ToneMap(color.rgb); // linear color output
+  color.rgb = sqrt(color.rgb);    // gamma 2.0 color output
+  return color;
+
+To use FXAA,
+
+  color.rgb = ToneMap(color.rgb);  // linear color output
+  color.rgb = sqrt(color.rgb);     // gamma 2.0 color output
+  color.a = dot(color.rgb, FxaaFloat3(0.299, 0.587, 0.114)); // compute luma
+  return color;
+
+Another example where output is linear encoded,
+say for instance writing to an sRGB formated render target,
+where the render target does the conversion back to sRGB after blending,
+
+  color.rgb = ToneMap(color.rgb); // linear color output
+  return color;
+
+To use FXAA,
+
+  color.rgb = ToneMap(color.rgb); // linear color output
+  color.a = sqrt(dot(color.rgb, FxaaFloat3(0.299, 0.587, 0.114))); // compute luma
+  return color;
+
+Getting luma correct is required for the algorithm to work correctly.
+
+
+------------------------------------------------------------------------------
+                          BEING LINEARLY CORRECT?
+------------------------------------------------------------------------------
+Applying FXAA to a framebuffer with linear RGB color will look worse.
+This is very counter intuitive, but happends to be true in this case.
+The reason is because dithering artifacts will be more visiable 
+in a linear colorspace.
+
+
+------------------------------------------------------------------------------
+                             COMPLEX INTEGRATION
+------------------------------------------------------------------------------
+Q. What if the engine is blending into RGB before wanting to run FXAA?
+
+A. In the last opaque pass prior to FXAA,
+   have the pass write out luma into alpha.
+   Then blend into RGB only.
+   FXAA should be able to run ok
+   assuming the blending pass did not any add aliasing.
+   This should be the common case for particles and common blending passes.
+
+A. Or use FXAA_GREEN_AS_LUMA.
+
+============================================================================*/
+
+/*============================================================================
+
+                             INTEGRATION KNOBS
+
+============================================================================*/
+//
+// FXAA_PS3 and FXAA_360 choose the console algorithm (FXAA3 CONSOLE).
+// FXAA_360_OPT is a prototype for the new optimized 360 version.
+//
+// 1 = Use API.
+// 0 = Don't use API.
+//
+/*--------------------------------------------------------------------------*/
+#ifndef FXAA_PS3
+    #define FXAA_PS3 0
+#endif
+/*--------------------------------------------------------------------------*/
+#ifndef FXAA_360
+    #define FXAA_360 0
+#endif
+/*--------------------------------------------------------------------------*/
+#ifndef FXAA_360_OPT
+    #define FXAA_360_OPT 0
+#endif
+/*==========================================================================*/
+#ifndef FXAA_PC
+    //
+    // FXAA Quality
+    // The high quality PC algorithm.
+    //
+    #define FXAA_PC 0
+#endif
+/*--------------------------------------------------------------------------*/
+#ifndef FXAA_PC_CONSOLE
+    //
+    // The console algorithm for PC is included
+    // for developers targeting really low spec machines.
+    // Likely better to just run FXAA_PC, and use a really low preset.
+    //
+    #define FXAA_PC_CONSOLE 0
+#endif
+/*--------------------------------------------------------------------------*/
+#ifndef FXAA_GLSL_120
+    #define FXAA_GLSL_120 0
+#endif
+/*--------------------------------------------------------------------------*/
+#ifndef FXAA_GLSL_130
+    #define FXAA_GLSL_130 0
+#endif
+/*--------------------------------------------------------------------------*/
+#ifndef FXAA_HLSL_3
+    #define FXAA_HLSL_3 0
+#endif
+/*--------------------------------------------------------------------------*/
+#ifndef FXAA_HLSL_4
+    #define FXAA_HLSL_4 0
+#endif
+/*--------------------------------------------------------------------------*/
+#ifndef FXAA_HLSL_5
+    #define FXAA_HLSL_5 0
+#endif
+/*==========================================================================*/
+#ifndef FXAA_GREEN_AS_LUMA
+    //
+    // For those using non-linear color,
+    // and either not able to get luma in alpha, or not wanting to,
+    // this enables FXAA to run using green as a proxy for luma.
+    // So with this enabled, no need to pack luma in alpha.
+    //
+    // This will turn off AA on anything which lacks some amount of green.
+    // Pure red and blue or combination of only R and B, will get no AA.
+    //
+    // Might want to lower the settings for both,
+    //    fxaaConsoleEdgeThresholdMin
+    //    fxaaQualityEdgeThresholdMin
+    // In order to insure AA does not get turned off on colors 
+    // which contain a minor amount of green.
+    //
+    // 1 = On.
+    // 0 = Off.
+    //
+    #define FXAA_GREEN_AS_LUMA 0
+#endif
+/*--------------------------------------------------------------------------*/
+#ifndef FXAA_EARLY_EXIT
+    //
+    // Controls algorithm's early exit path.
+    // On PS3 turning this ON adds 2 cycles to the shader.
+    // On 360 turning this OFF adds 10ths of a millisecond to the shader.
+    // Turning this off on console will result in a more blurry image.
+    // So this defaults to on.
+    //
+    // 1 = On.
+    // 0 = Off.
+    //
+    #define FXAA_EARLY_EXIT 1
+#endif
+/*--------------------------------------------------------------------------*/
+#ifndef FXAA_DISCARD
+    //
+    // Only valid for PC OpenGL currently.
+    // Probably will not work when FXAA_GREEN_AS_LUMA = 1.
+    //
+    // 1 = Use discard on pixels which don't need AA.
+    //     For APIs which enable concurrent TEX+ROP from same surface.
+    // 0 = Return unchanged color on pixels which don't need AA.
+    //
+    #define FXAA_DISCARD 0
+#endif
+/*--------------------------------------------------------------------------*/
+#ifndef FXAA_FAST_PIXEL_OFFSET
+    //
+    // Used for GLSL 120 only.
+    //
+    // 1 = GL API supports fast pixel offsets
+    // 0 = do not use fast pixel offsets
+    //
+    #ifdef GL_EXT_gpu_shader4
+        #define FXAA_FAST_PIXEL_OFFSET 1
+    #endif
+    #ifdef GL_NV_gpu_shader5
+        #define FXAA_FAST_PIXEL_OFFSET 1
+    #endif
+    #ifdef GL_ARB_gpu_shader5
+        #define FXAA_FAST_PIXEL_OFFSET 1
+    #endif
+    #ifndef FXAA_FAST_PIXEL_OFFSET
+        #define FXAA_FAST_PIXEL_OFFSET 0
+    #endif
+#endif
+/*--------------------------------------------------------------------------*/
+#ifndef FXAA_GATHER4_ALPHA
+    //
+    // 1 = API supports gather4 on alpha channel.
+    // 0 = API does not support gather4 on alpha channel.
+    //
+    #if (FXAA_HLSL_5 == 1)
+        #define FXAA_GATHER4_ALPHA 1
+    #endif
+    #ifdef GL_ARB_gpu_shader5
+        #define FXAA_GATHER4_ALPHA 1
+    #endif
+    #ifdef GL_NV_gpu_shader5
+        #define FXAA_GATHER4_ALPHA 1
+    #endif
+    #ifndef FXAA_GATHER4_ALPHA
+        #define FXAA_GATHER4_ALPHA 0
+    #endif
+#endif
+
+/*============================================================================
+                      FXAA CONSOLE PS3 - TUNING KNOBS
+============================================================================*/
+#ifndef FXAA_CONSOLE__PS3_EDGE_SHARPNESS
+    //
+    // Consoles the sharpness of edges on PS3 only.
+    // Non-PS3 tuning is done with shader input.
+    //
+    // Due to the PS3 being ALU bound,
+    // there are only two safe values here: 4 and 8.
+    // These options use the shaders ability to a free *|/ by 2|4|8.
+    //
+    // 8.0 is sharper
+    // 4.0 is softer
+    // 2.0 is really soft (good for vector graphics inputs)
+    //
+    #if 1
+        #define FXAA_CONSOLE__PS3_EDGE_SHARPNESS 8.0
+    #endif
+    #if 0
+        #define FXAA_CONSOLE__PS3_EDGE_SHARPNESS 4.0
+    #endif
+    #if 0
+        #define FXAA_CONSOLE__PS3_EDGE_SHARPNESS 2.0
+    #endif
+#endif
+/*--------------------------------------------------------------------------*/
+#ifndef FXAA_CONSOLE__PS3_EDGE_THRESHOLD
+    //
+    // Only effects PS3.
+    // Non-PS3 tuning is done with shader input.
+    //
+    // The minimum amount of local contrast required to apply algorithm.
+    // The console setting has a different mapping than the quality setting.
+    //
+    // This only applies when FXAA_EARLY_EXIT is 1.
+    //
+    // Due to the PS3 being ALU bound,
+    // there are only two safe values here: 0.25 and 0.125.
+    // These options use the shaders ability to a free *|/ by 2|4|8.
+    //
+    // 0.125 leaves less aliasing, but is softer
+    // 0.25 leaves more aliasing, and is sharper
+    //
+    #if 1
+        #define FXAA_CONSOLE__PS3_EDGE_THRESHOLD 0.125
+    #else
+        #define FXAA_CONSOLE__PS3_EDGE_THRESHOLD 0.25
+    #endif
+#endif
+
+/*============================================================================
+                        FXAA QUALITY - TUNING KNOBS
+------------------------------------------------------------------------------
+NOTE the other tuning knobs are now in the shader function inputs!
+============================================================================*/
+#ifndef FXAA_QUALITY__PRESET
+    //
+    // Choose the quality preset.
+    // This needs to be compiled into the shader as it effects code.
+    // Best option to include multiple presets is to 
+    // in each shader define the preset, then include this file.
+    // 
+    // OPTIONS
+    // -----------------------------------------------------------------------
+    // 10 to 15 - default medium dither (10=fastest, 15=highest quality)
+    // 20 to 29 - less dither, more expensive (20=fastest, 29=highest quality)
+    // 39       - no dither, very expensive 
+    //
+    // NOTES
+    // -----------------------------------------------------------------------
+    // 12 = slightly faster then FXAA 3.9 and higher edge quality (default)
+    // 13 = about same speed as FXAA 3.9 and better than 12
+    // 23 = closest to FXAA 3.9 visually and performance wise
+    //  _ = the lowest digit is directly related to performance
+    // _  = the highest digit is directly related to style
+    // 
+    #define FXAA_QUALITY__PRESET 12
+#endif
+
+
+/*============================================================================
+
+                           FXAA QUALITY - PRESETS
+
+============================================================================*/
+
+/*============================================================================
+                     FXAA QUALITY - MEDIUM DITHER PRESETS
+============================================================================*/
+#if (FXAA_QUALITY__PRESET == 10)
+    #define FXAA_QUALITY__PS 3
+    #define FXAA_QUALITY__P0 1.5
+    #define FXAA_QUALITY__P1 3.0
+    #define FXAA_QUALITY__P2 12.0
+#endif
+/*--------------------------------------------------------------------------*/
+#if (FXAA_QUALITY__PRESET == 11)
+    #define FXAA_QUALITY__PS 4
+    #define FXAA_QUALITY__P0 1.0
+    #define FXAA_QUALITY__P1 1.5
+    #define FXAA_QUALITY__P2 3.0
+    #define FXAA_QUALITY__P3 12.0
+#endif
+/*--------------------------------------------------------------------------*/
+#if (FXAA_QUALITY__PRESET == 12)
+    #define FXAA_QUALITY__PS 5
+    #define FXAA_QUALITY__P0 1.0
+    #define FXAA_QUALITY__P1 1.5
+    #define FXAA_QUALITY__P2 2.0
+    #define FXAA_QUALITY__P3 4.0
+    #define FXAA_QUALITY__P4 12.0
+#endif
+/*--------------------------------------------------------------------------*/
+#if (FXAA_QUALITY__PRESET == 13)
+    #define FXAA_QUALITY__PS 6
+    #define FXAA_QUALITY__P0 1.0
+    #define FXAA_QUALITY__P1 1.5
+    #define FXAA_QUALITY__P2 2.0
+    #define FXAA_QUALITY__P3 2.0
+    #define FXAA_QUALITY__P4 4.0
+    #define FXAA_QUALITY__P5 12.0
+#endif
+/*--------------------------------------------------------------------------*/
+#if (FXAA_QUALITY__PRESET == 14)
+    #define FXAA_QUALITY__PS 7
+    #define FXAA_QUALITY__P0 1.0
+    #define FXAA_QUALITY__P1 1.5
+    #define FXAA_QUALITY__P2 2.0
+    #define FXAA_QUALITY__P3 2.0
+    #define FXAA_QUALITY__P4 2.0
+    #define FXAA_QUALITY__P5 4.0
+    #define FXAA_QUALITY__P6 12.0
+#endif
+/*--------------------------------------------------------------------------*/
+#if (FXAA_QUALITY__PRESET == 15)
+    #define FXAA_QUALITY__PS 8
+    #define FXAA_QUALITY__P0 1.0
+    #define FXAA_QUALITY__P1 1.5
+    #define FXAA_QUALITY__P2 2.0
+    #define FXAA_QUALITY__P3 2.0
+    #define FXAA_QUALITY__P4 2.0
+    #define FXAA_QUALITY__P5 2.0
+    #define FXAA_QUALITY__P6 4.0
+    #define FXAA_QUALITY__P7 12.0
+#endif
+
+/*============================================================================
+                     FXAA QUALITY - LOW DITHER PRESETS
+============================================================================*/
+#if (FXAA_QUALITY__PRESET == 20)
+    #define FXAA_QUALITY__PS 3
+    #define FXAA_QUALITY__P0 1.5
+    #define FXAA_QUALITY__P1 2.0
+    #define FXAA_QUALITY__P2 8.0
+#endif
+/*--------------------------------------------------------------------------*/
+#if (FXAA_QUALITY__PRESET == 21)
+    #define FXAA_QUALITY__PS 4
+    #define FXAA_QUALITY__P0 1.0
+    #define FXAA_QUALITY__P1 1.5
+    #define FXAA_QUALITY__P2 2.0
+    #define FXAA_QUALITY__P3 8.0
+#endif
+/*--------------------------------------------------------------------------*/
+#if (FXAA_QUALITY__PRESET == 22)
+    #define FXAA_QUALITY__PS 5
+    #define FXAA_QUALITY__P0 1.0
+    #define FXAA_QUALITY__P1 1.5
+    #define FXAA_QUALITY__P2 2.0
+    #define FXAA_QUALITY__P3 2.0
+    #define FXAA_QUALITY__P4 8.0
+#endif
+/*--------------------------------------------------------------------------*/
+#if (FXAA_QUALITY__PRESET == 23)
+    #define FXAA_QUALITY__PS 6
+    #define FXAA_QUALITY__P0 1.0
+    #define FXAA_QUALITY__P1 1.5
+    #define FXAA_QUALITY__P2 2.0
+    #define FXAA_QUALITY__P3 2.0
+    #define FXAA_QUALITY__P4 2.0
+    #define FXAA_QUALITY__P5 8.0
+#endif
+/*--------------------------------------------------------------------------*/
+#if (FXAA_QUALITY__PRESET == 24)
+    #define FXAA_QUALITY__PS 7
+    #define FXAA_QUALITY__P0 1.0
+    #define FXAA_QUALITY__P1 1.5
+    #define FXAA_QUALITY__P2 2.0
+    #define FXAA_QUALITY__P3 2.0
+    #define FXAA_QUALITY__P4 2.0
+    #define FXAA_QUALITY__P5 3.0
+    #define FXAA_QUALITY__P6 8.0
+#endif
+/*--------------------------------------------------------------------------*/
+#if (FXAA_QUALITY__PRESET == 25)
+    #define FXAA_QUALITY__PS 8
+    #define FXAA_QUALITY__P0 1.0
+    #define FXAA_QUALITY__P1 1.5
+    #define FXAA_QUALITY__P2 2.0
+    #define FXAA_QUALITY__P3 2.0
+    #define FXAA_QUALITY__P4 2.0
+    #define FXAA_QUALITY__P5 2.0
+    #define FXAA_QUALITY__P6 4.0
+    #define FXAA_QUALITY__P7 8.0
+#endif
+/*--------------------------------------------------------------------------*/
+#if (FXAA_QUALITY__PRESET == 26)
+    #define FXAA_QUALITY__PS 9
+    #define FXAA_QUALITY__P0 1.0
+    #define FXAA_QUALITY__P1 1.5
+    #define FXAA_QUALITY__P2 2.0
+    #define FXAA_QUALITY__P3 2.0
+    #define FXAA_QUALITY__P4 2.0
+    #define FXAA_QUALITY__P5 2.0
+    #define FXAA_QUALITY__P6 2.0
+    #define FXAA_QUALITY__P7 4.0
+    #define FXAA_QUALITY__P8 8.0
+#endif
+/*--------------------------------------------------------------------------*/
+#if (FXAA_QUALITY__PRESET == 27)
+    #define FXAA_QUALITY__PS 10
+    #define FXAA_QUALITY__P0 1.0
+    #define FXAA_QUALITY__P1 1.5
+    #define FXAA_QUALITY__P2 2.0
+    #define FXAA_QUALITY__P3 2.0
+    #define FXAA_QUALITY__P4 2.0
+    #define FXAA_QUALITY__P5 2.0
+    #define FXAA_QUALITY__P6 2.0
+    #define FXAA_QUALITY__P7 2.0
+    #define FXAA_QUALITY__P8 4.0
+    #define FXAA_QUALITY__P9 8.0
+#endif
+/*--------------------------------------------------------------------------*/
+#if (FXAA_QUALITY__PRESET == 28)
+    #define FXAA_QUALITY__PS 11
+    #define FXAA_QUALITY__P0 1.0
+    #define FXAA_QUALITY__P1 1.5
+    #define FXAA_QUALITY__P2 2.0
+    #define FXAA_QUALITY__P3 2.0
+    #define FXAA_QUALITY__P4 2.0
+    #define FXAA_QUALITY__P5 2.0
+    #define FXAA_QUALITY__P6 2.0
+    #define FXAA_QUALITY__P7 2.0
+    #define FXAA_QUALITY__P8 2.0
+    #define FXAA_QUALITY__P9 4.0
+    #define FXAA_QUALITY__P10 8.0
+#endif
+/*--------------------------------------------------------------------------*/
+#if (FXAA_QUALITY__PRESET == 29)
+    #define FXAA_QUALITY__PS 12
+    #define FXAA_QUALITY__P0 1.0
+    #define FXAA_QUALITY__P1 1.5
+    #define FXAA_QUALITY__P2 2.0
+    #define FXAA_QUALITY__P3 2.0
+    #define FXAA_QUALITY__P4 2.0
+    #define FXAA_QUALITY__P5 2.0
+    #define FXAA_QUALITY__P6 2.0
+    #define FXAA_QUALITY__P7 2.0
+    #define FXAA_QUALITY__P8 2.0
+    #define FXAA_QUALITY__P9 2.0
+    #define FXAA_QUALITY__P10 4.0
+    #define FXAA_QUALITY__P11 8.0
+#endif
+
+/*============================================================================
+                     FXAA QUALITY - EXTREME QUALITY
+============================================================================*/
+#if (FXAA_QUALITY__PRESET == 39)
+    #define FXAA_QUALITY__PS 12
+    #define FXAA_QUALITY__P0 1.0
+    #define FXAA_QUALITY__P1 1.0
+    #define FXAA_QUALITY__P2 1.0
+    #define FXAA_QUALITY__P3 1.0
+    #define FXAA_QUALITY__P4 1.0
+    #define FXAA_QUALITY__P5 1.5
+    #define FXAA_QUALITY__P6 2.0
+    #define FXAA_QUALITY__P7 2.0
+    #define FXAA_QUALITY__P8 2.0
+    #define FXAA_QUALITY__P9 2.0
+    #define FXAA_QUALITY__P10 4.0
+    #define FXAA_QUALITY__P11 8.0
+#endif
+
+
+
+/*============================================================================
+
+                                API PORTING
+
+============================================================================*/
+#if (FXAA_GLSL_120 == 1) || (FXAA_GLSL_130 == 1)
+    #define FxaaBool bool
+    #define FxaaDiscard discard
+    #define FxaaFloat float
+    #define FxaaFloat2 vec2
+    #define FxaaFloat3 vec3
+    #define FxaaFloat4 vec4
+    #define FxaaHalf float
+    #define FxaaHalf2 vec2
+    #define FxaaHalf3 vec3
+    #define FxaaHalf4 vec4
+    #define FxaaInt2 ivec2
+    #define FxaaSat(x) clamp(x, 0.0, 1.0)
+    #define FxaaTex sampler2D
+#else
+    #define FxaaBool bool
+    #define FxaaDiscard clip(-1)
+    #define FxaaFloat float
+    #define FxaaFloat2 float2
+    #define FxaaFloat3 float3
+    #define FxaaFloat4 float4
+    #define FxaaHalf half
+    #define FxaaHalf2 half2
+    #define FxaaHalf3 half3
+    #define FxaaHalf4 half4
+    #define FxaaSat(x) saturate(x)
+#endif
+/*--------------------------------------------------------------------------*/
+#if (FXAA_GLSL_120 == 1)
+    // Requires,
+    //  #version 120
+    // And at least,
+    //  #extension GL_EXT_gpu_shader4 : enable
+    //  (or set FXAA_FAST_PIXEL_OFFSET 1 to work like DX9)
+    #define FxaaTexTop(t, p) textureLod(t, p, 0.0)
+    #if (FXAA_FAST_PIXEL_OFFSET == 1)
+        #define FxaaTexOff(t, p, o, r) textureLodOffset(t, p, 0.0, o)
+    #else
+        #define FxaaTexOff(t, p, o, r) textureLod(t, p + (o * r), 0.0)
+    #endif
+    #if (FXAA_GATHER4_ALPHA == 1)
+        // use #extension GL_ARB_gpu_shader5 : enable
+        #define FxaaTexAlpha4(t, p) textureGather(t, p, 3)
+        #define FxaaTexOffAlpha4(t, p, o) textureGatherOffset(t, p, o, 3)
+        #define FxaaTexGreen4(t, p) textureGather(t, p, 1)
+        #define FxaaTexOffGreen4(t, p, o) textureGatherOffset(t, p, o, 1)
+    #endif
+#endif
+/*--------------------------------------------------------------------------*/
+#if (FXAA_GLSL_130 == 1)
+    // Requires "#version 130" or better
+    #define FxaaTexTop(t, p) textureLod(t, p, 0.0)
+    #define FxaaTexOff(t, p, o, r) textureLodOffset(t, p, 0.0, o)
+    #if (FXAA_GATHER4_ALPHA == 1)
+        // use #extension GL_ARB_gpu_shader5 : enable
+        #define FxaaTexAlpha4(t, p) textureGather(t, p, 3)
+        #define FxaaTexOffAlpha4(t, p, o) textureGatherOffset(t, p, o, 3)
+        #define FxaaTexGreen4(t, p) textureGather(t, p, 1)
+        #define FxaaTexOffGreen4(t, p, o) textureGatherOffset(t, p, o, 1)
+    #endif
+#endif
+/*--------------------------------------------------------------------------*/
+#if (FXAA_HLSL_3 == 1) || (FXAA_360 == 1) || (FXAA_PS3 == 1)
+    #define FxaaInt2 float2
+    #define FxaaTex sampler2D
+    #define FxaaTexTop(t, p) tex2Dlod(t, float4(p, 0.0, 0.0))
+    #define FxaaTexOff(t, p, o, r) tex2Dlod(t, float4(p + (o * r), 0, 0))
+#endif
+/*--------------------------------------------------------------------------*/
+#if (FXAA_HLSL_4 == 1)
+    #define FxaaInt2 int2
+    struct FxaaTex { SamplerState smpl; Texture2D tex; };
+    #define FxaaTexTop(t, p) t.tex.SampleLevel(t.smpl, p, 0.0)
+    #define FxaaTexOff(t, p, o, r) t.tex.SampleLevel(t.smpl, p, 0.0, o)
+#endif
+/*--------------------------------------------------------------------------*/
+#if (FXAA_HLSL_5 == 1)
+    #define FxaaInt2 int2
+    struct FxaaTex { SamplerState smpl; Texture2D tex; };
+    #define FxaaTexTop(t, p) t.tex.SampleLevel(t.smpl, p, 0.0)
+    #define FxaaTexOff(t, p, o, r) t.tex.SampleLevel(t.smpl, p, 0.0, o)
+    #define FxaaTexAlpha4(t, p) t.tex.GatherAlpha(t.smpl, p)
+    #define FxaaTexOffAlpha4(t, p, o) t.tex.GatherAlpha(t.smpl, p, o)
+    #define FxaaTexGreen4(t, p) t.tex.GatherGreen(t.smpl, p)
+    #define FxaaTexOffGreen4(t, p, o) t.tex.GatherGreen(t.smpl, p, o)
+#endif
+
+
+/*============================================================================
+                   GREEN AS LUMA OPTION SUPPORT FUNCTION
+============================================================================*/
+#if (FXAA_GREEN_AS_LUMA == 0)
+    FxaaFloat FxaaLuma(FxaaFloat4 rgba) { return rgba.w; }
+#else
+    FxaaFloat FxaaLuma(FxaaFloat4 rgba) { return rgba.y; }
+#endif    
+
+
+
+
+/*============================================================================
+
+                             FXAA3 QUALITY - PC
+
+============================================================================*/
+#if (FXAA_PC == 1)
+/*--------------------------------------------------------------------------*/
+FxaaFloat4 FxaaPixelShader(
+    //
+    // Use noperspective interpolation here (turn off perspective interpolation).
+    // {xy} = center of pixel
+    FxaaFloat2 pos,
+    //
+    // Used only for FXAA Console, and not used on the 360 version.
+    // Use noperspective interpolation here (turn off perspective interpolation).
+    // {xy__} = upper left of pixel
+    // {__zw} = lower right of pixel
+    FxaaFloat4 fxaaConsolePosPos,
+    //
+    // Input color texture.
+    // {rgb_} = color in linear or perceptual color space
+    // if (FXAA_GREEN_AS_LUMA == 0)
+    //     {___a} = luma in perceptual color space (not linear)
+    FxaaTex tex,
+    //
+    // Only used on the optimized 360 version of FXAA Console.
+    // For everything but 360, just use the same input here as for "tex".
+    // For 360, same texture, just alias with a 2nd sampler.
+    // This sampler needs to have an exponent bias of -1.
+    FxaaTex fxaaConsole360TexExpBiasNegOne,
+    //
+    // Only used on the optimized 360 version of FXAA Console.
+    // For everything but 360, just use the same input here as for "tex".
+    // For 360, same texture, just alias with a 3nd sampler.
+    // This sampler needs to have an exponent bias of -2.
+    FxaaTex fxaaConsole360TexExpBiasNegTwo,
+    //
+    // Only used on FXAA Quality.
+    // This must be from a constant/uniform.
+    // {x_} = 1.0/screenWidthInPixels
+    // {_y} = 1.0/screenHeightInPixels
+    FxaaFloat2 fxaaQualityRcpFrame,
+    //
+    // Only used on FXAA Console.
+    // This must be from a constant/uniform.
+    // This effects sub-pixel AA quality and inversely sharpness.
+    //   Where N ranges between,
+    //     N = 0.50 (default)
+    //     N = 0.33 (sharper)
+    // {x___} = -N/screenWidthInPixels  
+    // {_y__} = -N/screenHeightInPixels
+    // {__z_} =  N/screenWidthInPixels  
+    // {___w} =  N/screenHeightInPixels 
+    FxaaFloat4 fxaaConsoleRcpFrameOpt,
+    //
+    // Only used on FXAA Console.
+    // Not used on 360, but used on PS3 and PC.
+    // This must be from a constant/uniform.
+    // {x___} = -2.0/screenWidthInPixels  
+    // {_y__} = -2.0/screenHeightInPixels
+    // {__z_} =  2.0/screenWidthInPixels  
+    // {___w} =  2.0/screenHeightInPixels 
+    FxaaFloat4 fxaaConsoleRcpFrameOpt2,
+    //
+    // Only used on FXAA Console.
+    // Only used on 360 in place of fxaaConsoleRcpFrameOpt2.
+    // This must be from a constant/uniform.
+    // {x___} =  8.0/screenWidthInPixels  
+    // {_y__} =  8.0/screenHeightInPixels
+    // {__z_} = -4.0/screenWidthInPixels  
+    // {___w} = -4.0/screenHeightInPixels 
+    FxaaFloat4 fxaaConsole360RcpFrameOpt2,
+    //
+    // Only used on FXAA Quality.
+    // This used to be the FXAA_QUALITY__SUBPIX define.
+    // It is here now to allow easier tuning.
+    // Choose the amount of sub-pixel aliasing removal.
+    // This can effect sharpness.
+    //   1.00 - upper limit (softer)
+    //   0.75 - default amount of filtering
+    //   0.50 - lower limit (sharper, less sub-pixel aliasing removal)
+    //   0.25 - almost off
+    //   0.00 - completely off
+    FxaaFloat fxaaQualitySubpix,
+    //
+    // Only used on FXAA Quality.
+    // This used to be the FXAA_QUALITY__EDGE_THRESHOLD define.
+    // It is here now to allow easier tuning.
+    // The minimum amount of local contrast required to apply algorithm.
+    //   0.333 - too little (faster)
+    //   0.250 - low quality
+    //   0.166 - default
+    //   0.125 - high quality 
+    //   0.063 - overkill (slower)
+    FxaaFloat fxaaQualityEdgeThreshold,
+    //
+    // Only used on FXAA Quality.
+    // This used to be the FXAA_QUALITY__EDGE_THRESHOLD_MIN define.
+    // It is here now to allow easier tuning.
+    // Trims the algorithm from processing darks.
+    //   0.0833 - upper limit (default, the start of visible unfiltered edges)
+    //   0.0625 - high quality (faster)
+    //   0.0312 - visible limit (slower)
+    // Special notes when using FXAA_GREEN_AS_LUMA,
+    //   Likely want to set this to zero.
+    //   As colors that are mostly not-green
+    //   will appear very dark in the green channel!
+    //   Tune by looking at mostly non-green content,
+    //   then start at zero and increase until aliasing is a problem.
+    FxaaFloat fxaaQualityEdgeThresholdMin,
+    // 
+    // Only used on FXAA Console.
+    // This used to be the FXAA_CONSOLE__EDGE_SHARPNESS define.
+    // It is here now to allow easier tuning.
+    // This does not effect PS3, as this needs to be compiled in.
+    //   Use FXAA_CONSOLE__PS3_EDGE_SHARPNESS for PS3.
+    //   Due to the PS3 being ALU bound,
+    //   there are only three safe values here: 2 and 4 and 8.
+    //   These options use the shaders ability to a free *|/ by 2|4|8.
+    // For all other platforms can be a non-power of two.
+    //   8.0 is sharper (default!!!)
+    //   4.0 is softer
+    //   2.0 is really soft (good only for vector graphics inputs)
+    FxaaFloat fxaaConsoleEdgeSharpness,
+    //
+    // Only used on FXAA Console.
+    // This used to be the FXAA_CONSOLE__EDGE_THRESHOLD define.
+    // It is here now to allow easier tuning.
+    // This does not effect PS3, as this needs to be compiled in.
+    //   Use FXAA_CONSOLE__PS3_EDGE_THRESHOLD for PS3.
+    //   Due to the PS3 being ALU bound,
+    //   there are only two safe values here: 1/4 and 1/8.
+    //   These options use the shaders ability to a free *|/ by 2|4|8.
+    // The console setting has a different mapping than the quality setting.
+    // Other platforms can use other values.
+    //   0.125 leaves less aliasing, but is softer (default!!!)
+    //   0.25 leaves more aliasing, and is sharper
+    FxaaFloat fxaaConsoleEdgeThreshold,
+    //
+    // Only used on FXAA Console.
+    // This used to be the FXAA_CONSOLE__EDGE_THRESHOLD_MIN define.
+    // It is here now to allow easier tuning.
+    // Trims the algorithm from processing darks.
+    // The console setting has a different mapping than the quality setting.
+    // This only applies when FXAA_EARLY_EXIT is 1.
+    // This does not apply to PS3, 
+    // PS3 was simplified to avoid more shader instructions.
+    //   0.06 - faster but more aliasing in darks
+    //   0.05 - default
+    //   0.04 - slower and less aliasing in darks
+    // Special notes when using FXAA_GREEN_AS_LUMA,
+    //   Likely want to set this to zero.
+    //   As colors that are mostly not-green
+    //   will appear very dark in the green channel!
+    //   Tune by looking at mostly non-green content,
+    //   then start at zero and increase until aliasing is a problem.
+    FxaaFloat fxaaConsoleEdgeThresholdMin,
+    //    
+    // Extra constants for 360 FXAA Console only.
+    // Use zeros or anything else for other platforms.
+    // These must be in physical constant registers and NOT immedates.
+    // Immedates will result in compiler un-optimizing.
+    // {xyzw} = float4(1.0, -1.0, 0.25, -0.25)
+    FxaaFloat4 fxaaConsole360ConstDir
+) {
+/*--------------------------------------------------------------------------*/
+    FxaaFloat2 posM;
+    posM.x = pos.x;
+    posM.y = pos.y;
+    #if (FXAA_GATHER4_ALPHA == 1)
+        #if (FXAA_DISCARD == 0)
+            FxaaFloat4 rgbyM = FxaaTexTop(tex, posM);
+            #if (FXAA_GREEN_AS_LUMA == 0)
+                #define lumaM rgbyM.w
+            #else
+                #define lumaM rgbyM.y
+            #endif
+        #endif
+        #if (FXAA_GREEN_AS_LUMA == 0)
+            FxaaFloat4 luma4A = FxaaTexAlpha4(tex, posM);
+            FxaaFloat4 luma4B = FxaaTexOffAlpha4(tex, posM, FxaaInt2(-1, -1));
+        #else
+            FxaaFloat4 luma4A = FxaaTexGreen4(tex, posM);
+            FxaaFloat4 luma4B = FxaaTexOffGreen4(tex, posM, FxaaInt2(-1, -1));
+        #endif
+        #if (FXAA_DISCARD == 1)
+            #define lumaM luma4A.w
+        #endif
+        #define lumaE luma4A.z
+        #define lumaS luma4A.x
+        #define lumaSE luma4A.y
+        #define lumaNW luma4B.w
+        #define lumaN luma4B.z
+        #define lumaW luma4B.x
+    #else
+        FxaaFloat4 rgbyM = FxaaTexTop(tex, posM);
+        #if (FXAA_GREEN_AS_LUMA == 0)
+            #define lumaM rgbyM.w
+        #else
+            #define lumaM rgbyM.y
+        #endif
+        FxaaFloat lumaS = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2( 0, 1), fxaaQualityRcpFrame.xy));
+        FxaaFloat lumaE = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2( 1, 0), fxaaQualityRcpFrame.xy));
+        FxaaFloat lumaN = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2( 0,-1), fxaaQualityRcpFrame.xy));
+        FxaaFloat lumaW = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2(-1, 0), fxaaQualityRcpFrame.xy));
+    #endif
+/*--------------------------------------------------------------------------*/
+    FxaaFloat maxSM = max(lumaS, lumaM);
+    FxaaFloat minSM = min(lumaS, lumaM);
+    FxaaFloat maxESM = max(lumaE, maxSM);
+    FxaaFloat minESM = min(lumaE, minSM);
+    FxaaFloat maxWN = max(lumaN, lumaW);
+    FxaaFloat minWN = min(lumaN, lumaW);
+    FxaaFloat rangeMax = max(maxWN, maxESM);
+    FxaaFloat rangeMin = min(minWN, minESM);
+    FxaaFloat rangeMaxScaled = rangeMax * fxaaQualityEdgeThreshold;
+    FxaaFloat range = rangeMax - rangeMin;
+    FxaaFloat rangeMaxClamped = max(fxaaQualityEdgeThresholdMin, rangeMaxScaled);
+    FxaaBool earlyExit = range < rangeMaxClamped;
+/*--------------------------------------------------------------------------*/
+    if(earlyExit)
+        #if (FXAA_DISCARD == 1)
+            FxaaDiscard;
+        #else
+            return rgbyM;
+        #endif
+/*--------------------------------------------------------------------------*/
+    #if (FXAA_GATHER4_ALPHA == 0)
+        FxaaFloat lumaNW = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2(-1,-1), fxaaQualityRcpFrame.xy));
+        FxaaFloat lumaSE = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2( 1, 1), fxaaQualityRcpFrame.xy));
+        FxaaFloat lumaNE = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2( 1,-1), fxaaQualityRcpFrame.xy));
+        FxaaFloat lumaSW = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2(-1, 1), fxaaQualityRcpFrame.xy));
+    #else
+        FxaaFloat lumaNE = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2(1, -1), fxaaQualityRcpFrame.xy));
+        FxaaFloat lumaSW = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2(-1, 1), fxaaQualityRcpFrame.xy));
+    #endif
+/*--------------------------------------------------------------------------*/
+    FxaaFloat lumaNS = lumaN + lumaS;
+    FxaaFloat lumaWE = lumaW + lumaE;
+    FxaaFloat subpixRcpRange = 1.0/range;
+    FxaaFloat subpixNSWE = lumaNS + lumaWE;
+    FxaaFloat edgeHorz1 = (-2.0 * lumaM) + lumaNS;
+    FxaaFloat edgeVert1 = (-2.0 * lumaM) + lumaWE;
+/*--------------------------------------------------------------------------*/
+    FxaaFloat lumaNESE = lumaNE + lumaSE;
+    FxaaFloat lumaNWNE = lumaNW + lumaNE;
+    FxaaFloat edgeHorz2 = (-2.0 * lumaE) + lumaNESE;
+    FxaaFloat edgeVert2 = (-2.0 * lumaN) + lumaNWNE;
+/*--------------------------------------------------------------------------*/
+    FxaaFloat lumaNWSW = lumaNW + lumaSW;
+    FxaaFloat lumaSWSE = lumaSW + lumaSE;
+    FxaaFloat edgeHorz4 = (abs(edgeHorz1) * 2.0) + abs(edgeHorz2);
+    FxaaFloat edgeVert4 = (abs(edgeVert1) * 2.0) + abs(edgeVert2);
+    FxaaFloat edgeHorz3 = (-2.0 * lumaW) + lumaNWSW;
+    FxaaFloat edgeVert3 = (-2.0 * lumaS) + lumaSWSE;
+    FxaaFloat edgeHorz = abs(edgeHorz3) + edgeHorz4;
+    FxaaFloat edgeVert = abs(edgeVert3) + edgeVert4;
+/*--------------------------------------------------------------------------*/
+    FxaaFloat subpixNWSWNESE = lumaNWSW + lumaNESE;
+    FxaaFloat lengthSign = fxaaQualityRcpFrame.x;
+    FxaaBool horzSpan = edgeHorz >= edgeVert;
+    FxaaFloat subpixA = subpixNSWE * 2.0 + subpixNWSWNESE;
+/*--------------------------------------------------------------------------*/
+    if(!horzSpan) lumaN = lumaW;
+    if(!horzSpan) lumaS = lumaE;
+    if(horzSpan) lengthSign = fxaaQualityRcpFrame.y;
+    FxaaFloat subpixB = (subpixA * (1.0/12.0)) - lumaM;
+/*--------------------------------------------------------------------------*/
+    FxaaFloat gradientN = lumaN - lumaM;
+    FxaaFloat gradientS = lumaS - lumaM;
+    FxaaFloat lumaNN = lumaN + lumaM;
+    FxaaFloat lumaSS = lumaS + lumaM;
+    FxaaBool pairN = abs(gradientN) >= abs(gradientS);
+    FxaaFloat gradient = max(abs(gradientN), abs(gradientS));
+    if(pairN) lengthSign = -lengthSign;
+    FxaaFloat subpixC = FxaaSat(abs(subpixB) * subpixRcpRange);
+/*--------------------------------------------------------------------------*/
+    FxaaFloat2 posB;
+    posB.x = posM.x;
+    posB.y = posM.y;
+    FxaaFloat2 offNP;
+    offNP.x = (!horzSpan) ? 0.0 : fxaaQualityRcpFrame.x;
+    offNP.y = ( horzSpan) ? 0.0 : fxaaQualityRcpFrame.y;
+    if(!horzSpan) posB.x += lengthSign * 0.5;
+    if( horzSpan) posB.y += lengthSign * 0.5;
+/*--------------------------------------------------------------------------*/
+    FxaaFloat2 posN;
+    posN.x = posB.x - offNP.x * FXAA_QUALITY__P0;
+    posN.y = posB.y - offNP.y * FXAA_QUALITY__P0;
+    FxaaFloat2 posP;
+    posP.x = posB.x + offNP.x * FXAA_QUALITY__P0;
+    posP.y = posB.y + offNP.y * FXAA_QUALITY__P0;
+    FxaaFloat subpixD = ((-2.0)*subpixC) + 3.0;
+    FxaaFloat lumaEndN = FxaaLuma(FxaaTexTop(tex, posN));
+    FxaaFloat subpixE = subpixC * subpixC;
+    FxaaFloat lumaEndP = FxaaLuma(FxaaTexTop(tex, posP));
+/*--------------------------------------------------------------------------*/
+    if(!pairN) lumaNN = lumaSS;
+    FxaaFloat gradientScaled = gradient * 1.0/4.0;
+    FxaaFloat lumaMM = lumaM - lumaNN * 0.5;
+    FxaaFloat subpixF = subpixD * subpixE;
+    FxaaBool lumaMLTZero = lumaMM < 0.0;
+/*--------------------------------------------------------------------------*/
+    lumaEndN -= lumaNN * 0.5;
+    lumaEndP -= lumaNN * 0.5;
+    FxaaBool doneN = abs(lumaEndN) >= gradientScaled;
+    FxaaBool doneP = abs(lumaEndP) >= gradientScaled;
+    if(!doneN) posN.x -= offNP.x * FXAA_QUALITY__P1;
+    if(!doneN) posN.y -= offNP.y * FXAA_QUALITY__P1;
+    FxaaBool doneNP = (!doneN) || (!doneP);
+    if(!doneP) posP.x += offNP.x * FXAA_QUALITY__P1;
+    if(!doneP) posP.y += offNP.y * FXAA_QUALITY__P1;
+/*--------------------------------------------------------------------------*/
+    if(doneNP) {
+        if(!doneN) lumaEndN = FxaaLuma(FxaaTexTop(tex, posN.xy));
+        if(!doneP) lumaEndP = FxaaLuma(FxaaTexTop(tex, posP.xy));
+        if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+        if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+        doneN = abs(lumaEndN) >= gradientScaled;
+        doneP = abs(lumaEndP) >= gradientScaled;
+        if(!doneN) posN.x -= offNP.x * FXAA_QUALITY__P2;
+        if(!doneN) posN.y -= offNP.y * FXAA_QUALITY__P2;
+        doneNP = (!doneN) || (!doneP);
+        if(!doneP) posP.x += offNP.x * FXAA_QUALITY__P2;
+        if(!doneP) posP.y += offNP.y * FXAA_QUALITY__P2;
+/*--------------------------------------------------------------------------*/
+        #if (FXAA_QUALITY__PS > 3)
+        if(doneNP) {
+            if(!doneN) lumaEndN = FxaaLuma(FxaaTexTop(tex, posN.xy));
+            if(!doneP) lumaEndP = FxaaLuma(FxaaTexTop(tex, posP.xy));
+            if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+            if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+            doneN = abs(lumaEndN) >= gradientScaled;
+            doneP = abs(lumaEndP) >= gradientScaled;
+            if(!doneN) posN.x -= offNP.x * FXAA_QUALITY__P3;
+            if(!doneN) posN.y -= offNP.y * FXAA_QUALITY__P3;
+            doneNP = (!doneN) || (!doneP);
+            if(!doneP) posP.x += offNP.x * FXAA_QUALITY__P3;
+            if(!doneP) posP.y += offNP.y * FXAA_QUALITY__P3;
+/*--------------------------------------------------------------------------*/
+            #if (FXAA_QUALITY__PS > 4)
+            if(doneNP) {
+                if(!doneN) lumaEndN = FxaaLuma(FxaaTexTop(tex, posN.xy));
+                if(!doneP) lumaEndP = FxaaLuma(FxaaTexTop(tex, posP.xy));
+                if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+                if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+                doneN = abs(lumaEndN) >= gradientScaled;
+                doneP = abs(lumaEndP) >= gradientScaled;
+                if(!doneN) posN.x -= offNP.x * FXAA_QUALITY__P4;
+                if(!doneN) posN.y -= offNP.y * FXAA_QUALITY__P4;
+                doneNP = (!doneN) || (!doneP);
+                if(!doneP) posP.x += offNP.x * FXAA_QUALITY__P4;
+                if(!doneP) posP.y += offNP.y * FXAA_QUALITY__P4;
+/*--------------------------------------------------------------------------*/
+                #if (FXAA_QUALITY__PS > 5)
+                if(doneNP) {
+                    if(!doneN) lumaEndN = FxaaLuma(FxaaTexTop(tex, posN.xy));
+                    if(!doneP) lumaEndP = FxaaLuma(FxaaTexTop(tex, posP.xy));
+                    if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+                    if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+                    doneN = abs(lumaEndN) >= gradientScaled;
+                    doneP = abs(lumaEndP) >= gradientScaled;
+                    if(!doneN) posN.x -= offNP.x * FXAA_QUALITY__P5;
+                    if(!doneN) posN.y -= offNP.y * FXAA_QUALITY__P5;
+                    doneNP = (!doneN) || (!doneP);
+                    if(!doneP) posP.x += offNP.x * FXAA_QUALITY__P5;
+                    if(!doneP) posP.y += offNP.y * FXAA_QUALITY__P5;
+/*--------------------------------------------------------------------------*/
+                    #if (FXAA_QUALITY__PS > 6)
+                    if(doneNP) {
+                        if(!doneN) lumaEndN = FxaaLuma(FxaaTexTop(tex, posN.xy));
+                        if(!doneP) lumaEndP = FxaaLuma(FxaaTexTop(tex, posP.xy));
+                        if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+                        if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+                        doneN = abs(lumaEndN) >= gradientScaled;
+                        doneP = abs(lumaEndP) >= gradientScaled;
+                        if(!doneN) posN.x -= offNP.x * FXAA_QUALITY__P6;
+                        if(!doneN) posN.y -= offNP.y * FXAA_QUALITY__P6;
+                        doneNP = (!doneN) || (!doneP);
+                        if(!doneP) posP.x += offNP.x * FXAA_QUALITY__P6;
+                        if(!doneP) posP.y += offNP.y * FXAA_QUALITY__P6;
+/*--------------------------------------------------------------------------*/
+                        #if (FXAA_QUALITY__PS > 7)
+                        if(doneNP) {
+                            if(!doneN) lumaEndN = FxaaLuma(FxaaTexTop(tex, posN.xy));
+                            if(!doneP) lumaEndP = FxaaLuma(FxaaTexTop(tex, posP.xy));
+                            if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+                            if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+                            doneN = abs(lumaEndN) >= gradientScaled;
+                            doneP = abs(lumaEndP) >= gradientScaled;
+                            if(!doneN) posN.x -= offNP.x * FXAA_QUALITY__P7;
+                            if(!doneN) posN.y -= offNP.y * FXAA_QUALITY__P7;
+                            doneNP = (!doneN) || (!doneP);
+                            if(!doneP) posP.x += offNP.x * FXAA_QUALITY__P7;
+                            if(!doneP) posP.y += offNP.y * FXAA_QUALITY__P7;
+/*--------------------------------------------------------------------------*/
+    #if (FXAA_QUALITY__PS > 8)
+    if(doneNP) {
+        if(!doneN) lumaEndN = FxaaLuma(FxaaTexTop(tex, posN.xy));
+        if(!doneP) lumaEndP = FxaaLuma(FxaaTexTop(tex, posP.xy));
+        if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+        if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+        doneN = abs(lumaEndN) >= gradientScaled;
+        doneP = abs(lumaEndP) >= gradientScaled;
+        if(!doneN) posN.x -= offNP.x * FXAA_QUALITY__P8;
+        if(!doneN) posN.y -= offNP.y * FXAA_QUALITY__P8;
+        doneNP = (!doneN) || (!doneP);
+        if(!doneP) posP.x += offNP.x * FXAA_QUALITY__P8;
+        if(!doneP) posP.y += offNP.y * FXAA_QUALITY__P8;
+/*--------------------------------------------------------------------------*/
+        #if (FXAA_QUALITY__PS > 9)
+        if(doneNP) {
+            if(!doneN) lumaEndN = FxaaLuma(FxaaTexTop(tex, posN.xy));
+            if(!doneP) lumaEndP = FxaaLuma(FxaaTexTop(tex, posP.xy));
+            if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+            if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+            doneN = abs(lumaEndN) >= gradientScaled;
+            doneP = abs(lumaEndP) >= gradientScaled;
+            if(!doneN) posN.x -= offNP.x * FXAA_QUALITY__P9;
+            if(!doneN) posN.y -= offNP.y * FXAA_QUALITY__P9;
+            doneNP = (!doneN) || (!doneP);
+            if(!doneP) posP.x += offNP.x * FXAA_QUALITY__P9;
+            if(!doneP) posP.y += offNP.y * FXAA_QUALITY__P9;
+/*--------------------------------------------------------------------------*/
+            #if (FXAA_QUALITY__PS > 10)
+            if(doneNP) {
+                if(!doneN) lumaEndN = FxaaLuma(FxaaTexTop(tex, posN.xy));
+                if(!doneP) lumaEndP = FxaaLuma(FxaaTexTop(tex, posP.xy));
+                if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+                if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+                doneN = abs(lumaEndN) >= gradientScaled;
+                doneP = abs(lumaEndP) >= gradientScaled;
+                if(!doneN) posN.x -= offNP.x * FXAA_QUALITY__P10;
+                if(!doneN) posN.y -= offNP.y * FXAA_QUALITY__P10;
+                doneNP = (!doneN) || (!doneP);
+                if(!doneP) posP.x += offNP.x * FXAA_QUALITY__P10;
+                if(!doneP) posP.y += offNP.y * FXAA_QUALITY__P10;
+/*--------------------------------------------------------------------------*/
+                #if (FXAA_QUALITY__PS > 11)
+                if(doneNP) {
+                    if(!doneN) lumaEndN = FxaaLuma(FxaaTexTop(tex, posN.xy));
+                    if(!doneP) lumaEndP = FxaaLuma(FxaaTexTop(tex, posP.xy));
+                    if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+                    if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+                    doneN = abs(lumaEndN) >= gradientScaled;
+                    doneP = abs(lumaEndP) >= gradientScaled;
+                    if(!doneN) posN.x -= offNP.x * FXAA_QUALITY__P11;
+                    if(!doneN) posN.y -= offNP.y * FXAA_QUALITY__P11;
+                    doneNP = (!doneN) || (!doneP);
+                    if(!doneP) posP.x += offNP.x * FXAA_QUALITY__P11;
+                    if(!doneP) posP.y += offNP.y * FXAA_QUALITY__P11;
+/*--------------------------------------------------------------------------*/
+                    #if (FXAA_QUALITY__PS > 12)
+                    if(doneNP) {
+                        if(!doneN) lumaEndN = FxaaLuma(FxaaTexTop(tex, posN.xy));
+                        if(!doneP) lumaEndP = FxaaLuma(FxaaTexTop(tex, posP.xy));
+                        if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+                        if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+                        doneN = abs(lumaEndN) >= gradientScaled;
+                        doneP = abs(lumaEndP) >= gradientScaled;
+                        if(!doneN) posN.x -= offNP.x * FXAA_QUALITY__P12;
+                        if(!doneN) posN.y -= offNP.y * FXAA_QUALITY__P12;
+                        doneNP = (!doneN) || (!doneP);
+                        if(!doneP) posP.x += offNP.x * FXAA_QUALITY__P12;
+                        if(!doneP) posP.y += offNP.y * FXAA_QUALITY__P12;
+/*--------------------------------------------------------------------------*/
+                    }
+                    #endif
+/*--------------------------------------------------------------------------*/
+                }
+                #endif
+/*--------------------------------------------------------------------------*/
+            }
+            #endif
+/*--------------------------------------------------------------------------*/
+        }
+        #endif
+/*--------------------------------------------------------------------------*/
+    }
+    #endif
+/*--------------------------------------------------------------------------*/
+                        }
+                        #endif
+/*--------------------------------------------------------------------------*/
+                    }
+                    #endif
+/*--------------------------------------------------------------------------*/
+                }
+                #endif
+/*--------------------------------------------------------------------------*/
+            }
+            #endif
+/*--------------------------------------------------------------------------*/
+        }
+        #endif
+/*--------------------------------------------------------------------------*/
+    }
+/*--------------------------------------------------------------------------*/
+    FxaaFloat dstN = posM.x - posN.x;
+    FxaaFloat dstP = posP.x - posM.x;
+    if(!horzSpan) dstN = posM.y - posN.y;
+    if(!horzSpan) dstP = posP.y - posM.y;
+/*--------------------------------------------------------------------------*/
+    FxaaBool goodSpanN = (lumaEndN < 0.0) != lumaMLTZero;
+    FxaaFloat spanLength = (dstP + dstN);
+    FxaaBool goodSpanP = (lumaEndP < 0.0) != lumaMLTZero;
+    FxaaFloat spanLengthRcp = 1.0/spanLength;
+/*--------------------------------------------------------------------------*/
+    FxaaBool directionN = dstN < dstP;
+    FxaaFloat dst = min(dstN, dstP);
+    FxaaBool goodSpan = directionN ? goodSpanN : goodSpanP;
+    FxaaFloat subpixG = subpixF * subpixF;
+    FxaaFloat pixelOffset = (dst * (-spanLengthRcp)) + 0.5;
+    FxaaFloat subpixH = subpixG * fxaaQualitySubpix;
+/*--------------------------------------------------------------------------*/
+    FxaaFloat pixelOffsetGood = goodSpan ? pixelOffset : 0.0;
+    FxaaFloat pixelOffsetSubpix = max(pixelOffsetGood, subpixH);
+    if(!horzSpan) posM.x += pixelOffsetSubpix * lengthSign;
+    if( horzSpan) posM.y += pixelOffsetSubpix * lengthSign;
+    #if (FXAA_DISCARD == 1)
+        return FxaaTexTop(tex, posM);
+    #else
+        return FxaaFloat4(FxaaTexTop(tex, posM).xyz, lumaM);
+    #endif
+}
+/*==========================================================================*/
+#endif
+
+
+
+
+/*============================================================================
+
+                         FXAA3 CONSOLE - PC VERSION
+                         
+------------------------------------------------------------------------------
+Instead of using this on PC, I'd suggest just using FXAA Quality with
+    #define FXAA_QUALITY__PRESET 10
+Or 
+    #define FXAA_QUALITY__PRESET 20
+Either are higher qualilty and almost as fast as this on modern PC GPUs.
+============================================================================*/
+#if (FXAA_PC_CONSOLE == 1)
+/*--------------------------------------------------------------------------*/
+FxaaFloat4 FxaaPixelShader(
+    // See FXAA Quality FxaaPixelShader() source for docs on Inputs!
+    FxaaFloat2 pos,
+    FxaaFloat4 fxaaConsolePosPos,
+    FxaaTex tex,
+    FxaaTex fxaaConsole360TexExpBiasNegOne,
+    FxaaTex fxaaConsole360TexExpBiasNegTwo,
+    FxaaFloat2 fxaaQualityRcpFrame,
+    FxaaFloat4 fxaaConsoleRcpFrameOpt,
+    FxaaFloat4 fxaaConsoleRcpFrameOpt2,
+    FxaaFloat4 fxaaConsole360RcpFrameOpt2,
+    FxaaFloat fxaaQualitySubpix,
+    FxaaFloat fxaaQualityEdgeThreshold,
+    FxaaFloat fxaaQualityEdgeThresholdMin,
+    FxaaFloat fxaaConsoleEdgeSharpness,
+    FxaaFloat fxaaConsoleEdgeThreshold,
+    FxaaFloat fxaaConsoleEdgeThresholdMin,
+    FxaaFloat4 fxaaConsole360ConstDir
+) {
+/*--------------------------------------------------------------------------*/
+    FxaaFloat lumaNw = FxaaLuma(FxaaTexTop(tex, fxaaConsolePosPos.xy));
+    FxaaFloat lumaSw = FxaaLuma(FxaaTexTop(tex, fxaaConsolePosPos.xw));
+    FxaaFloat lumaNe = FxaaLuma(FxaaTexTop(tex, fxaaConsolePosPos.zy));
+    FxaaFloat lumaSe = FxaaLuma(FxaaTexTop(tex, fxaaConsolePosPos.zw));
+/*--------------------------------------------------------------------------*/
+    FxaaFloat4 rgbyM = FxaaTexTop(tex, pos.xy);
+    #if (FXAA_GREEN_AS_LUMA == 0)
+        FxaaFloat lumaM = rgbyM.w;
+    #else
+        FxaaFloat lumaM = rgbyM.y;
+    #endif
+/*--------------------------------------------------------------------------*/
+    FxaaFloat lumaMaxNwSw = max(lumaNw, lumaSw);
+    lumaNe += 1.0/384.0;
+    FxaaFloat lumaMinNwSw = min(lumaNw, lumaSw);
+/*--------------------------------------------------------------------------*/
+    FxaaFloat lumaMaxNeSe = max(lumaNe, lumaSe);
+    FxaaFloat lumaMinNeSe = min(lumaNe, lumaSe);
+/*--------------------------------------------------------------------------*/
+    FxaaFloat lumaMax = max(lumaMaxNeSe, lumaMaxNwSw);
+    FxaaFloat lumaMin = min(lumaMinNeSe, lumaMinNwSw);
+/*--------------------------------------------------------------------------*/
+    FxaaFloat lumaMaxScaled = lumaMax * fxaaConsoleEdgeThreshold;
+/*--------------------------------------------------------------------------*/
+    FxaaFloat lumaMinM = min(lumaMin, lumaM);
+    FxaaFloat lumaMaxScaledClamped = max(fxaaConsoleEdgeThresholdMin, lumaMaxScaled);
+    FxaaFloat lumaMaxM = max(lumaMax, lumaM);
+    FxaaFloat dirSwMinusNe = lumaSw - lumaNe;
+    FxaaFloat lumaMaxSubMinM = lumaMaxM - lumaMinM;
+    FxaaFloat dirSeMinusNw = lumaSe - lumaNw;
+    if(lumaMaxSubMinM < lumaMaxScaledClamped) return rgbyM;
+/*--------------------------------------------------------------------------*/
+    FxaaFloat2 dir;
+    dir.x = dirSwMinusNe + dirSeMinusNw;
+    dir.y = dirSwMinusNe - dirSeMinusNw;
+/*--------------------------------------------------------------------------*/
+    FxaaFloat2 dir1 = normalize(dir.xy);
+    FxaaFloat4 rgbyN1 = FxaaTexTop(tex, pos.xy - dir1 * fxaaConsoleRcpFrameOpt.zw);
+    FxaaFloat4 rgbyP1 = FxaaTexTop(tex, pos.xy + dir1 * fxaaConsoleRcpFrameOpt.zw);
+/*--------------------------------------------------------------------------*/
+    FxaaFloat dirAbsMinTimesC = min(abs(dir1.x), abs(dir1.y)) * fxaaConsoleEdgeSharpness;
+    FxaaFloat2 dir2 = clamp(dir1.xy / dirAbsMinTimesC, -2.0, 2.0);
+/*--------------------------------------------------------------------------*/
+    FxaaFloat4 rgbyN2 = FxaaTexTop(tex, pos.xy - dir2 * fxaaConsoleRcpFrameOpt2.zw);
+    FxaaFloat4 rgbyP2 = FxaaTexTop(tex, pos.xy + dir2 * fxaaConsoleRcpFrameOpt2.zw);
+/*--------------------------------------------------------------------------*/
+    FxaaFloat4 rgbyA = rgbyN1 + rgbyP1;
+    FxaaFloat4 rgbyB = ((rgbyN2 + rgbyP2) * 0.25) + (rgbyA * 0.25);
+/*--------------------------------------------------------------------------*/
+    #if (FXAA_GREEN_AS_LUMA == 0)
+        FxaaBool twoTap = (rgbyB.w < lumaMin) || (rgbyB.w > lumaMax);
+    #else
+        FxaaBool twoTap = (rgbyB.y < lumaMin) || (rgbyB.y > lumaMax);
+    #endif
+    if(twoTap) rgbyB.xyz = rgbyA.xyz * 0.5;
+    return rgbyB; }
+/*==========================================================================*/
+#endif
+
+
+
+/*============================================================================
+
+                      FXAA3 CONSOLE - 360 PIXEL SHADER 
+
+------------------------------------------------------------------------------
+This optimized version thanks to suggestions from Andy Luedke.
+Should be fully tex bound in all cases.
+As of the FXAA 3.11 release, I have still not tested this code,
+however I fixed a bug which was in both FXAA 3.9 and FXAA 3.10.
+And note this is replacing the old unoptimized version.
+If it does not work, please let me know so I can fix it.
+============================================================================*/
+#if (FXAA_360 == 1)
+/*--------------------------------------------------------------------------*/
+[reduceTempRegUsage(4)]
+float4 FxaaPixelShader(
+    // See FXAA Quality FxaaPixelShader() source for docs on Inputs!
+    FxaaFloat2 pos,
+    FxaaFloat4 fxaaConsolePosPos,
+    FxaaTex tex,
+    FxaaTex fxaaConsole360TexExpBiasNegOne,
+    FxaaTex fxaaConsole360TexExpBiasNegTwo,
+    FxaaFloat2 fxaaQualityRcpFrame,
+    FxaaFloat4 fxaaConsoleRcpFrameOpt,
+    FxaaFloat4 fxaaConsoleRcpFrameOpt2,
+    FxaaFloat4 fxaaConsole360RcpFrameOpt2,
+    FxaaFloat fxaaQualitySubpix,
+    FxaaFloat fxaaQualityEdgeThreshold,
+    FxaaFloat fxaaQualityEdgeThresholdMin,
+    FxaaFloat fxaaConsoleEdgeSharpness,
+    FxaaFloat fxaaConsoleEdgeThreshold,
+    FxaaFloat fxaaConsoleEdgeThresholdMin,
+    FxaaFloat4 fxaaConsole360ConstDir
+) {
+/*--------------------------------------------------------------------------*/
+    float4 lumaNwNeSwSe;
+    #if (FXAA_GREEN_AS_LUMA == 0)
+        asm { 
+            tfetch2D lumaNwNeSwSe.w___, tex, pos.xy, OffsetX = -0.5, OffsetY = -0.5, UseComputedLOD=false
+            tfetch2D lumaNwNeSwSe._w__, tex, pos.xy, OffsetX =  0.5, OffsetY = -0.5, UseComputedLOD=false
+            tfetch2D lumaNwNeSwSe.__w_, tex, pos.xy, OffsetX = -0.5, OffsetY =  0.5, UseComputedLOD=false
+            tfetch2D lumaNwNeSwSe.___w, tex, pos.xy, OffsetX =  0.5, OffsetY =  0.5, UseComputedLOD=false
+        };
+    #else
+        asm { 
+            tfetch2D lumaNwNeSwSe.y___, tex, pos.xy, OffsetX = -0.5, OffsetY = -0.5, UseComputedLOD=false
+            tfetch2D lumaNwNeSwSe._y__, tex, pos.xy, OffsetX =  0.5, OffsetY = -0.5, UseComputedLOD=false
+            tfetch2D lumaNwNeSwSe.__y_, tex, pos.xy, OffsetX = -0.5, OffsetY =  0.5, UseComputedLOD=false
+            tfetch2D lumaNwNeSwSe.___y, tex, pos.xy, OffsetX =  0.5, OffsetY =  0.5, UseComputedLOD=false
+        };
+    #endif
+/*--------------------------------------------------------------------------*/
+    lumaNwNeSwSe.y += 1.0/384.0;
+    float2 lumaMinTemp = min(lumaNwNeSwSe.xy, lumaNwNeSwSe.zw);
+    float2 lumaMaxTemp = max(lumaNwNeSwSe.xy, lumaNwNeSwSe.zw);
+    float lumaMin = min(lumaMinTemp.x, lumaMinTemp.y);
+    float lumaMax = max(lumaMaxTemp.x, lumaMaxTemp.y);
+/*--------------------------------------------------------------------------*/
+    float4 rgbyM = tex2Dlod(tex, float4(pos.xy, 0.0, 0.0));
+    #if (FXAA_GREEN_AS_LUMA == 0)
+        float lumaMinM = min(lumaMin, rgbyM.w);
+        float lumaMaxM = max(lumaMax, rgbyM.w);
+    #else
+        float lumaMinM = min(lumaMin, rgbyM.y);
+        float lumaMaxM = max(lumaMax, rgbyM.y);
+    #endif        
+    if((lumaMaxM - lumaMinM) < max(fxaaConsoleEdgeThresholdMin, lumaMax * fxaaConsoleEdgeThreshold)) return rgbyM;
+/*--------------------------------------------------------------------------*/
+    float2 dir;
+    dir.x = dot(lumaNwNeSwSe, fxaaConsole360ConstDir.yyxx);
+    dir.y = dot(lumaNwNeSwSe, fxaaConsole360ConstDir.xyxy);
+    dir = normalize(dir);
+/*--------------------------------------------------------------------------*/
+    float4 dir1 = dir.xyxy * fxaaConsoleRcpFrameOpt.xyzw;
+/*--------------------------------------------------------------------------*/
+    float4 dir2;
+    float dirAbsMinTimesC = min(abs(dir.x), abs(dir.y)) * fxaaConsoleEdgeSharpness;
+    dir2 = saturate(fxaaConsole360ConstDir.zzww * dir.xyxy / dirAbsMinTimesC + 0.5);
+    dir2 = dir2 * fxaaConsole360RcpFrameOpt2.xyxy + fxaaConsole360RcpFrameOpt2.zwzw;
+/*--------------------------------------------------------------------------*/
+    float4 rgbyN1 = tex2Dlod(fxaaConsole360TexExpBiasNegOne, float4(pos.xy + dir1.xy, 0.0, 0.0));
+    float4 rgbyP1 = tex2Dlod(fxaaConsole360TexExpBiasNegOne, float4(pos.xy + dir1.zw, 0.0, 0.0));
+    float4 rgbyN2 = tex2Dlod(fxaaConsole360TexExpBiasNegTwo, float4(pos.xy + dir2.xy, 0.0, 0.0));
+    float4 rgbyP2 = tex2Dlod(fxaaConsole360TexExpBiasNegTwo, float4(pos.xy + dir2.zw, 0.0, 0.0));
+/*--------------------------------------------------------------------------*/
+    float4 rgbyA = rgbyN1 + rgbyP1;
+    float4 rgbyB = rgbyN2 + rgbyP2 + rgbyA * 0.5;
+/*--------------------------------------------------------------------------*/
+    float4 rgbyR = ((FxaaLuma(rgbyB) - lumaMax) > 0.0) ? rgbyA : rgbyB; 
+    rgbyR = ((FxaaLuma(rgbyB) - lumaMin) > 0.0) ? rgbyR : rgbyA; 
+    return rgbyR; }
+/*==========================================================================*/
+#endif
+
+
+
+/*============================================================================
+
+         FXAA3 CONSOLE - OPTIMIZED PS3 PIXEL SHADER (NO EARLY EXIT)
+
+==============================================================================
+The code below does not exactly match the assembly.
+I have a feeling that 12 cycles is possible, but was not able to get there.
+Might have to increase register count to get full performance.
+Note this shader does not use perspective interpolation.
+
+Use the following cgc options,
+
+  --fenable-bx2 --fastmath --fastprecision --nofloatbindings
+
+------------------------------------------------------------------------------
+                             NVSHADERPERF OUTPUT
+------------------------------------------------------------------------------
+For reference and to aid in debug, output of NVShaderPerf should match this,
+
+Shader to schedule:
+  0: texpkb h0.w(TRUE), v5.zyxx, #0
+  2: addh h2.z(TRUE), h0.w, constant(0.001953, 0.000000, 0.000000, 0.000000).x
+  4: texpkb h0.w(TRUE), v5.xwxx, #0
+  6: addh h0.z(TRUE), -h2, h0.w
+  7: texpkb h1.w(TRUE), v5, #0
+  9: addh h0.x(TRUE), h0.z, -h1.w
+ 10: addh h3.w(TRUE), h0.z, h1
+ 11: texpkb h2.w(TRUE), v5.zwzz, #0
+ 13: addh h0.z(TRUE), h3.w, -h2.w
+ 14: addh h0.x(TRUE), h2.w, h0
+ 15: nrmh h1.xz(TRUE), h0_n
+ 16: minh_m8 h0.x(TRUE), |h1|, |h1.z|
+ 17: maxh h4.w(TRUE), h0, h1
+ 18: divx h2.xy(TRUE), h1_n.xzzw, h0_n
+ 19: movr r1.zw(TRUE), v4.xxxy
+ 20: madr r2.xz(TRUE), -h1, constant(cConst5.x, cConst5.y, cConst5.z, cConst5.w).zzww, r1.zzww
+ 22: minh h5.w(TRUE), h0, h1
+ 23: texpkb h0(TRUE), r2.xzxx, #0
+ 25: madr r0.zw(TRUE), h1.xzxz, constant(cConst5.x, cConst5.y, cConst5.z, cConst5.w), r1
+ 27: maxh h4.x(TRUE), h2.z, h2.w
+ 28: texpkb h1(TRUE), r0.zwzz, #0
+ 30: addh_d2 h1(TRUE), h0, h1
+ 31: madr r0.xy(TRUE), -h2, constant(cConst5.x, cConst5.y, cConst5.z, cConst5.w).xyxx, r1.zwzz
+ 33: texpkb h0(TRUE), r0, #0
+ 35: minh h4.z(TRUE), h2, h2.w
+ 36: fenct TRUE
+ 37: madr r1.xy(TRUE), h2, constant(cConst5.x, cConst5.y, cConst5.z, cConst5.w).xyxx, r1.zwzz
+ 39: texpkb h2(TRUE), r1, #0
+ 41: addh_d2 h0(TRUE), h0, h2
+ 42: maxh h2.w(TRUE), h4, h4.x
+ 43: minh h2.x(TRUE), h5.w, h4.z
+ 44: addh_d2 h0(TRUE), h0, h1
+ 45: slth h2.x(TRUE), h0.w, h2
+ 46: sgth h2.w(TRUE), h0, h2
+ 47: movh h0(TRUE), h0
+ 48: addx.c0 rc(TRUE), h2, h2.w
+ 49: movh h0(c0.NE.x), h1
+
+IPU0 ------ Simplified schedule: --------
+Pass |  Unit  |  uOp |  PC:  Op
+-----+--------+------+-------------------------
+   1 | SCT0/1 |  mov |   0:  TXLr h0.w, g[TEX1].zyxx, const.xxxx, TEX0;
+     |    TEX |  txl |   0:  TXLr h0.w, g[TEX1].zyxx, const.xxxx, TEX0;
+     |   SCB1 |  add |   2:  ADDh h2.z, h0.--w-, const.--x-;
+     |        |      |
+   2 | SCT0/1 |  mov |   4:  TXLr h0.w, g[TEX1].xwxx, const.xxxx, TEX0;
+     |    TEX |  txl |   4:  TXLr h0.w, g[TEX1].xwxx, const.xxxx, TEX0;
+     |   SCB1 |  add |   6:  ADDh h0.z,-h2, h0.--w-;
+     |        |      |
+   3 | SCT0/1 |  mov |   7:  TXLr h1.w, g[TEX1], const.xxxx, TEX0;
+     |    TEX |  txl |   7:  TXLr h1.w, g[TEX1], const.xxxx, TEX0;
+     |   SCB0 |  add |   9:  ADDh h0.x, h0.z---,-h1.w---;
+     |   SCB1 |  add |  10:  ADDh h3.w, h0.---z, h1;
+     |        |      |
+   4 | SCT0/1 |  mov |  11:  TXLr h2.w, g[TEX1].zwzz, const.xxxx, TEX0;
+     |    TEX |  txl |  11:  TXLr h2.w, g[TEX1].zwzz, const.xxxx, TEX0;
+     |   SCB0 |  add |  14:  ADDh h0.x, h2.w---, h0;
+     |   SCB1 |  add |  13:  ADDh h0.z, h3.--w-,-h2.--w-;
+     |        |      |
+   5 |   SCT1 |  mov |  15:  NRMh h1.xz, h0;
+     |    SRB |  nrm |  15:  NRMh h1.xz, h0;
+     |   SCB0 |  min |  16:  MINh*8 h0.x, |h1|, |h1.z---|;
+     |   SCB1 |  max |  17:  MAXh h4.w, h0, h1;
+     |        |      |
+   6 |   SCT0 |  div |  18:  DIVx h2.xy, h1.xz--, h0;
+     |   SCT1 |  mov |  19:  MOVr r1.zw, g[TEX0].--xy;
+     |   SCB0 |  mad |  20:  MADr r2.xz,-h1, const.z-w-, r1.z-w-;
+     |   SCB1 |  min |  22:  MINh h5.w, h0, h1;
+     |        |      |
+   7 | SCT0/1 |  mov |  23:  TXLr h0, r2.xzxx, const.xxxx, TEX0;
+     |    TEX |  txl |  23:  TXLr h0, r2.xzxx, const.xxxx, TEX0;
+     |   SCB0 |  max |  27:  MAXh h4.x, h2.z---, h2.w---;
+     |   SCB1 |  mad |  25:  MADr r0.zw, h1.--xz, const, r1;
+     |        |      |
+   8 | SCT0/1 |  mov |  28:  TXLr h1, r0.zwzz, const.xxxx, TEX0;
+     |    TEX |  txl |  28:  TXLr h1, r0.zwzz, const.xxxx, TEX0;
+     | SCB0/1 |  add |  30:  ADDh/2 h1, h0, h1;
+     |        |      |
+   9 |   SCT0 |  mad |  31:  MADr r0.xy,-h2, const.xy--, r1.zw--;
+     |   SCT1 |  mov |  33:  TXLr h0, r0, const.zzzz, TEX0;
+     |    TEX |  txl |  33:  TXLr h0, r0, const.zzzz, TEX0;
+     |   SCB1 |  min |  35:  MINh h4.z, h2, h2.--w-;
+     |        |      |
+  10 |   SCT0 |  mad |  37:  MADr r1.xy, h2, const.xy--, r1.zw--;
+     |   SCT1 |  mov |  39:  TXLr h2, r1, const.zzzz, TEX0;
+     |    TEX |  txl |  39:  TXLr h2, r1, const.zzzz, TEX0;
+     | SCB0/1 |  add |  41:  ADDh/2 h0, h0, h2;
+     |        |      |
+  11 |   SCT0 |  min |  43:  MINh h2.x, h5.w---, h4.z---;
+     |   SCT1 |  max |  42:  MAXh h2.w, h4, h4.---x;
+     | SCB0/1 |  add |  44:  ADDh/2 h0, h0, h1;
+     |        |      |
+  12 |   SCT0 |  set |  45:  SLTh h2.x, h0.w---, h2;
+     |   SCT1 |  set |  46:  SGTh h2.w, h0, h2;
+     | SCB0/1 |  mul |  47:  MOVh h0, h0;
+     |        |      |
+  13 |   SCT0 |  mad |  48:  ADDxc0_s rc, h2, h2.w---;
+     | SCB0/1 |  mul |  49:  MOVh h0(NE0.xxxx), h1;
+ 
+Pass   SCT  TEX  SCB
+  1:   0% 100%  25%
+  2:   0% 100%  25%
+  3:   0% 100%  50%
+  4:   0% 100%  50%
+  5:   0%   0%  50%
+  6: 100%   0%  75%
+  7:   0% 100%  75%
+  8:   0% 100% 100%
+  9:   0% 100%  25%
+ 10:   0% 100% 100%
+ 11:  50%   0% 100%
+ 12:  50%   0% 100%
+ 13:  25%   0% 100%
+
+MEAN:  17%  61%  67%
+
+Pass   SCT0  SCT1   TEX  SCB0  SCB1
+  1:    0%    0%  100%    0%  100%
+  2:    0%    0%  100%    0%  100%
+  3:    0%    0%  100%  100%  100%
+  4:    0%    0%  100%  100%  100%
+  5:    0%    0%    0%  100%  100%
+  6:  100%  100%    0%  100%  100%
+  7:    0%    0%  100%  100%  100%
+  8:    0%    0%  100%  100%  100%
+  9:    0%    0%  100%    0%  100%
+ 10:    0%    0%  100%  100%  100%
+ 11:  100%  100%    0%  100%  100%
+ 12:  100%  100%    0%  100%  100%
+ 13:  100%    0%    0%  100%  100%
+
+MEAN:   30%   23%   61%   76%  100%
+Fragment Performance Setup: Driver RSX Compiler, GPU RSX, Flags 0x5
+Results 13 cycles, 3 r regs, 923,076,923 pixels/s
+============================================================================*/
+#if (FXAA_PS3 == 1) && (FXAA_EARLY_EXIT == 0)
+/*--------------------------------------------------------------------------*/
+#pragma regcount 7
+#pragma disablepc all
+#pragma option O3
+#pragma option OutColorPrec=fp16
+#pragma texformat default RGBA8
+/*==========================================================================*/
+half4 FxaaPixelShader(
+    // See FXAA Quality FxaaPixelShader() source for docs on Inputs!
+    FxaaFloat2 pos,
+    FxaaFloat4 fxaaConsolePosPos,
+    FxaaTex tex,
+    FxaaTex fxaaConsole360TexExpBiasNegOne,
+    FxaaTex fxaaConsole360TexExpBiasNegTwo,
+    FxaaFloat2 fxaaQualityRcpFrame,
+    FxaaFloat4 fxaaConsoleRcpFrameOpt,
+    FxaaFloat4 fxaaConsoleRcpFrameOpt2,
+    FxaaFloat4 fxaaConsole360RcpFrameOpt2,
+    FxaaFloat fxaaQualitySubpix,
+    FxaaFloat fxaaQualityEdgeThreshold,
+    FxaaFloat fxaaQualityEdgeThresholdMin,
+    FxaaFloat fxaaConsoleEdgeSharpness,
+    FxaaFloat fxaaConsoleEdgeThreshold,
+    FxaaFloat fxaaConsoleEdgeThresholdMin,
+    FxaaFloat4 fxaaConsole360ConstDir
+) {
+/*--------------------------------------------------------------------------*/
+// (1)
+    half4 dir;
+    half4 lumaNe = h4tex2Dlod(tex, half4(fxaaConsolePosPos.zy, 0, 0));
+    #if (FXAA_GREEN_AS_LUMA == 0)
+        lumaNe.w += half(1.0/512.0);
+        dir.x = -lumaNe.w;
+        dir.z = -lumaNe.w;
+    #else
+        lumaNe.y += half(1.0/512.0);
+        dir.x = -lumaNe.y;
+        dir.z = -lumaNe.y;
+    #endif
+/*--------------------------------------------------------------------------*/
+// (2)
+    half4 lumaSw = h4tex2Dlod(tex, half4(fxaaConsolePosPos.xw, 0, 0));
+    #if (FXAA_GREEN_AS_LUMA == 0)
+        dir.x += lumaSw.w;
+        dir.z += lumaSw.w;
+    #else
+        dir.x += lumaSw.y;
+        dir.z += lumaSw.y;
+    #endif        
+/*--------------------------------------------------------------------------*/
+// (3)
+    half4 lumaNw = h4tex2Dlod(tex, half4(fxaaConsolePosPos.xy, 0, 0));
+    #if (FXAA_GREEN_AS_LUMA == 0)
+        dir.x -= lumaNw.w;
+        dir.z += lumaNw.w;
+    #else
+        dir.x -= lumaNw.y;
+        dir.z += lumaNw.y;
+    #endif
+/*--------------------------------------------------------------------------*/
+// (4)
+    half4 lumaSe = h4tex2Dlod(tex, half4(fxaaConsolePosPos.zw, 0, 0));
+    #if (FXAA_GREEN_AS_LUMA == 0)
+        dir.x += lumaSe.w;
+        dir.z -= lumaSe.w;
+    #else
+        dir.x += lumaSe.y;
+        dir.z -= lumaSe.y;
+    #endif
+/*--------------------------------------------------------------------------*/
+// (5)
+    half4 dir1_pos;
+    dir1_pos.xy = normalize(dir.xyz).xz;
+    half dirAbsMinTimesC = min(abs(dir1_pos.x), abs(dir1_pos.y)) * half(FXAA_CONSOLE__PS3_EDGE_SHARPNESS);
+/*--------------------------------------------------------------------------*/
+// (6)
+    half4 dir2_pos;
+    dir2_pos.xy = clamp(dir1_pos.xy / dirAbsMinTimesC, half(-2.0), half(2.0));
+    dir1_pos.zw = pos.xy;
+    dir2_pos.zw = pos.xy;
+    half4 temp1N;
+    temp1N.xy = dir1_pos.zw - dir1_pos.xy * fxaaConsoleRcpFrameOpt.zw;
+/*--------------------------------------------------------------------------*/
+// (7)
+    temp1N = h4tex2Dlod(tex, half4(temp1N.xy, 0.0, 0.0));
+    half4 rgby1;
+    rgby1.xy = dir1_pos.zw + dir1_pos.xy * fxaaConsoleRcpFrameOpt.zw;
+/*--------------------------------------------------------------------------*/
+// (8)
+    rgby1 = h4tex2Dlod(tex, half4(rgby1.xy, 0.0, 0.0));
+    rgby1 = (temp1N + rgby1) * 0.5;
+/*--------------------------------------------------------------------------*/
+// (9)
+    half4 temp2N;
+    temp2N.xy = dir2_pos.zw - dir2_pos.xy * fxaaConsoleRcpFrameOpt2.zw;
+    temp2N = h4tex2Dlod(tex, half4(temp2N.xy, 0.0, 0.0));
+/*--------------------------------------------------------------------------*/
+// (10)
+    half4 rgby2;
+    rgby2.xy = dir2_pos.zw + dir2_pos.xy * fxaaConsoleRcpFrameOpt2.zw;
+    rgby2 = h4tex2Dlod(tex, half4(rgby2.xy, 0.0, 0.0));
+    rgby2 = (temp2N + rgby2) * 0.5;
+/*--------------------------------------------------------------------------*/
+// (11)
+    // compilier moves these scalar ops up to other cycles
+    #if (FXAA_GREEN_AS_LUMA == 0)
+        half lumaMin = min(min(lumaNw.w, lumaSw.w), min(lumaNe.w, lumaSe.w));
+        half lumaMax = max(max(lumaNw.w, lumaSw.w), max(lumaNe.w, lumaSe.w));
+    #else
+        half lumaMin = min(min(lumaNw.y, lumaSw.y), min(lumaNe.y, lumaSe.y));
+        half lumaMax = max(max(lumaNw.y, lumaSw.y), max(lumaNe.y, lumaSe.y));
+    #endif        
+    rgby2 = (rgby2 + rgby1) * 0.5;
+/*--------------------------------------------------------------------------*/
+// (12)
+    #if (FXAA_GREEN_AS_LUMA == 0)
+        bool twoTapLt = rgby2.w < lumaMin;
+        bool twoTapGt = rgby2.w > lumaMax;
+    #else
+        bool twoTapLt = rgby2.y < lumaMin;
+        bool twoTapGt = rgby2.y > lumaMax;
+    #endif
+/*--------------------------------------------------------------------------*/
+// (13)
+    if(twoTapLt || twoTapGt) rgby2 = rgby1;
+/*--------------------------------------------------------------------------*/
+    return rgby2; }
+/*==========================================================================*/
+#endif
+
+
+
+/*============================================================================
+
+       FXAA3 CONSOLE - OPTIMIZED PS3 PIXEL SHADER (WITH EARLY EXIT)
+
+==============================================================================
+The code mostly matches the assembly.
+I have a feeling that 14 cycles is possible, but was not able to get there.
+Might have to increase register count to get full performance.
+Note this shader does not use perspective interpolation.
+
+Use the following cgc options,
+
+ --fenable-bx2 --fastmath --fastprecision --nofloatbindings
+
+Use of FXAA_GREEN_AS_LUMA currently adds a cycle (16 clks).
+Will look at fixing this for FXAA 3.12.
+------------------------------------------------------------------------------
+                             NVSHADERPERF OUTPUT
+------------------------------------------------------------------------------
+For reference and to aid in debug, output of NVShaderPerf should match this,
+
+Shader to schedule:
+  0: texpkb h0.w(TRUE), v5.zyxx, #0
+  2: addh h2.y(TRUE), h0.w, constant(0.001953, 0.000000, 0.000000, 0.000000).x
+  4: texpkb h1.w(TRUE), v5.xwxx, #0
+  6: addh h0.x(TRUE), h1.w, -h2.y
+  7: texpkb h2.w(TRUE), v5.zwzz, #0
+  9: minh h4.w(TRUE), h2.y, h2
+ 10: maxh h5.x(TRUE), h2.y, h2.w
+ 11: texpkb h0.w(TRUE), v5, #0
+ 13: addh h3.w(TRUE), -h0, h0.x
+ 14: addh h0.x(TRUE), h0.w, h0
+ 15: addh h0.z(TRUE), -h2.w, h0.x
+ 16: addh h0.x(TRUE), h2.w, h3.w
+ 17: minh h5.y(TRUE), h0.w, h1.w
+ 18: nrmh h2.xz(TRUE), h0_n
+ 19: minh_m8 h2.w(TRUE), |h2.x|, |h2.z|
+ 20: divx h4.xy(TRUE), h2_n.xzzw, h2_n.w
+ 21: movr r1.zw(TRUE), v4.xxxy
+ 22: maxh h2.w(TRUE), h0, h1
+ 23: fenct TRUE
+ 24: madr r0.xy(TRUE), -h2.xzzw, constant(cConst5.x, cConst5.y, cConst5.z, cConst5.w).zwzz, r1.zwzz
+ 26: texpkb h0(TRUE), r0, #0
+ 28: maxh h5.x(TRUE), h2.w, h5
+ 29: minh h5.w(TRUE), h5.y, h4
+ 30: madr r1.xy(TRUE), h2.xzzw, constant(cConst5.x, cConst5.y, cConst5.z, cConst5.w).zwzz, r1.zwzz
+ 32: texpkb h2(TRUE), r1, #0
+ 34: addh_d2 h2(TRUE), h0, h2
+ 35: texpkb h1(TRUE), v4, #0
+ 37: maxh h5.y(TRUE), h5.x, h1.w
+ 38: minh h4.w(TRUE), h1, h5
+ 39: madr r0.xy(TRUE), -h4, constant(cConst5.x, cConst5.y, cConst5.z, cConst5.w).xyxx, r1.zwzz
+ 41: texpkb h0(TRUE), r0, #0
+ 43: addh_m8 h5.z(TRUE), h5.y, -h4.w
+ 44: madr r2.xy(TRUE), h4, constant(cConst5.x, cConst5.y, cConst5.z, cConst5.w).xyxx, r1.zwzz
+ 46: texpkb h3(TRUE), r2, #0
+ 48: addh_d2 h0(TRUE), h0, h3
+ 49: addh_d2 h3(TRUE), h0, h2
+ 50: movh h0(TRUE), h3
+ 51: slth h3.x(TRUE), h3.w, h5.w
+ 52: sgth h3.w(TRUE), h3, h5.x
+ 53: addx.c0 rc(TRUE), h3.x, h3
+ 54: slth.c0 rc(TRUE), h5.z, h5
+ 55: movh h0(c0.NE.w), h2
+ 56: movh h0(c0.NE.x), h1
+
+IPU0 ------ Simplified schedule: --------
+Pass |  Unit  |  uOp |  PC:  Op
+-----+--------+------+-------------------------
+   1 | SCT0/1 |  mov |   0:  TXLr h0.w, g[TEX1].zyxx, const.xxxx, TEX0;
+     |    TEX |  txl |   0:  TXLr h0.w, g[TEX1].zyxx, const.xxxx, TEX0;
+     |   SCB0 |  add |   2:  ADDh h2.y, h0.-w--, const.-x--;
+     |        |      |
+   2 | SCT0/1 |  mov |   4:  TXLr h1.w, g[TEX1].xwxx, const.xxxx, TEX0;
+     |    TEX |  txl |   4:  TXLr h1.w, g[TEX1].xwxx, const.xxxx, TEX0;
+     |   SCB0 |  add |   6:  ADDh h0.x, h1.w---,-h2.y---;
+     |        |      |
+   3 | SCT0/1 |  mov |   7:  TXLr h2.w, g[TEX1].zwzz, const.xxxx, TEX0;
+     |    TEX |  txl |   7:  TXLr h2.w, g[TEX1].zwzz, const.xxxx, TEX0;
+     |   SCB0 |  max |  10:  MAXh h5.x, h2.y---, h2.w---;
+     |   SCB1 |  min |   9:  MINh h4.w, h2.---y, h2;
+     |        |      |
+   4 | SCT0/1 |  mov |  11:  TXLr h0.w, g[TEX1], const.xxxx, TEX0;
+     |    TEX |  txl |  11:  TXLr h0.w, g[TEX1], const.xxxx, TEX0;
+     |   SCB0 |  add |  14:  ADDh h0.x, h0.w---, h0;
+     |   SCB1 |  add |  13:  ADDh h3.w,-h0, h0.---x;
+     |        |      |
+   5 |   SCT0 |  mad |  16:  ADDh h0.x, h2.w---, h3.w---;
+     |   SCT1 |  mad |  15:  ADDh h0.z,-h2.--w-, h0.--x-;
+     |   SCB0 |  min |  17:  MINh h5.y, h0.-w--, h1.-w--;
+     |        |      |
+   6 |   SCT1 |  mov |  18:  NRMh h2.xz, h0;
+     |    SRB |  nrm |  18:  NRMh h2.xz, h0;
+     |   SCB1 |  min |  19:  MINh*8 h2.w, |h2.---x|, |h2.---z|;
+     |        |      |
+   7 |   SCT0 |  div |  20:  DIVx h4.xy, h2.xz--, h2.ww--;
+     |   SCT1 |  mov |  21:  MOVr r1.zw, g[TEX0].--xy;
+     |   SCB1 |  max |  22:  MAXh h2.w, h0, h1;
+     |        |      |
+   8 |   SCT0 |  mad |  24:  MADr r0.xy,-h2.xz--, const.zw--, r1.zw--;
+     |   SCT1 |  mov |  26:  TXLr h0, r0, const.xxxx, TEX0;
+     |    TEX |  txl |  26:  TXLr h0, r0, const.xxxx, TEX0;
+     |   SCB0 |  max |  28:  MAXh h5.x, h2.w---, h5;
+     |   SCB1 |  min |  29:  MINh h5.w, h5.---y, h4;
+     |        |      |
+   9 |   SCT0 |  mad |  30:  MADr r1.xy, h2.xz--, const.zw--, r1.zw--;
+     |   SCT1 |  mov |  32:  TXLr h2, r1, const.xxxx, TEX0;
+     |    TEX |  txl |  32:  TXLr h2, r1, const.xxxx, TEX0;
+     | SCB0/1 |  add |  34:  ADDh/2 h2, h0, h2;
+     |        |      |
+  10 | SCT0/1 |  mov |  35:  TXLr h1, g[TEX0], const.xxxx, TEX0;
+     |    TEX |  txl |  35:  TXLr h1, g[TEX0], const.xxxx, TEX0;
+     |   SCB0 |  max |  37:  MAXh h5.y, h5.-x--, h1.-w--;
+     |   SCB1 |  min |  38:  MINh h4.w, h1, h5;
+     |        |      |
+  11 |   SCT0 |  mad |  39:  MADr r0.xy,-h4, const.xy--, r1.zw--;
+     |   SCT1 |  mov |  41:  TXLr h0, r0, const.zzzz, TEX0;
+     |    TEX |  txl |  41:  TXLr h0, r0, const.zzzz, TEX0;
+     |   SCB0 |  mad |  44:  MADr r2.xy, h4, const.xy--, r1.zw--;
+     |   SCB1 |  add |  43:  ADDh*8 h5.z, h5.--y-,-h4.--w-;
+     |        |      |
+  12 | SCT0/1 |  mov |  46:  TXLr h3, r2, const.xxxx, TEX0;
+     |    TEX |  txl |  46:  TXLr h3, r2, const.xxxx, TEX0;
+     | SCB0/1 |  add |  48:  ADDh/2 h0, h0, h3;
+     |        |      |
+  13 | SCT0/1 |  mad |  49:  ADDh/2 h3, h0, h2;
+     | SCB0/1 |  mul |  50:  MOVh h0, h3;
+     |        |      |
+  14 |   SCT0 |  set |  51:  SLTh h3.x, h3.w---, h5.w---;
+     |   SCT1 |  set |  52:  SGTh h3.w, h3, h5.---x;
+     |   SCB0 |  set |  54:  SLThc0 rc, h5.z---, h5;
+     |   SCB1 |  add |  53:  ADDxc0_s rc, h3.---x, h3;
+     |        |      |
+  15 | SCT0/1 |  mul |  55:  MOVh h0(NE0.wwww), h2;
+     | SCB0/1 |  mul |  56:  MOVh h0(NE0.xxxx), h1;
+ 
+Pass   SCT  TEX  SCB
+  1:   0% 100%  25%
+  2:   0% 100%  25%
+  3:   0% 100%  50%
+  4:   0% 100%  50%
+  5:  50%   0%  25%
+  6:   0%   0%  25%
+  7: 100%   0%  25%
+  8:   0% 100%  50%
+  9:   0% 100% 100%
+ 10:   0% 100%  50%
+ 11:   0% 100%  75%
+ 12:   0% 100% 100%
+ 13: 100%   0% 100%
+ 14:  50%   0%  50%
+ 15: 100%   0% 100%
+
+MEAN:  26%  60%  56%
+
+Pass   SCT0  SCT1   TEX  SCB0  SCB1
+  1:    0%    0%  100%  100%    0%
+  2:    0%    0%  100%  100%    0%
+  3:    0%    0%  100%  100%  100%
+  4:    0%    0%  100%  100%  100%
+  5:  100%  100%    0%  100%    0%
+  6:    0%    0%    0%    0%  100%
+  7:  100%  100%    0%    0%  100%
+  8:    0%    0%  100%  100%  100%
+  9:    0%    0%  100%  100%  100%
+ 10:    0%    0%  100%  100%  100%
+ 11:    0%    0%  100%  100%  100%
+ 12:    0%    0%  100%  100%  100%
+ 13:  100%  100%    0%  100%  100%
+ 14:  100%  100%    0%  100%  100%
+ 15:  100%  100%    0%  100%  100%
+
+MEAN:   33%   33%   60%   86%   80%
+Fragment Performance Setup: Driver RSX Compiler, GPU RSX, Flags 0x5
+Results 15 cycles, 3 r regs, 800,000,000 pixels/s
+============================================================================*/
+#if (FXAA_PS3 == 1) && (FXAA_EARLY_EXIT == 1)
+/*--------------------------------------------------------------------------*/
+#pragma regcount 7
+#pragma disablepc all
+#pragma option O2
+#pragma option OutColorPrec=fp16
+#pragma texformat default RGBA8
+/*==========================================================================*/
+half4 FxaaPixelShader(
+    // See FXAA Quality FxaaPixelShader() source for docs on Inputs!
+    FxaaFloat2 pos,
+    FxaaFloat4 fxaaConsolePosPos,
+    FxaaTex tex,
+    FxaaTex fxaaConsole360TexExpBiasNegOne,
+    FxaaTex fxaaConsole360TexExpBiasNegTwo,
+    FxaaFloat2 fxaaQualityRcpFrame,
+    FxaaFloat4 fxaaConsoleRcpFrameOpt,
+    FxaaFloat4 fxaaConsoleRcpFrameOpt2,
+    FxaaFloat4 fxaaConsole360RcpFrameOpt2,
+    FxaaFloat fxaaQualitySubpix,
+    FxaaFloat fxaaQualityEdgeThreshold,
+    FxaaFloat fxaaQualityEdgeThresholdMin,
+    FxaaFloat fxaaConsoleEdgeSharpness,
+    FxaaFloat fxaaConsoleEdgeThreshold,
+    FxaaFloat fxaaConsoleEdgeThresholdMin,
+    FxaaFloat4 fxaaConsole360ConstDir
+) {
+/*--------------------------------------------------------------------------*/
+// (1)
+    half4 rgbyNe = h4tex2Dlod(tex, half4(fxaaConsolePosPos.zy, 0, 0));
+    #if (FXAA_GREEN_AS_LUMA == 0)
+        half lumaNe = rgbyNe.w + half(1.0/512.0);
+    #else
+        half lumaNe = rgbyNe.y + half(1.0/512.0);
+    #endif
+/*--------------------------------------------------------------------------*/
+// (2)
+    half4 lumaSw = h4tex2Dlod(tex, half4(fxaaConsolePosPos.xw, 0, 0));
+    #if (FXAA_GREEN_AS_LUMA == 0)
+        half lumaSwNegNe = lumaSw.w - lumaNe;
+    #else
+        half lumaSwNegNe = lumaSw.y - lumaNe;
+    #endif
+/*--------------------------------------------------------------------------*/
+// (3)
+    half4 lumaNw = h4tex2Dlod(tex, half4(fxaaConsolePosPos.xy, 0, 0));
+    #if (FXAA_GREEN_AS_LUMA == 0)
+        half lumaMaxNwSw = max(lumaNw.w, lumaSw.w);
+        half lumaMinNwSw = min(lumaNw.w, lumaSw.w);
+    #else
+        half lumaMaxNwSw = max(lumaNw.y, lumaSw.y);
+        half lumaMinNwSw = min(lumaNw.y, lumaSw.y);
+    #endif
+/*--------------------------------------------------------------------------*/
+// (4)
+    half4 lumaSe = h4tex2Dlod(tex, half4(fxaaConsolePosPos.zw, 0, 0));
+    #if (FXAA_GREEN_AS_LUMA == 0)
+        half dirZ =  lumaNw.w + lumaSwNegNe;
+        half dirX = -lumaNw.w + lumaSwNegNe;
+    #else
+        half dirZ =  lumaNw.y + lumaSwNegNe;
+        half dirX = -lumaNw.y + lumaSwNegNe;
+    #endif
+/*--------------------------------------------------------------------------*/
+// (5)
+    half3 dir;
+    dir.y = 0.0;
+    #if (FXAA_GREEN_AS_LUMA == 0)
+        dir.x =  lumaSe.w + dirX;
+        dir.z = -lumaSe.w + dirZ;
+        half lumaMinNeSe = min(lumaNe, lumaSe.w);
+    #else
+        dir.x =  lumaSe.y + dirX;
+        dir.z = -lumaSe.y + dirZ;
+        half lumaMinNeSe = min(lumaNe, lumaSe.y);
+    #endif
+/*--------------------------------------------------------------------------*/
+// (6)
+    half4 dir1_pos;
+    dir1_pos.xy = normalize(dir).xz;
+    half dirAbsMinTimes8 = min(abs(dir1_pos.x), abs(dir1_pos.y)) * half(FXAA_CONSOLE__PS3_EDGE_SHARPNESS);
+/*--------------------------------------------------------------------------*/
+// (7)
+    half4 dir2_pos;
+    dir2_pos.xy = clamp(dir1_pos.xy / dirAbsMinTimes8, half(-2.0), half(2.0));
+    dir1_pos.zw = pos.xy;
+    dir2_pos.zw = pos.xy;
+    #if (FXAA_GREEN_AS_LUMA == 0)
+        half lumaMaxNeSe = max(lumaNe, lumaSe.w);
+    #else
+        half lumaMaxNeSe = max(lumaNe, lumaSe.y);
+    #endif
+/*--------------------------------------------------------------------------*/
+// (8)
+    half4 temp1N;
+    temp1N.xy = dir1_pos.zw - dir1_pos.xy * fxaaConsoleRcpFrameOpt.zw;
+    temp1N = h4tex2Dlod(tex, half4(temp1N.xy, 0.0, 0.0));
+    half lumaMax = max(lumaMaxNwSw, lumaMaxNeSe);
+    half lumaMin = min(lumaMinNwSw, lumaMinNeSe);
+/*--------------------------------------------------------------------------*/
+// (9)
+    half4 rgby1;
+    rgby1.xy = dir1_pos.zw + dir1_pos.xy * fxaaConsoleRcpFrameOpt.zw;
+    rgby1 = h4tex2Dlod(tex, half4(rgby1.xy, 0.0, 0.0));
+    rgby1 = (temp1N + rgby1) * 0.5;
+/*--------------------------------------------------------------------------*/
+// (10)
+    half4 rgbyM = h4tex2Dlod(tex, half4(pos.xy, 0.0, 0.0));
+    #if (FXAA_GREEN_AS_LUMA == 0)
+        half lumaMaxM = max(lumaMax, rgbyM.w);
+        half lumaMinM = min(lumaMin, rgbyM.w);
+    #else
+        half lumaMaxM = max(lumaMax, rgbyM.y);
+        half lumaMinM = min(lumaMin, rgbyM.y);
+    #endif
+/*--------------------------------------------------------------------------*/
+// (11)
+    half4 temp2N;
+    temp2N.xy = dir2_pos.zw - dir2_pos.xy * fxaaConsoleRcpFrameOpt2.zw;
+    temp2N = h4tex2Dlod(tex, half4(temp2N.xy, 0.0, 0.0));
+    half4 rgby2;
+    rgby2.xy = dir2_pos.zw + dir2_pos.xy * fxaaConsoleRcpFrameOpt2.zw;
+    half lumaRangeM = (lumaMaxM - lumaMinM) / FXAA_CONSOLE__PS3_EDGE_THRESHOLD;
+/*--------------------------------------------------------------------------*/
+// (12)
+    rgby2 = h4tex2Dlod(tex, half4(rgby2.xy, 0.0, 0.0));
+    rgby2 = (temp2N + rgby2) * 0.5;
+/*--------------------------------------------------------------------------*/
+// (13)
+    rgby2 = (rgby2 + rgby1) * 0.5;
+/*--------------------------------------------------------------------------*/
+// (14)
+    #if (FXAA_GREEN_AS_LUMA == 0)
+        bool twoTapLt = rgby2.w < lumaMin;
+        bool twoTapGt = rgby2.w > lumaMax;
+    #else
+        bool twoTapLt = rgby2.y < lumaMin;
+        bool twoTapGt = rgby2.y > lumaMax;
+    #endif
+    bool earlyExit = lumaRangeM < lumaMax;
+    bool twoTap = twoTapLt || twoTapGt;
+/*--------------------------------------------------------------------------*/
+// (15)
+    if(twoTap) rgby2 = rgby1;
+    if(earlyExit) rgby2 = rgbyM;
+/*--------------------------------------------------------------------------*/
+    return rgby2; }
+/*==========================================================================*/
+#endif
+
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+    vec2 rcpFrame = vec2(1.0) / iResolution.xy;
+    fragColor =
+        FxaaPixelShader(fragCoord / iResolution.xy,
+                        vec4(0.0),
+                        iChannel0,
+                        iChannel0,
+                        iChannel0,
+                        rcpFrame,
+                        vec4(0.0),
+                        vec4(0.0),
+                        vec4(0.0),
+                        0.75, // Sub-pixel aliasing removal (affects sharpness)
+                        0.166, // Edge threshold
+                        0.0833, // Min edge threshold (trims alg from processing darks)
+                        0.0,
+                        0.0,
+                        0.0,
+						vec4(0.0));
+}
+
+#else
+
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+    vec2 uv = fragCoord / iResolution.xy;
+    fragColor = texture(iChannel0, uv);
+}
+
+#endif
+
+
+void main() {
+	vec4 fc;
+	mainImage(fc,vec2(gl_FragCoord.x,gl_FragCoord.y));
+	glFragColor=fc;
+}
+#version 300 es
+in vec4 position;
+void main() {
+  gl_Position = vec4(position.xyz,1.);
+}
+#version 300 es
+#ifdef GL_ES
+ precision highp float;
+#endif
+uniform float u_time;
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+uniform sampler2D u_texture1;
+uniform sampler2D u_texture2;
+uniform sampler2D u_texture3;
+uniform sampler2D u_texture4;
+out vec4 glFragColor;
+
+
+#define iTime u_time
+#define iResolution u_resolution
+#define iMouse u_mouse
+#define iChannel0 u_texture1
+#define iChannel1 u_texture2
+#define iChannel2 u_texture3
+#define iChannel3 u_texture4
+
+
+// License Creative Commons Attribution-NonCommercial-ShareAlike
+// original source github.com/danilw
+
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+    vec2 res = iResolution.xy / iResolution.y;
+    vec2 uv = (fragCoord.xy) / iResolution.y - res/2.0;
+    
+    vec3 col = 0.5 + 0.5*cos(iTime+uv.xyx+vec3(0,2,4));
+    
+    fragColor = vec4(col,1.0);
+}
+
+void main(void) {
+	discard;
+    vec4 fragColor = vec4(0.);
+    mainImage(fragColor,gl_FragCoord.xy);
+    glFragColor = fragColor;
+}
+#version 300 es
+#ifdef GL_ES
+ precision highp float;
+#endif
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+uniform sampler2D u_texture1;
+uniform float u_time;
+out vec4 glFragColor;
+
+#define iTime u_time
+#define iResolution u_resolution
+#define iChannel0 u_texture1
+#define iMouse u_mouse
+
+// License Creative Commons Attribution-NonCommercial-ShareAlike
+// original source github.com/danilw
+void mainImage(out vec4 o,vec2 u)
+{
+    o =  mix(o = texture(iChannel0, u /= iResolution.xy),
+             vec4 ( dot(o,vec4(.3,.59,.11,0)) ), 1.); //1-0 anim
+}
+
+
+void main() {
+	vec4 ret;
+	mainImage(ret,gl_FragCoord.xy);
+	glFragColor=ret;
+	glFragColor.a=1.;
+}
+#version 300 es
+#ifdef GL_ES
+ precision highp float;
+#endif
+uniform float u_time;
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+uniform sampler2D u_texture1;
+uniform sampler2D u_texture2;
+uniform sampler2D u_texture3;
+out vec4 glFragColor;
+
+
+#define iTime u_time
+#define iResolution u_resolution
+#define iMouse u_mouse
+#define iChannel0 u_texture1
+#define iChannel1 u_texture2
+#define iChannel2 u_texture3
+
+
+// Horizontal bloom blur
+
+// License Creative Commons Attribution-NonCommercial-ShareAlike
+// original source github.com/danilw
+
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+    vec3 acc = vec3(0.0);
+    
+    vec2 uv = fragCoord.xy / iResolution.xy;
+    
+    // Manually expanded weights/iteration to please inferior shader compilers
+    const int steps = 7;
+    const float weights0 = 0.00598;
+    const float weights1 = 0.060626;
+    const float weights2 = 0.241843;
+    const float weights3 = 0.383103;
+    const float weights4 = 0.241843;
+    const float weights5 = 0.060626;
+    const float weights6 = 0.00598;
+    
+    vec2 direction = vec2(1.0, 0.0);
+    
+    vec2 offset0 = direction * float(0 - steps / 2) / iResolution.xy;
+    acc += texture(iChannel0, uv + offset0).xyz * weights0;
+    vec2 offset1 = direction * float(1 - steps / 2) / iResolution.xy;
+    acc += texture(iChannel0, uv + offset1).xyz * weights1;
+    vec2 offset2 = direction * float(2 - steps / 2) / iResolution.xy;
+    acc += texture(iChannel0, uv + offset2).xyz * weights2;
+    vec2 offset3 = direction * float(3 - steps / 2) / iResolution.xy;
+    acc += texture(iChannel0, uv + offset3).xyz * weights3;
+    vec2 offset4 = direction * float(4 - steps / 2) / iResolution.xy;
+    acc += texture(iChannel0, uv + offset4).xyz * weights4;
+    vec2 offset5 = direction * float(5 - steps / 2) / iResolution.xy;
+    acc += texture(iChannel0, uv + offset5).xyz * weights5;
+    vec2 offset6 = direction * float(6 - steps / 2) / iResolution.xy;
+    acc += texture(iChannel0, uv + offset6).xyz * weights6;
+    
+    fragColor = vec4(acc, 1.0);
+}
+
+
+
+void main(void) {
+    vec4 fragColor = vec4(0.);
+    mainImage(fragColor,gl_FragCoord.xy);
+    glFragColor = fragColor;
+}
+#version 300 es
+#ifdef GL_ES
+ precision highp float;
+#endif
+uniform float u_time;
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+uniform sampler2D u_texture1;
+uniform sampler2D u_texture2;
+uniform sampler2D u_texture3;
+uniform sampler2D u_texture4;
+out vec4 glFragColor;
+
+
+#define iTime u_time
+#define iResolution u_resolution
+#define iMouse u_mouse
+#define iChannel0 u_texture1
+#define iChannel1 u_texture2
+#define iChannel2 u_texture3
+#define iChannel3 u_texture4
+
+
+// License Creative Commons Attribution-NonCommercial-ShareAlike
+// original source github.com/danilw
+
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+    vec2 res = iResolution.xy / iResolution.y;
+    vec2 uv = (fragCoord.xy) / iResolution.y - res/2.0;
+    
+    vec3 col = 0.5 + 0.5*cos(iTime+uv.xyx+vec3(0,2,4));
+    
+    fragColor = vec4(col,1.0);
+}
+
+void main(void) {
+	discard;
+    vec4 fragColor = vec4(0.);
+    mainImage(fragColor,gl_FragCoord.xy);
+    glFragColor = fragColor;
+}
+#version 300 es
+#ifdef GL_ES
+ precision highp float;
+#endif
+uniform float u_time;
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+uniform sampler2D u_texture1;
+uniform sampler2D u_texture2;
+uniform sampler2D u_texture3;
+out vec4 glFragColor;
+
+
+#define iTime u_time
+#define iResolution u_resolution
+#define iMouse u_mouse
+#define iChannel0 u_texture1
+#define iChannel1 u_texture2
+#define iChannel2 u_texture3
+
+
+
+// Vertical bloom blur
+
+// License Creative Commons Attribution-NonCommercial-ShareAlike
+// original source github.com/danilw
+
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+    vec3 acc = vec3(0.0);
+    
+    vec2 uv = fragCoord.xy / iResolution.xy;
+    
+    // Manually expanded weights/iteration to please inferior shader compilers
+    const int steps = 7;
+    const float weights0 = 0.00598;
+    const float weights1 = 0.060626;
+    const float weights2 = 0.241843;
+    const float weights3 = 0.383103;
+    const float weights4 = 0.241843;
+    const float weights5 = 0.060626;
+    const float weights6 = 0.00598;
+    
+    vec2 direction = vec2(0.0, 1.0);
+    
+    vec2 offset0 = direction * float(0 - steps / 2) / iResolution.xy;
+    acc += texture(iChannel0, uv + offset0).xyz * weights0;
+    vec2 offset1 = direction * float(1 - steps / 2) / iResolution.xy;
+    acc += texture(iChannel0, uv + offset1).xyz * weights1;
+    vec2 offset2 = direction * float(2 - steps / 2) / iResolution.xy;
+    acc += texture(iChannel0, uv + offset2).xyz * weights2;
+    vec2 offset3 = direction * float(3 - steps / 2) / iResolution.xy;
+    acc += texture(iChannel0, uv + offset3).xyz * weights3;
+    vec2 offset4 = direction * float(4 - steps / 2) / iResolution.xy;
+    acc += texture(iChannel0, uv + offset4).xyz * weights4;
+    vec2 offset5 = direction * float(5 - steps / 2) / iResolution.xy;
+    acc += texture(iChannel0, uv + offset5).xyz * weights5;
+    vec2 offset6 = direction * float(6 - steps / 2) / iResolution.xy;
+    acc += texture(iChannel0, uv + offset6).xyz * weights6;
+    
+    fragColor = vec4(acc, 1.0);
+}
+
+void main(void) {
+    vec4 fragColor = vec4(0.);
+    mainImage(fragColor,gl_FragCoord.xy);
+    glFragColor = fragColor;
+}
+#version 300 es
+precision highp float;
+uniform vec2 u_resolution;
+uniform float u_time;
+out highp vec4 glFragColor;
+// License Creative Commons Attribution-NonCommercial-ShareAlike
+// original source github.com/danilw
+void main ()
+{
+  highp vec4 ret_col_1;
+  highp vec2 uv_2;
+  uv_2 = (((gl_FragCoord.xy / u_resolution.y) - (
+    (u_resolution / u_resolution.y)
+   / 2.0)) * 1.2);
+  highp float v_3;
+  highp float shade_4;
+  float ax_5;
+  highp vec3 col_6;
+  col_6 = vec3(0.0, 0.0, 0.0);
+  ax_5 = ((float(mod (u_time, 17.5))) + -0.15);
+  float animx_7;
+  animx_7 = ax_5;
+  highp float d_8;
+  float tmpvar_9;
+  tmpvar_9 = clamp (ax_5, 0.0, 1.0);
+  float tmpvar_10;
+  tmpvar_10 = clamp (((ax_5 - 6000.0) / -1000.0), 0.0, 1.0);
+  vec2 tmpvar_11;
+  tmpvar_11.y = -0.15;
+  tmpvar_11.x = (-1.0 + (2.0 * (tmpvar_9 * 
+    (tmpvar_9 * (3.0 - (2.0 * tmpvar_9)))
+  )));
+  vec2 tmpvar_12;
+  tmpvar_12.y = -0.15;
+  tmpvar_12.x = (1.0 - (2.0 * (tmpvar_10 * 
+    (tmpvar_10 * (3.0 - (2.0 * tmpvar_10)))
+  )));
+  highp vec2 tmpvar_13;
+  tmpvar_13 = (uv_2 - tmpvar_11);
+  vec2 tmpvar_14;
+  tmpvar_14 = (tmpvar_12 - tmpvar_11);
+  highp vec2 x_15;
+  x_15 = (tmpvar_13 - (tmpvar_14 * clamp (
+    (dot (tmpvar_13, tmpvar_14) / dot (tmpvar_14, tmpvar_14))
+  , 0.0, 1.0)));
+  highp float tmpvar_16;
+  tmpvar_16 = clamp ((sqrt(
+    dot (x_15, x_15)
+  ) / 0.25), 0.0, 1.0);
+  d_8 = (tmpvar_16 * (tmpvar_16 * (3.0 - 
+    (2.0 * tmpvar_16)
+  )));
+  highp vec2 p_17;
+  p_17 = (uv_2 + vec2(0.955, -0.05));
+  highp float tmpvar_18;
+  if ((ax_5 < 0.0)) {
+    tmpvar_18 = 1.0;
+  } else {
+    float tmpvar_19;
+    float tmpvar_20;
+    tmpvar_20 = clamp (ax_5, 0.0, 1.0);
+    tmpvar_19 = (tmpvar_20 * (tmpvar_20 * (3.0 - 
+      (2.0 * tmpvar_20)
+    )));
+    highp vec2 tmpvar_21;
+    tmpvar_21 = (p_17 - vec2(0.08, 0.05));
+    highp vec2 x_22;
+    x_22 = (tmpvar_21 - (vec2(-0.08, -0.2) * clamp (
+      (dot (tmpvar_21, vec2(-0.08, -0.2)) / 0.0464)
+    , 0.0, 1.0)));
+    highp float tmpvar_23;
+    tmpvar_23 = clamp ((sqrt(
+      dot (x_22, x_22)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_24;
+    tmpvar_24 = (p_17 - vec2(0.08, 0.05));
+    highp vec2 x_25;
+    x_25 = (tmpvar_24 - (vec2(0.08, -0.2) * clamp (
+      (dot (tmpvar_24, vec2(0.08, -0.2)) / 0.0464)
+    , 0.0, 1.0)));
+    highp float tmpvar_26;
+    tmpvar_26 = clamp ((sqrt(
+      dot (x_25, x_25)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_27;
+    tmpvar_27 = (p_17 - vec2(0.07, 0.02));
+    highp vec2 x_28;
+    x_28 = (tmpvar_27 - (vec2(0.068, -0.17) * clamp (
+      (dot (tmpvar_27, vec2(0.068, -0.17)) / 0.033524)
+    , 0.0, 1.0)));
+    highp float tmpvar_29;
+    tmpvar_29 = clamp ((sqrt(
+      dot (x_28, x_28)
+    ) / 0.25), 0.0, 1.0);
+    tmpvar_18 = min (max ((tmpvar_23 * 
+      (tmpvar_23 * (3.0 - (2.0 * tmpvar_23)))
+    ), float(
+      ((p_17.y + 0.2) >= (0.28 * tmpvar_19))
+    )), max (min (
+      (tmpvar_26 * (tmpvar_26 * (3.0 - (2.0 * tmpvar_26))))
+    , 
+      (tmpvar_29 * (tmpvar_29 * (3.0 - (2.0 * tmpvar_29))))
+    ), (1.0 - 
+      float(((p_17.y + 0.2) >= (0.28 - (0.28 * tmpvar_19))))
+    )));
+  };
+  d_8 = min (d_8, tmpvar_18);
+  animx_7 = (ax_5 + -0.25);
+  highp vec2 p_30;
+  p_30 = (uv_2 + vec2(0.755, -0.05));
+  highp float tmpvar_31;
+  if ((animx_7 < 0.0)) {
+    tmpvar_31 = 1.0;
+  } else {
+    float tmpvar_32;
+    float tmpvar_33;
+    tmpvar_33 = clamp (animx_7, 0.0, 1.0);
+    tmpvar_32 = (tmpvar_33 * (tmpvar_33 * (3.0 - 
+      (2.0 * tmpvar_33)
+    )));
+    highp vec2 tmpvar_34;
+    tmpvar_34 = (p_30 - vec2(0.0, 0.05));
+    highp vec2 x_35;
+    x_35 = (tmpvar_34 - (vec2(0.0, -0.2) * clamp (
+      (dot (tmpvar_34, vec2(0.0, -0.2)) / 0.04)
+    , 0.0, 1.0)));
+    highp float tmpvar_36;
+    tmpvar_36 = clamp ((sqrt(
+      dot (x_35, x_35)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_37;
+    tmpvar_37 = (p_30 - vec2(0.02, 0.05));
+    highp vec2 x_38;
+    x_38 = (tmpvar_37 - (vec2(0.0, -0.07) * clamp (
+      (dot (tmpvar_37, vec2(0.0, -0.07)) / 0.0049)
+    , 0.0, 1.0)));
+    highp float tmpvar_39;
+    tmpvar_39 = clamp ((sqrt(
+      dot (x_38, x_38)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 p_40;
+    p_40 = (p_30 + vec2(-0.05, -0.015));
+    highp float tmpvar_41;
+    tmpvar_41 = clamp ((abs(
+      (sqrt(dot (p_40, p_40)) - 0.035)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 p_42;
+    p_42 = (p_30 + vec2(-0.05, 0.085));
+    highp float tmpvar_43;
+    tmpvar_43 = clamp ((abs(
+      (sqrt(dot (p_42, p_42)) - 0.065)
+    ) / 0.25), 0.0, 1.0);
+    highp float tmpvar_44;
+    tmpvar_44 = clamp (((p_30.x - 0.055) / -0.1), 0.0, 1.0);
+    highp vec2 p_45;
+    p_45 = (p_30 + vec2(-0.05, 0.085));
+    highp float tmpvar_46;
+    tmpvar_46 = clamp ((abs(
+      (sqrt(dot (p_45, p_45)) - 0.025)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_47;
+    tmpvar_47 = (p_30 - vec2(0.0, 0.05));
+    highp vec2 x_48;
+    x_48 = (tmpvar_47 - (vec2(0.05, 0.0) * clamp (
+      (dot (tmpvar_47, vec2(0.05, 0.0)) / 0.0025)
+    , 0.0, 1.0)));
+    highp float tmpvar_49;
+    tmpvar_49 = clamp ((sqrt(
+      dot (x_48, x_48)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_50;
+    tmpvar_50 = (p_30 - vec2(0.0, -0.02));
+    highp vec2 x_51;
+    x_51 = (tmpvar_50 - (vec2(0.05, 0.0) * clamp (
+      (dot (tmpvar_50, vec2(0.05, 0.0)) / 0.0025)
+    , 0.0, 1.0)));
+    highp float tmpvar_52;
+    tmpvar_52 = clamp ((sqrt(
+      dot (x_51, x_51)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_53;
+    tmpvar_53 = (p_30 - vec2(0.0, -0.15));
+    highp vec2 x_54;
+    x_54 = (tmpvar_53 - (vec2(0.05, 0.0) * clamp (
+      (dot (tmpvar_53, vec2(0.05, 0.0)) / 0.0025)
+    , 0.0, 1.0)));
+    highp float tmpvar_55;
+    tmpvar_55 = clamp ((sqrt(
+      dot (x_54, x_54)
+    ) / 0.25), 0.0, 1.0);
+    tmpvar_31 = min (max (min (
+      min ((tmpvar_36 * (tmpvar_36 * (3.0 - 
+        (2.0 * tmpvar_36)
+      ))), (tmpvar_39 * (tmpvar_39 * (3.0 - 
+        (2.0 * tmpvar_39)
+      ))))
+    , 
+      min (min (max (float(
+        (0.05 >= p_30.x)
+      ), (tmpvar_41 * 
+        (tmpvar_41 * (3.0 - (2.0 * tmpvar_41)))
+      )), max (float(
+        (0.05 >= p_30.x)
+      ), (tmpvar_43 * 
+        (tmpvar_43 * (3.0 - (2.0 * tmpvar_43)))
+      ))), max ((tmpvar_44 * (tmpvar_44 * 
+        (3.0 - (2.0 * tmpvar_44))
+      )), (tmpvar_46 * (tmpvar_46 * 
+        (3.0 - (2.0 * tmpvar_46))
+      ))))
+    ), float(
+      ((-(p_30.y) + 0.1) >= (0.28 * tmpvar_32))
+    )), max (min (
+      min ((tmpvar_49 * (tmpvar_49 * (3.0 - 
+        (2.0 * tmpvar_49)
+      ))), (tmpvar_52 * (tmpvar_52 * (3.0 - 
+        (2.0 * tmpvar_52)
+      ))))
+    , 
+      (tmpvar_55 * (tmpvar_55 * (3.0 - (2.0 * tmpvar_55))))
+    ), float(
+      (((p_30 * mat2(-0.7070999, -0.7071137, 0.7071137, -0.7070999)).y + 0.05) >= (0.28 * tmpvar_32))
+    )));
+  };
+  animx_7 += -0.25;
+  highp vec2 p_56;
+  p_56 = (uv_2 + vec2(0.555, -0.05));
+  float tmpvar_57;
+  float tmpvar_58;
+  tmpvar_58 = clamp (animx_7, 0.0, 1.0);
+  tmpvar_57 = (tmpvar_58 * (tmpvar_58 * (3.0 - 
+    (2.0 * tmpvar_58)
+  )));
+  highp vec2 p_59;
+  p_59 = (p_56 + vec2(-0.05, 0.05));
+  highp float tmpvar_60;
+  tmpvar_60 = clamp ((abs(
+    (sqrt(dot (p_59, p_59)) - 0.08)
+  ) / 0.25), 0.0, 1.0);
+  highp vec2 p_61;
+  p_61 = (p_56 + vec2(-0.05, 0.05));
+  highp float tmpvar_62;
+  tmpvar_62 = clamp ((abs(
+    (sqrt(dot (p_61, p_61)) - 0.1)
+  ) / 0.25), 0.0, 1.0);
+  highp float tmpvar_63;
+  tmpvar_63 = clamp (((p_56.x - 0.045) / 0.055), 0.0, 1.0);
+  d_8 = min (min (d_8, tmpvar_31), max (min (
+    max ((tmpvar_60 * (tmpvar_60 * (3.0 - 
+      (2.0 * tmpvar_60)
+    ))), float(((p_56.y + 0.2) >= (0.28 * tmpvar_57))))
+  , 
+    max ((tmpvar_62 * (tmpvar_62 * (3.0 - 
+      (2.0 * tmpvar_62)
+    ))), float(((
+      -(p_56.y)
+     + 0.1) >= (0.28 * tmpvar_57))))
+  ), (tmpvar_63 * 
+    (tmpvar_63 * (3.0 - (2.0 * tmpvar_63)))
+  )));
+  animx_7 += -0.25;
+  highp vec2 p_64;
+  p_64 = (uv_2 + vec2(0.45, -0.05));
+  highp float tmpvar_65;
+  if ((animx_7 < 0.0)) {
+    tmpvar_65 = 1.0;
+  } else {
+    if ((animx_7 < 0.0)) {
+      tmpvar_65 = 1.0;
+    } else {
+      float tmpvar_66;
+      float tmpvar_67;
+      tmpvar_67 = clamp (animx_7, 0.0, 1.0);
+      tmpvar_66 = (tmpvar_67 * (tmpvar_67 * (3.0 - 
+        (2.0 * tmpvar_67)
+      )));
+      highp vec2 tmpvar_68;
+      tmpvar_68 = (p_64 - vec2(0.0, 0.05));
+      highp vec2 x_69;
+      x_69 = (tmpvar_68 - (vec2(0.0, -0.2) * clamp (
+        (dot (tmpvar_68, vec2(0.0, -0.2)) / 0.04)
+      , 0.0, 1.0)));
+      highp float tmpvar_70;
+      highp float tmpvar_71;
+      tmpvar_71 = clamp ((sqrt(
+        dot (x_69, x_69)
+      ) / 0.25), 0.0, 1.0);
+      tmpvar_70 = (tmpvar_71 * (tmpvar_71 * (3.0 - 
+        (2.0 * tmpvar_71)
+      )));
+      vec2 tmpvar_72;
+      tmpvar_72.y = 0.1;
+      tmpvar_72.x = (0.001 + (0.09 * tmpvar_66));
+      highp vec2 p_73;
+      p_73 = (p_64 + vec2(0.0, 0.05));
+      vec2 ab_74;
+      ab_74 = tmpvar_72;
+      highp float co_75;
+      highp vec2 tmpvar_76;
+      tmpvar_76 = abs(p_73);
+      p_73 = tmpvar_76;
+      if ((tmpvar_76.x > tmpvar_76.y)) {
+        p_73 = tmpvar_76.yx;
+        ab_74 = tmpvar_72.yx;
+      };
+      float tmpvar_77;
+      tmpvar_77 = ((ab_74.y * ab_74.y) - (ab_74.x * ab_74.x));
+      highp float tmpvar_78;
+      tmpvar_78 = ((ab_74.x * p_73.x) / tmpvar_77);
+      highp float tmpvar_79;
+      tmpvar_79 = (tmpvar_78 * tmpvar_78);
+      highp float tmpvar_80;
+      tmpvar_80 = ((ab_74.y * p_73.y) / tmpvar_77);
+      highp float tmpvar_81;
+      tmpvar_81 = (tmpvar_80 * tmpvar_80);
+      highp float tmpvar_82;
+      tmpvar_82 = (((tmpvar_79 + tmpvar_81) - 1.0) / 3.0);
+      highp float tmpvar_83;
+      tmpvar_83 = ((tmpvar_82 * tmpvar_82) * tmpvar_82);
+      highp float tmpvar_84;
+      tmpvar_84 = (tmpvar_83 + ((tmpvar_79 * tmpvar_81) * 2.0));
+      highp float tmpvar_85;
+      tmpvar_85 = (tmpvar_83 + (tmpvar_79 * tmpvar_81));
+      highp float tmpvar_86;
+      tmpvar_86 = (tmpvar_78 + (tmpvar_78 * tmpvar_81));
+      if ((tmpvar_85 < 0.0)) {
+        highp float x_87;
+        x_87 = (tmpvar_84 / tmpvar_83);
+        highp float tmpvar_88;
+        tmpvar_88 = ((1.570796 - (
+          sign(x_87)
+         * 
+          (1.570796 - (sqrt((1.0 - 
+            abs(x_87)
+          )) * (1.570796 + (
+            abs(x_87)
+           * 
+            (-0.2146018 + (abs(x_87) * (0.08656672 + (
+              abs(x_87)
+             * -0.03102955))))
+          ))))
+        )) / 3.0);
+        highp float tmpvar_89;
+        tmpvar_89 = cos(tmpvar_88);
+        highp float tmpvar_90;
+        tmpvar_90 = (sin(tmpvar_88) * 1.732051);
+        highp float tmpvar_91;
+        tmpvar_91 = sqrt(((
+          -(tmpvar_82)
+         * 
+          ((tmpvar_89 + tmpvar_90) + 2.0)
+        ) + tmpvar_79));
+        highp float tmpvar_92;
+        tmpvar_92 = sqrt(((
+          -(tmpvar_82)
+         * 
+          ((tmpvar_89 - tmpvar_90) + 2.0)
+        ) + tmpvar_79));
+        co_75 = (((
+          (tmpvar_92 + (sign(tmpvar_77) * tmpvar_91))
+         + 
+          (abs(tmpvar_86) / (tmpvar_91 * tmpvar_92))
+        ) - tmpvar_78) / 2.0);
+      } else {
+        highp float tmpvar_93;
+        tmpvar_93 = (((2.0 * tmpvar_78) * tmpvar_80) * sqrt(tmpvar_85));
+        highp float tmpvar_94;
+        tmpvar_94 = (sign((tmpvar_84 + tmpvar_93)) * pow (abs(
+          (tmpvar_84 + tmpvar_93)
+        ), 0.3333333));
+        highp float tmpvar_95;
+        tmpvar_95 = (sign((tmpvar_84 - tmpvar_93)) * pow (abs(
+          (tmpvar_84 - tmpvar_93)
+        ), 0.3333333));
+        highp float tmpvar_96;
+        tmpvar_96 = (((
+          -(tmpvar_94)
+         - tmpvar_95) - (tmpvar_82 * 4.0)) + (2.0 * tmpvar_79));
+        highp float tmpvar_97;
+        tmpvar_97 = ((tmpvar_94 - tmpvar_95) * 1.732051);
+        highp float tmpvar_98;
+        tmpvar_98 = sqrt(((tmpvar_96 * tmpvar_96) + (tmpvar_97 * tmpvar_97)));
+        co_75 = (((
+          (tmpvar_97 / sqrt((tmpvar_98 - tmpvar_96)))
+         + 
+          ((2.0 * tmpvar_86) / tmpvar_98)
+        ) - tmpvar_78) / 2.0);
+      };
+      highp vec2 tmpvar_99;
+      tmpvar_99.x = co_75;
+      tmpvar_99.y = sqrt((1.0 - (co_75 * co_75)));
+      highp vec2 tmpvar_100;
+      tmpvar_100 = (ab_74 * tmpvar_99);
+      highp vec2 x_101;
+      x_101 = (tmpvar_100 - p_73);
+      highp float tmpvar_102;
+      tmpvar_102 = clamp ((abs(
+        (sqrt(dot (x_101, x_101)) * sign((p_73.y - tmpvar_100.y)))
+      ) / 0.25), 0.0, 1.0);
+      tmpvar_65 = max (min (tmpvar_70, max (
+        (tmpvar_102 * (tmpvar_102 * (3.0 - (2.0 * tmpvar_102))))
+      , 
+        float((0.0 >= p_64.x))
+      )), (1.0 - float(
+        ((-(p_64.x) + 0.24) >= (0.25 - (0.25 * tmpvar_66)))
+      )));
+    };
+  };
+  d_8 = min (d_8, tmpvar_65);
+  animx_7 += -0.25;
+  highp vec2 p_103;
+  p_103 = (uv_2 + vec2(0.305, -0.05));
+  highp float tmpvar_104;
+  if ((animx_7 < 0.0)) {
+    tmpvar_104 = 1.0;
+  } else {
+    float tmpvar_105;
+    float tmpvar_106;
+    tmpvar_106 = clamp (animx_7, 0.0, 1.0);
+    tmpvar_105 = (tmpvar_106 * (tmpvar_106 * (3.0 - 
+      (2.0 * tmpvar_106)
+    )));
+    highp vec2 tmpvar_107;
+    tmpvar_107 = (p_103 - vec2(0.0, 0.05));
+    highp vec2 x_108;
+    x_108 = (tmpvar_107 - (vec2(0.0, -0.2) * clamp (
+      (dot (tmpvar_107, vec2(0.0, -0.2)) / 0.04)
+    , 0.0, 1.0)));
+    highp float tmpvar_109;
+    tmpvar_109 = clamp ((sqrt(
+      dot (x_108, x_108)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_110;
+    tmpvar_110 = (p_103 - vec2(0.0, -0.15));
+    highp vec2 x_111;
+    x_111 = (tmpvar_110 - (vec2(0.13, 0.0) * clamp (
+      (dot (tmpvar_110, vec2(0.13, 0.0)) / 0.0169)
+    , 0.0, 1.0)));
+    highp float tmpvar_112;
+    tmpvar_112 = clamp ((sqrt(
+      dot (x_111, x_111)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_113;
+    tmpvar_113 = (p_103 - vec2(0.0, 0.05));
+    highp vec2 x_114;
+    x_114 = (tmpvar_113 - (vec2(0.13, 0.0) * clamp (
+      (dot (tmpvar_113, vec2(0.13, 0.0)) / 0.0169)
+    , 0.0, 1.0)));
+    highp float tmpvar_115;
+    tmpvar_115 = clamp ((sqrt(
+      dot (x_114, x_114)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_116;
+    tmpvar_116 = (p_103 - vec2(0.0, -0.04));
+    highp vec2 x_117;
+    x_117 = (tmpvar_116 - (vec2(0.1, 0.0) * clamp (
+      (dot (tmpvar_116, vec2(0.1, 0.0)) / 0.01)
+    , 0.0, 1.0)));
+    highp float tmpvar_118;
+    tmpvar_118 = clamp ((sqrt(
+      dot (x_117, x_117)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_119;
+    tmpvar_119 = (p_103 - vec2(0.0, -0.06));
+    highp vec2 x_120;
+    x_120 = (tmpvar_119 - (vec2(0.1, 0.0) * clamp (
+      (dot (tmpvar_119, vec2(0.1, 0.0)) / 0.01)
+    , 0.0, 1.0)));
+    highp float tmpvar_121;
+    tmpvar_121 = clamp ((sqrt(
+      dot (x_120, x_120)
+    ) / 0.25), 0.0, 1.0);
+    tmpvar_104 = max (min (max (
+      (tmpvar_109 * (tmpvar_109 * (3.0 - (2.0 * tmpvar_109))))
+    , 
+      float(((p_103.y + 0.2) >= (0.28 * tmpvar_105)))
+    ), max (
+      min (min (min ((tmpvar_112 * 
+        (tmpvar_112 * (3.0 - (2.0 * tmpvar_112)))
+      ), (tmpvar_115 * 
+        (tmpvar_115 * (3.0 - (2.0 * tmpvar_115)))
+      )), (tmpvar_118 * (tmpvar_118 * 
+        (3.0 - (2.0 * tmpvar_118))
+      ))), (tmpvar_121 * (tmpvar_121 * (3.0 - 
+        (2.0 * tmpvar_121)
+      ))))
+    , 
+      (1.0 - float(((
+        -(p_103.x)
+       + 0.2) >= (0.25 - 
+        (0.25 * tmpvar_105)
+      ))))
+    )), (1.0 - float(
+      ((-(p_103.x) + 0.2) >= (0.25 - (0.25 * tmpvar_105)))
+    )));
+  };
+  animx_7 += -0.25;
+  highp vec2 p_122;
+  p_122 = (uv_2 + vec2(0.135, -0.05));
+  float tmpvar_123;
+  float tmpvar_124;
+  tmpvar_124 = clamp (animx_7, 0.0, 1.0);
+  tmpvar_123 = (tmpvar_124 * (tmpvar_124 * (3.0 - 
+    (2.0 * tmpvar_124)
+  )));
+  highp vec2 tmpvar_125;
+  tmpvar_125 = (p_122 - vec2(0.0, 0.05));
+  highp vec2 x_126;
+  x_126 = (tmpvar_125 - (vec2(0.0, -0.2) * clamp (
+    (dot (tmpvar_125, vec2(0.0, -0.2)) / 0.04)
+  , 0.0, 1.0)));
+  highp float tmpvar_127;
+  tmpvar_127 = clamp ((sqrt(
+    dot (x_126, x_126)
+  ) / 0.25), 0.0, 1.0);
+  highp vec2 tmpvar_128;
+  tmpvar_128 = (p_122 - vec2(0.0, 0.05));
+  highp vec2 x_129;
+  x_129 = (tmpvar_128 - (vec2(0.13, 0.0) * clamp (
+    (dot (tmpvar_128, vec2(0.13, 0.0)) / 0.0169)
+  , 0.0, 1.0)));
+  highp float tmpvar_130;
+  tmpvar_130 = clamp ((sqrt(
+    dot (x_129, x_129)
+  ) / 0.25), 0.0, 1.0);
+  highp vec2 tmpvar_131;
+  tmpvar_131 = (p_122 - vec2(0.0, -0.04));
+  highp vec2 x_132;
+  x_132 = (tmpvar_131 - (vec2(0.1, 0.0) * clamp (
+    (dot (tmpvar_131, vec2(0.1, 0.0)) / 0.01)
+  , 0.0, 1.0)));
+  highp float tmpvar_133;
+  tmpvar_133 = clamp ((sqrt(
+    dot (x_132, x_132)
+  ) / 0.25), 0.0, 1.0);
+  highp vec2 tmpvar_134;
+  tmpvar_134 = (p_122 - vec2(0.0, -0.06));
+  highp vec2 x_135;
+  x_135 = (tmpvar_134 - (vec2(0.1, 0.0) * clamp (
+    (dot (tmpvar_134, vec2(0.1, 0.0)) / 0.01)
+  , 0.0, 1.0)));
+  highp float tmpvar_136;
+  tmpvar_136 = clamp ((sqrt(
+    dot (x_135, x_135)
+  ) / 0.25), 0.0, 1.0);
+  d_8 = min (min (d_8, tmpvar_104), max (min (
+    max ((tmpvar_127 * (tmpvar_127 * (3.0 - 
+      (2.0 * tmpvar_127)
+    ))), float(((p_122.y + 0.2) >= (0.28 * tmpvar_123))))
+  , 
+    max (min (min ((tmpvar_130 * 
+      (tmpvar_130 * (3.0 - (2.0 * tmpvar_130)))
+    ), (tmpvar_133 * 
+      (tmpvar_133 * (3.0 - (2.0 * tmpvar_133)))
+    )), (tmpvar_136 * (tmpvar_136 * 
+      (3.0 - (2.0 * tmpvar_136))
+    ))), (1.0 - float((
+      (-(p_122.x) + 0.2)
+     >= 
+      (0.25 - (0.25 * tmpvar_123))
+    ))))
+  ), (1.0 - 
+    float(((-(p_122.x) + 0.2) >= (0.25 - (0.25 * tmpvar_123))))
+  )));
+  animx_7 += -0.25;
+  highp vec2 p_137;
+  p_137 = (uv_2 + vec2(-0.04500002, -0.05));
+  highp float tmpvar_138;
+  if ((animx_7 < 0.0)) {
+    tmpvar_138 = 1.0;
+  } else {
+    float tmpvar_139;
+    float tmpvar_140;
+    tmpvar_140 = clamp (animx_7, 0.0, 1.0);
+    tmpvar_139 = (tmpvar_140 * (tmpvar_140 * (3.0 - 
+      (2.0 * tmpvar_140)
+    )));
+    highp vec2 x_141;
+    x_141 = (p_137 - (vec2(0.1, -0.15) * clamp (
+      (dot (p_137, vec2(0.1, -0.15)) / 0.0325)
+    , 0.0, 1.0)));
+    highp float tmpvar_142;
+    tmpvar_142 = clamp ((sqrt(
+      dot (x_141, x_141)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 x_143;
+    x_143 = (p_137 - (vec2(0.0, -0.15) * clamp (
+      (dot (p_137, vec2(0.0, -0.15)) / 0.0225)
+    , 0.0, 1.0)));
+    highp float tmpvar_144;
+    tmpvar_144 = clamp ((sqrt(
+      dot (x_143, x_143)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_145;
+    tmpvar_145 = (p_137 - vec2(0.0, 0.05));
+    highp vec2 x_146;
+    x_146 = (tmpvar_145 - (vec2(0.135, -0.2) * clamp (
+      (dot (tmpvar_145, vec2(0.135, -0.2)) / 0.05822501)
+    , 0.0, 1.0)));
+    highp float tmpvar_147;
+    tmpvar_147 = clamp ((sqrt(
+      dot (x_146, x_146)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_148;
+    tmpvar_148 = (p_137 - vec2(0.135, -0.15));
+    highp vec2 x_149;
+    x_149 = (tmpvar_148 - (vec2(0.0, 0.2) * clamp (
+      (dot (tmpvar_148, vec2(0.0, 0.2)) / 0.04)
+    , 0.0, 1.0)));
+    highp float tmpvar_150;
+    tmpvar_150 = clamp ((sqrt(
+      dot (x_149, x_149)
+    ) / 0.25), 0.0, 1.0);
+    tmpvar_138 = min (max (min (
+      (tmpvar_142 * (tmpvar_142 * (3.0 - (2.0 * tmpvar_142))))
+    , 
+      (tmpvar_144 * (tmpvar_144 * (3.0 - (2.0 * tmpvar_144))))
+    ), float(
+      ((p_137.y + 0.2) >= (0.25 * tmpvar_139))
+    )), max (min (
+      (tmpvar_147 * (tmpvar_147 * (3.0 - (2.0 * tmpvar_147))))
+    , 
+      (tmpvar_150 * (tmpvar_150 * (3.0 - (2.0 * tmpvar_150))))
+    ), float(
+      ((-(p_137.y) + 0.1) >= (0.28 * tmpvar_139))
+    )));
+  };
+  highp float tmpvar_151;
+  tmpvar_151 = min (d_8, tmpvar_138);
+  d_8 = tmpvar_151;
+  animx_7 += -0.25;
+  highp vec2 p_152;
+  p_152 = (uv_2 + vec2(-0.265, -0.05));
+  float tmpvar_153;
+  float tmpvar_154;
+  tmpvar_154 = clamp (animx_7, 0.0, 1.0);
+  tmpvar_153 = (tmpvar_154 * (tmpvar_154 * (3.0 - 
+    (2.0 * tmpvar_154)
+  )));
+  highp float tmpvar_155;
+  if ((tmpvar_153 > 0.0)) {
+    mat2 tmpvar_156;
+    tmpvar_156[uint(0)].x = cos((-0.7853949 + (3.14158 * tmpvar_153)));
+    tmpvar_156[uint(0)].y = -(sin((-0.7853949 + 
+      (3.14158 * tmpvar_153)
+    )));
+    tmpvar_156[1u].x = sin((-0.7853949 + (3.14158 * tmpvar_153)));
+    tmpvar_156[1u].y = cos((-0.7853949 + (3.14158 * tmpvar_153)));
+    vec2 tmpvar_157;
+    tmpvar_157.x = 0.0;
+    tmpvar_157.y = (0.1 - (0.2 * tmpvar_153));
+    highp vec2 tmpvar_158;
+    tmpvar_158 = (((p_152 + vec2(-0.05, 0.05)) * tmpvar_156) - vec2(0.0, 0.1));
+    vec2 tmpvar_159;
+    tmpvar_159 = (tmpvar_157 - vec2(0.0, 0.1));
+    highp vec2 x_160;
+    x_160 = (tmpvar_158 - (tmpvar_159 * clamp (
+      (dot (tmpvar_158, tmpvar_159) / dot (tmpvar_159, tmpvar_159))
+    , 0.0, 1.0)));
+    highp float tmpvar_161;
+    tmpvar_161 = clamp ((sqrt(
+      dot (x_160, x_160)
+    ) / 0.25), 0.0, 1.0);
+    tmpvar_155 = (tmpvar_161 * (tmpvar_161 * (3.0 - 
+      (2.0 * tmpvar_161)
+    )));
+  } else {
+    tmpvar_155 = 1.0;
+  };
+  highp vec2 p_162;
+  p_162 = (p_152 + vec2(-0.05, 0.05));
+  highp float tmpvar_163;
+  highp float tmpvar_164;
+  tmpvar_164 = clamp ((abs(
+    (sqrt(dot (p_162, p_162)) - 0.1)
+  ) / 0.25), 0.0, 1.0);
+  tmpvar_163 = (tmpvar_164 * (tmpvar_164 * (3.0 - 
+    (2.0 * tmpvar_164)
+  )));
+  highp vec2 tmpvar_165;
+  tmpvar_165 = ((p_152 + vec2(-0.05, 0.05)) * mat2(-0.7070999, -0.7071137, 0.7071137, -0.7070999));
+  highp float tmpvar_166;
+  highp float tmpvar_167;
+  tmpvar_167 = (min (abs(
+    (tmpvar_165.x / tmpvar_165.y)
+  ), 1.0) / max (abs(
+    (tmpvar_165.x / tmpvar_165.y)
+  ), 1.0));
+  highp float tmpvar_168;
+  tmpvar_168 = (tmpvar_167 * tmpvar_167);
+  tmpvar_168 = (((
+    ((((
+      ((((-0.01213232 * tmpvar_168) + 0.05368138) * tmpvar_168) - 0.1173503)
+     * tmpvar_168) + 0.1938925) * tmpvar_168) - 0.3326756)
+   * tmpvar_168) + 0.9999793) * tmpvar_167);
+  tmpvar_168 = (tmpvar_168 + (float(
+    (abs((tmpvar_165.x / tmpvar_165.y)) > 1.0)
+  ) * (
+    (tmpvar_168 * -2.0)
+   + 1.570796)));
+  tmpvar_166 = (tmpvar_168 * sign((tmpvar_165.x / tmpvar_165.y)));
+  if ((abs(tmpvar_165.y) > (1e-08 * abs(tmpvar_165.x)))) {
+    if ((tmpvar_165.y < 0.0)) {
+      if ((tmpvar_165.x >= 0.0)) {
+        tmpvar_166 += 3.141593;
+      } else {
+        tmpvar_166 = (tmpvar_166 - 3.141593);
+      };
+    };
+  } else {
+    tmpvar_166 = (sign(tmpvar_165.x) * 1.570796);
+  };
+  highp vec2 tmpvar_169;
+  tmpvar_169.x = (tmpvar_166 / 6.283159);
+  tmpvar_169.y = sqrt(dot (tmpvar_165, tmpvar_165));
+  vec2 tmpvar_170;
+  tmpvar_170.y = 0.0;
+  tmpvar_170.x = (0.5 - (1.001 * tmpvar_153));
+  d_8 = min (tmpvar_151, min (tmpvar_155, max (tmpvar_163, 
+    float(((tmpvar_169 + tmpvar_170).x >= 0.0))
+  )));
+  animx_7 += -0.25;
+  highp vec2 p_171;
+  p_171 = (uv_2 + vec2(-0.465, -0.05));
+  highp float tmpvar_172;
+  highp float d2_173;
+  highp float d1_174;
+  if ((animx_7 < 0.0)) {
+    tmpvar_172 = 1.0;
+  } else {
+    float tmpvar_175;
+    float tmpvar_176;
+    tmpvar_176 = clamp (animx_7, 0.0, 1.0);
+    tmpvar_175 = (tmpvar_176 * (tmpvar_176 * (3.0 - 
+      (2.0 * tmpvar_176)
+    )));
+    highp vec2 tmpvar_177;
+    tmpvar_177 = (p_171 - vec2(-0.025, 0.0));
+    highp vec2 x_178;
+    x_178 = (tmpvar_177 - (vec2(0.05, -0.0) * clamp (
+      (dot (tmpvar_177, vec2(0.05, -0.0)) / 0.0025)
+    , 0.0, 1.0)));
+    highp float tmpvar_179;
+    tmpvar_179 = clamp ((sqrt(
+      dot (x_178, x_178)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_180;
+    tmpvar_180 = (p_171 - vec2(-0.025, -0.02));
+    highp vec2 x_181;
+    x_181 = (tmpvar_180 - (vec2(0.05, 0.0) * clamp (
+      (dot (tmpvar_180, vec2(0.05, 0.0)) / 0.0025)
+    , 0.0, 1.0)));
+    highp float tmpvar_182;
+    tmpvar_182 = clamp ((sqrt(
+      dot (x_181, x_181)
+    ) / 0.25), 0.0, 1.0);
+    highp float tmpvar_183;
+    tmpvar_183 = min ((tmpvar_179 * (tmpvar_179 * 
+      (3.0 - (2.0 * tmpvar_179))
+    )), (tmpvar_182 * (tmpvar_182 * 
+      (3.0 - (2.0 * tmpvar_182))
+    )));
+    d1_174 = tmpvar_183;
+    if ((animx_7 < 1.0)) {
+      d1_174 = max (tmpvar_183, float((
+        ((p_171 * mat2(-0.7070999, -0.7071137, 0.7071137, -0.7070999)).y + 0.2)
+       >= 
+        (0.28 * tmpvar_175)
+      )));
+    };
+    highp vec2 tmpvar_184;
+    tmpvar_184 = (p_171 - vec2(0.0, 0.05));
+    highp vec2 x_185;
+    x_185 = (tmpvar_184 - (vec2(0.0, -0.2) * clamp (
+      (dot (tmpvar_184, vec2(0.0, -0.2)) / 0.04)
+    , 0.0, 1.0)));
+    highp float tmpvar_186;
+    highp float tmpvar_187;
+    tmpvar_187 = clamp ((sqrt(
+      dot (x_185, x_185)
+    ) / 0.25), 0.0, 1.0);
+    tmpvar_186 = (tmpvar_187 * (tmpvar_187 * (3.0 - 
+      (2.0 * tmpvar_187)
+    )));
+    d2_173 = tmpvar_186;
+    if ((animx_7 < 1.0)) {
+      d2_173 = max (tmpvar_186, float((
+        (p_171.y + 0.2)
+       >= 
+        (0.28 * tmpvar_175)
+      )));
+    };
+    tmpvar_172 = min (d1_174, d2_173);
+  };
+  d_8 = min (d_8, tmpvar_172);
+  animx_7 += -0.25;
+  highp vec2 p_188;
+  p_188 = (uv_2 + vec2(-0.565, -0.05));
+  highp float tmpvar_189;
+  highp float d_190;
+  if ((animx_7 < 0.0)) {
+    tmpvar_189 = 1.0;
+  } else {
+    float tmpvar_191;
+    float tmpvar_192;
+    tmpvar_192 = clamp (animx_7, 0.0, 1.0);
+    tmpvar_191 = (tmpvar_192 * (tmpvar_192 * (3.0 - 
+      (2.0 * tmpvar_192)
+    )));
+    highp vec2 tmpvar_193;
+    tmpvar_193 = (p_188 - vec2(-0.05, 0.05));
+    highp vec2 x_194;
+    x_194 = (tmpvar_193 - (vec2(0.1, 0.0) * clamp (
+      (dot (tmpvar_193, vec2(0.1, 0.0)) / 0.01)
+    , 0.0, 1.0)));
+    highp float tmpvar_195;
+    tmpvar_195 = clamp ((sqrt(
+      dot (x_194, x_194)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_196;
+    tmpvar_196 = (p_188 - vec2(-0.05, 0.03));
+    highp vec2 x_197;
+    x_197 = (tmpvar_196 - (vec2(0.1, 0.0) * clamp (
+      (dot (tmpvar_196, vec2(0.1, 0.0)) / 0.01)
+    , 0.0, 1.0)));
+    highp float tmpvar_198;
+    tmpvar_198 = clamp ((sqrt(
+      dot (x_197, x_197)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_199;
+    tmpvar_199 = (p_188 - vec2(0.0, 0.03));
+    highp vec2 x_200;
+    x_200 = (tmpvar_199 - (vec2(0.0, -0.18) * clamp (
+      (dot (tmpvar_199, vec2(0.0, -0.18)) / 0.0324)
+    , 0.0, 1.0)));
+    highp float tmpvar_201;
+    tmpvar_201 = clamp ((sqrt(
+      dot (x_200, x_200)
+    ) / 0.25), 0.0, 1.0);
+    highp float tmpvar_202;
+    tmpvar_202 = min (min ((tmpvar_195 * 
+      (tmpvar_195 * (3.0 - (2.0 * tmpvar_195)))
+    ), (tmpvar_198 * 
+      (tmpvar_198 * (3.0 - (2.0 * tmpvar_198)))
+    )), (tmpvar_201 * (tmpvar_201 * 
+      (3.0 - (2.0 * tmpvar_201))
+    )));
+    d_190 = tmpvar_202;
+    if ((animx_7 < 1.0)) {
+      d_190 = max (tmpvar_202, (1.0 - float(
+        (((abs(
+          (p_188 - vec2(0.0, -0.2))
+        ) * mat2(-0.7070999, -0.7071137, 0.7071137, -0.7070999)).x + 0.28) >= (0.28 - (0.28 * tmpvar_191)))
+      )));
+    };
+    tmpvar_189 = d_190;
+  };
+  d_8 = min (d_8, tmpvar_189);
+  animx_7 += -0.25;
+  highp vec2 p_203;
+  p_203 = (uv_2 + vec2(-0.645, -0.05));
+  highp float tmpvar_204;
+  highp float d1_205;
+  if ((animx_7 < 0.0)) {
+    tmpvar_204 = 1.0;
+  } else {
+    float tmpvar_206;
+    float tmpvar_207;
+    tmpvar_207 = clamp (animx_7, 0.0, 1.0);
+    tmpvar_206 = (tmpvar_207 * (tmpvar_207 * (3.0 - 
+      (2.0 * tmpvar_207)
+    )));
+    highp vec2 tmpvar_208;
+    tmpvar_208 = (p_203 - vec2(0.0, 0.05));
+    highp vec2 x_209;
+    x_209 = (tmpvar_208 - (vec2(0.0, -0.2) * clamp (
+      (dot (tmpvar_208, vec2(0.0, -0.2)) / 0.04)
+    , 0.0, 1.0)));
+    highp float tmpvar_210;
+    tmpvar_210 = clamp ((sqrt(
+      dot (x_209, x_209)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_211;
+    tmpvar_211 = (p_203 - vec2(0.02, 0.05));
+    highp vec2 x_212;
+    x_212 = (tmpvar_211 - (vec2(0.0, -0.2) * clamp (
+      (dot (tmpvar_211, vec2(0.0, -0.2)) / 0.04)
+    , 0.0, 1.0)));
+    highp float tmpvar_213;
+    tmpvar_213 = clamp ((sqrt(
+      dot (x_212, x_212)
+    ) / 0.25), 0.0, 1.0);
+    highp float tmpvar_214;
+    tmpvar_214 = min ((tmpvar_210 * (tmpvar_210 * 
+      (3.0 - (2.0 * tmpvar_210))
+    )), (tmpvar_213 * (tmpvar_213 * 
+      (3.0 - (2.0 * tmpvar_213))
+    )));
+    d1_205 = tmpvar_214;
+    if ((animx_7 < 1.0)) {
+      d1_205 = max (tmpvar_214, float((
+        (p_203.y + 0.2)
+       >= 
+        (0.28 * tmpvar_206)
+      )));
+    };
+    highp vec2 tmpvar_215;
+    tmpvar_215 = (p_203 - vec2(0.0, -0.15));
+    highp vec2 x_216;
+    x_216 = (tmpvar_215 - (vec2(0.13, 0.0) * clamp (
+      (dot (tmpvar_215, vec2(0.13, 0.0)) / 0.0169)
+    , 0.0, 1.0)));
+    highp float tmpvar_217;
+    tmpvar_217 = clamp ((sqrt(
+      dot (x_216, x_216)
+    ) / 0.25), 0.0, 1.0);
+    tmpvar_204 = min (d1_205, max ((tmpvar_217 * 
+      (tmpvar_217 * (3.0 - (2.0 * tmpvar_217)))
+    ), (1.0 - 
+      float(((-(p_203.x) + 0.2) >= (0.25 - (0.25 * tmpvar_206))))
+    )));
+  };
+  animx_7 += -0.25;
+  highp vec2 p_218;
+  p_218 = (uv_2 + vec2(-0.845, -0.05));
+  highp vec2 tmpvar_219;
+  tmpvar_219.x = p_218.x;
+  tmpvar_219.y = -(p_218.y);
+  p_218 = (tmpvar_219 + vec2(0.05, -0.1));
+  float tmpvar_220;
+  float tmpvar_221;
+  tmpvar_221 = clamp (animx_7, 0.0, 1.0);
+  tmpvar_220 = (tmpvar_221 * (tmpvar_221 * (3.0 - 
+    (2.0 * tmpvar_221)
+  )));
+  highp vec2 tmpvar_222;
+  tmpvar_222 = (p_218 - vec2(0.08, 0.05));
+  highp vec2 x_223;
+  x_223 = (tmpvar_222 - (vec2(-0.08, -0.2) * clamp (
+    (dot (tmpvar_222, vec2(-0.08, -0.2)) / 0.0464)
+  , 0.0, 1.0)));
+  highp float tmpvar_224;
+  tmpvar_224 = clamp ((sqrt(
+    dot (x_223, x_223)
+  ) / 0.25), 0.0, 1.0);
+  highp vec2 tmpvar_225;
+  tmpvar_225 = (p_218 - vec2(0.08, 0.05));
+  highp vec2 x_226;
+  x_226 = (tmpvar_225 - (vec2(0.08, -0.2) * clamp (
+    (dot (tmpvar_225, vec2(0.08, -0.2)) / 0.0464)
+  , 0.0, 1.0)));
+  highp float tmpvar_227;
+  tmpvar_227 = clamp ((sqrt(
+    dot (x_226, x_226)
+  ) / 0.25), 0.0, 1.0);
+  highp vec2 tmpvar_228;
+  tmpvar_228 = (p_218 - vec2(0.07, 0.02));
+  highp vec2 x_229;
+  x_229 = (tmpvar_228 - (vec2(0.068, -0.17) * clamp (
+    (dot (tmpvar_228, vec2(0.068, -0.17)) / 0.033524)
+  , 0.0, 1.0)));
+  highp float tmpvar_230;
+  tmpvar_230 = clamp ((sqrt(
+    dot (x_229, x_229)
+  ) / 0.25), 0.0, 1.0);
+  d_8 = min (min (d_8, tmpvar_204), min (max (
+    (tmpvar_224 * (tmpvar_224 * (3.0 - (2.0 * tmpvar_224))))
+  , 
+    float(((p_218.y + 0.2) >= (0.28 * tmpvar_220)))
+  ), max (
+    min ((tmpvar_227 * (tmpvar_227 * (3.0 - 
+      (2.0 * tmpvar_227)
+    ))), (tmpvar_230 * (tmpvar_230 * (3.0 - 
+      (2.0 * tmpvar_230)
+    ))))
+  , 
+    (1.0 - float(((p_218.y + 0.2) >= (0.28 - 
+      (0.28 * tmpvar_220)
+    ))))
+  )));
+  animx_7 += -0.25;
+  ax_5 += -0.15;
+  float animx_231;
+  animx_231 = ax_5;
+  highp float d_232;
+  float tmpvar_233;
+  tmpvar_233 = clamp (ax_5, 0.0, 1.0);
+  float tmpvar_234;
+  tmpvar_234 = clamp (((ax_5 - 6000.0) / -1000.0), 0.0, 1.0);
+  vec2 tmpvar_235;
+  tmpvar_235.y = -0.15;
+  tmpvar_235.x = (-1.0 + (2.0 * (tmpvar_233 * 
+    (tmpvar_233 * (3.0 - (2.0 * tmpvar_233)))
+  )));
+  vec2 tmpvar_236;
+  tmpvar_236.y = -0.15;
+  tmpvar_236.x = (1.0 - (2.0 * (tmpvar_234 * 
+    (tmpvar_234 * (3.0 - (2.0 * tmpvar_234)))
+  )));
+  highp vec2 tmpvar_237;
+  tmpvar_237 = (uv_2 - tmpvar_235);
+  vec2 tmpvar_238;
+  tmpvar_238 = (tmpvar_236 - tmpvar_235);
+  highp vec2 x_239;
+  x_239 = (tmpvar_237 - (tmpvar_238 * clamp (
+    (dot (tmpvar_237, tmpvar_238) / dot (tmpvar_238, tmpvar_238))
+  , 0.0, 1.0)));
+  highp float tmpvar_240;
+  tmpvar_240 = clamp ((sqrt(
+    dot (x_239, x_239)
+  ) / 0.25), 0.0, 1.0);
+  d_232 = (tmpvar_240 * (tmpvar_240 * (3.0 - 
+    (2.0 * tmpvar_240)
+  )));
+  highp vec2 p_241;
+  p_241 = (uv_2 + vec2(0.955, -0.05));
+  highp float tmpvar_242;
+  if ((ax_5 < 0.0)) {
+    tmpvar_242 = 1.0;
+  } else {
+    float tmpvar_243;
+    float tmpvar_244;
+    tmpvar_244 = clamp (ax_5, 0.0, 1.0);
+    tmpvar_243 = (tmpvar_244 * (tmpvar_244 * (3.0 - 
+      (2.0 * tmpvar_244)
+    )));
+    highp vec2 tmpvar_245;
+    tmpvar_245 = (p_241 - vec2(0.08, 0.05));
+    highp vec2 x_246;
+    x_246 = (tmpvar_245 - (vec2(-0.08, -0.2) * clamp (
+      (dot (tmpvar_245, vec2(-0.08, -0.2)) / 0.0464)
+    , 0.0, 1.0)));
+    highp float tmpvar_247;
+    tmpvar_247 = clamp ((sqrt(
+      dot (x_246, x_246)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_248;
+    tmpvar_248 = (p_241 - vec2(0.08, 0.05));
+    highp vec2 x_249;
+    x_249 = (tmpvar_248 - (vec2(0.08, -0.2) * clamp (
+      (dot (tmpvar_248, vec2(0.08, -0.2)) / 0.0464)
+    , 0.0, 1.0)));
+    highp float tmpvar_250;
+    tmpvar_250 = clamp ((sqrt(
+      dot (x_249, x_249)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_251;
+    tmpvar_251 = (p_241 - vec2(0.07, 0.02));
+    highp vec2 x_252;
+    x_252 = (tmpvar_251 - (vec2(0.068, -0.17) * clamp (
+      (dot (tmpvar_251, vec2(0.068, -0.17)) / 0.033524)
+    , 0.0, 1.0)));
+    highp float tmpvar_253;
+    tmpvar_253 = clamp ((sqrt(
+      dot (x_252, x_252)
+    ) / 0.25), 0.0, 1.0);
+    tmpvar_242 = min (max ((tmpvar_247 * 
+      (tmpvar_247 * (3.0 - (2.0 * tmpvar_247)))
+    ), float(
+      ((p_241.y + 0.2) >= (0.28 * tmpvar_243))
+    )), max (min (
+      (tmpvar_250 * (tmpvar_250 * (3.0 - (2.0 * tmpvar_250))))
+    , 
+      (tmpvar_253 * (tmpvar_253 * (3.0 - (2.0 * tmpvar_253))))
+    ), (1.0 - 
+      float(((p_241.y + 0.2) >= (0.28 - (0.28 * tmpvar_243))))
+    )));
+  };
+  d_232 = min (d_232, tmpvar_242);
+  animx_231 = (ax_5 + -0.25);
+  highp vec2 p_254;
+  p_254 = (uv_2 + vec2(0.755, -0.05));
+  highp float tmpvar_255;
+  if ((animx_231 < 0.0)) {
+    tmpvar_255 = 1.0;
+  } else {
+    float tmpvar_256;
+    float tmpvar_257;
+    tmpvar_257 = clamp (animx_231, 0.0, 1.0);
+    tmpvar_256 = (tmpvar_257 * (tmpvar_257 * (3.0 - 
+      (2.0 * tmpvar_257)
+    )));
+    highp vec2 tmpvar_258;
+    tmpvar_258 = (p_254 - vec2(0.0, 0.05));
+    highp vec2 x_259;
+    x_259 = (tmpvar_258 - (vec2(0.0, -0.2) * clamp (
+      (dot (tmpvar_258, vec2(0.0, -0.2)) / 0.04)
+    , 0.0, 1.0)));
+    highp float tmpvar_260;
+    tmpvar_260 = clamp ((sqrt(
+      dot (x_259, x_259)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_261;
+    tmpvar_261 = (p_254 - vec2(0.02, 0.05));
+    highp vec2 x_262;
+    x_262 = (tmpvar_261 - (vec2(0.0, -0.07) * clamp (
+      (dot (tmpvar_261, vec2(0.0, -0.07)) / 0.0049)
+    , 0.0, 1.0)));
+    highp float tmpvar_263;
+    tmpvar_263 = clamp ((sqrt(
+      dot (x_262, x_262)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 p_264;
+    p_264 = (p_254 + vec2(-0.05, -0.015));
+    highp float tmpvar_265;
+    tmpvar_265 = clamp ((abs(
+      (sqrt(dot (p_264, p_264)) - 0.035)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 p_266;
+    p_266 = (p_254 + vec2(-0.05, 0.085));
+    highp float tmpvar_267;
+    tmpvar_267 = clamp ((abs(
+      (sqrt(dot (p_266, p_266)) - 0.065)
+    ) / 0.25), 0.0, 1.0);
+    highp float tmpvar_268;
+    tmpvar_268 = clamp (((p_254.x - 0.055) / -0.1), 0.0, 1.0);
+    highp vec2 p_269;
+    p_269 = (p_254 + vec2(-0.05, 0.085));
+    highp float tmpvar_270;
+    tmpvar_270 = clamp ((abs(
+      (sqrt(dot (p_269, p_269)) - 0.025)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_271;
+    tmpvar_271 = (p_254 - vec2(0.0, 0.05));
+    highp vec2 x_272;
+    x_272 = (tmpvar_271 - (vec2(0.05, 0.0) * clamp (
+      (dot (tmpvar_271, vec2(0.05, 0.0)) / 0.0025)
+    , 0.0, 1.0)));
+    highp float tmpvar_273;
+    tmpvar_273 = clamp ((sqrt(
+      dot (x_272, x_272)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_274;
+    tmpvar_274 = (p_254 - vec2(0.0, -0.02));
+    highp vec2 x_275;
+    x_275 = (tmpvar_274 - (vec2(0.05, 0.0) * clamp (
+      (dot (tmpvar_274, vec2(0.05, 0.0)) / 0.0025)
+    , 0.0, 1.0)));
+    highp float tmpvar_276;
+    tmpvar_276 = clamp ((sqrt(
+      dot (x_275, x_275)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_277;
+    tmpvar_277 = (p_254 - vec2(0.0, -0.15));
+    highp vec2 x_278;
+    x_278 = (tmpvar_277 - (vec2(0.05, 0.0) * clamp (
+      (dot (tmpvar_277, vec2(0.05, 0.0)) / 0.0025)
+    , 0.0, 1.0)));
+    highp float tmpvar_279;
+    tmpvar_279 = clamp ((sqrt(
+      dot (x_278, x_278)
+    ) / 0.25), 0.0, 1.0);
+    tmpvar_255 = min (max (min (
+      min ((tmpvar_260 * (tmpvar_260 * (3.0 - 
+        (2.0 * tmpvar_260)
+      ))), (tmpvar_263 * (tmpvar_263 * (3.0 - 
+        (2.0 * tmpvar_263)
+      ))))
+    , 
+      min (min (max (float(
+        (0.05 >= p_254.x)
+      ), (tmpvar_265 * 
+        (tmpvar_265 * (3.0 - (2.0 * tmpvar_265)))
+      )), max (float(
+        (0.05 >= p_254.x)
+      ), (tmpvar_267 * 
+        (tmpvar_267 * (3.0 - (2.0 * tmpvar_267)))
+      ))), max ((tmpvar_268 * (tmpvar_268 * 
+        (3.0 - (2.0 * tmpvar_268))
+      )), (tmpvar_270 * (tmpvar_270 * 
+        (3.0 - (2.0 * tmpvar_270))
+      ))))
+    ), float(
+      ((-(p_254.y) + 0.1) >= (0.28 * tmpvar_256))
+    )), max (min (
+      min ((tmpvar_273 * (tmpvar_273 * (3.0 - 
+        (2.0 * tmpvar_273)
+      ))), (tmpvar_276 * (tmpvar_276 * (3.0 - 
+        (2.0 * tmpvar_276)
+      ))))
+    , 
+      (tmpvar_279 * (tmpvar_279 * (3.0 - (2.0 * tmpvar_279))))
+    ), float(
+      (((p_254 * mat2(-0.7070999, -0.7071137, 0.7071137, -0.7070999)).y + 0.05) >= (0.28 * tmpvar_256))
+    )));
+  };
+  animx_231 += -0.25;
+  highp vec2 p_280;
+  p_280 = (uv_2 + vec2(0.555, -0.05));
+  float tmpvar_281;
+  float tmpvar_282;
+  tmpvar_282 = clamp (animx_231, 0.0, 1.0);
+  tmpvar_281 = (tmpvar_282 * (tmpvar_282 * (3.0 - 
+    (2.0 * tmpvar_282)
+  )));
+  highp vec2 p_283;
+  p_283 = (p_280 + vec2(-0.05, 0.05));
+  highp float tmpvar_284;
+  tmpvar_284 = clamp ((abs(
+    (sqrt(dot (p_283, p_283)) - 0.08)
+  ) / 0.25), 0.0, 1.0);
+  highp vec2 p_285;
+  p_285 = (p_280 + vec2(-0.05, 0.05));
+  highp float tmpvar_286;
+  tmpvar_286 = clamp ((abs(
+    (sqrt(dot (p_285, p_285)) - 0.1)
+  ) / 0.25), 0.0, 1.0);
+  highp float tmpvar_287;
+  tmpvar_287 = clamp (((p_280.x - 0.045) / 0.055), 0.0, 1.0);
+  d_232 = min (min (d_232, tmpvar_255), max (min (
+    max ((tmpvar_284 * (tmpvar_284 * (3.0 - 
+      (2.0 * tmpvar_284)
+    ))), float(((p_280.y + 0.2) >= (0.28 * tmpvar_281))))
+  , 
+    max ((tmpvar_286 * (tmpvar_286 * (3.0 - 
+      (2.0 * tmpvar_286)
+    ))), float(((
+      -(p_280.y)
+     + 0.1) >= (0.28 * tmpvar_281))))
+  ), (tmpvar_287 * 
+    (tmpvar_287 * (3.0 - (2.0 * tmpvar_287)))
+  )));
+  animx_231 += -0.25;
+  highp vec2 p_288;
+  p_288 = (uv_2 + vec2(0.45, -0.05));
+  highp float tmpvar_289;
+  if ((animx_231 < 0.0)) {
+    tmpvar_289 = 1.0;
+  } else {
+    if ((animx_231 < 0.0)) {
+      tmpvar_289 = 1.0;
+    } else {
+      float tmpvar_290;
+      float tmpvar_291;
+      tmpvar_291 = clamp (animx_231, 0.0, 1.0);
+      tmpvar_290 = (tmpvar_291 * (tmpvar_291 * (3.0 - 
+        (2.0 * tmpvar_291)
+      )));
+      highp vec2 tmpvar_292;
+      tmpvar_292 = (p_288 - vec2(0.0, 0.05));
+      highp vec2 x_293;
+      x_293 = (tmpvar_292 - (vec2(0.0, -0.2) * clamp (
+        (dot (tmpvar_292, vec2(0.0, -0.2)) / 0.04)
+      , 0.0, 1.0)));
+      highp float tmpvar_294;
+      highp float tmpvar_295;
+      tmpvar_295 = clamp ((sqrt(
+        dot (x_293, x_293)
+      ) / 0.25), 0.0, 1.0);
+      tmpvar_294 = (tmpvar_295 * (tmpvar_295 * (3.0 - 
+        (2.0 * tmpvar_295)
+      )));
+      vec2 tmpvar_296;
+      tmpvar_296.y = 0.1;
+      tmpvar_296.x = (0.001 + (0.09 * tmpvar_290));
+      highp vec2 p_297;
+      p_297 = (p_288 + vec2(0.0, 0.05));
+      vec2 ab_298;
+      ab_298 = tmpvar_296;
+      highp float co_299;
+      highp vec2 tmpvar_300;
+      tmpvar_300 = abs(p_297);
+      p_297 = tmpvar_300;
+      if ((tmpvar_300.x > tmpvar_300.y)) {
+        p_297 = tmpvar_300.yx;
+        ab_298 = tmpvar_296.yx;
+      };
+      float tmpvar_301;
+      tmpvar_301 = ((ab_298.y * ab_298.y) - (ab_298.x * ab_298.x));
+      highp float tmpvar_302;
+      tmpvar_302 = ((ab_298.x * p_297.x) / tmpvar_301);
+      highp float tmpvar_303;
+      tmpvar_303 = (tmpvar_302 * tmpvar_302);
+      highp float tmpvar_304;
+      tmpvar_304 = ((ab_298.y * p_297.y) / tmpvar_301);
+      highp float tmpvar_305;
+      tmpvar_305 = (tmpvar_304 * tmpvar_304);
+      highp float tmpvar_306;
+      tmpvar_306 = (((tmpvar_303 + tmpvar_305) - 1.0) / 3.0);
+      highp float tmpvar_307;
+      tmpvar_307 = ((tmpvar_306 * tmpvar_306) * tmpvar_306);
+      highp float tmpvar_308;
+      tmpvar_308 = (tmpvar_307 + ((tmpvar_303 * tmpvar_305) * 2.0));
+      highp float tmpvar_309;
+      tmpvar_309 = (tmpvar_307 + (tmpvar_303 * tmpvar_305));
+      highp float tmpvar_310;
+      tmpvar_310 = (tmpvar_302 + (tmpvar_302 * tmpvar_305));
+      if ((tmpvar_309 < 0.0)) {
+        highp float x_311;
+        x_311 = (tmpvar_308 / tmpvar_307);
+        highp float tmpvar_312;
+        tmpvar_312 = ((1.570796 - (
+          sign(x_311)
+         * 
+          (1.570796 - (sqrt((1.0 - 
+            abs(x_311)
+          )) * (1.570796 + (
+            abs(x_311)
+           * 
+            (-0.2146018 + (abs(x_311) * (0.08656672 + (
+              abs(x_311)
+             * -0.03102955))))
+          ))))
+        )) / 3.0);
+        highp float tmpvar_313;
+        tmpvar_313 = cos(tmpvar_312);
+        highp float tmpvar_314;
+        tmpvar_314 = (sin(tmpvar_312) * 1.732051);
+        highp float tmpvar_315;
+        tmpvar_315 = sqrt(((
+          -(tmpvar_306)
+         * 
+          ((tmpvar_313 + tmpvar_314) + 2.0)
+        ) + tmpvar_303));
+        highp float tmpvar_316;
+        tmpvar_316 = sqrt(((
+          -(tmpvar_306)
+         * 
+          ((tmpvar_313 - tmpvar_314) + 2.0)
+        ) + tmpvar_303));
+        co_299 = (((
+          (tmpvar_316 + (sign(tmpvar_301) * tmpvar_315))
+         + 
+          (abs(tmpvar_310) / (tmpvar_315 * tmpvar_316))
+        ) - tmpvar_302) / 2.0);
+      } else {
+        highp float tmpvar_317;
+        tmpvar_317 = (((2.0 * tmpvar_302) * tmpvar_304) * sqrt(tmpvar_309));
+        highp float tmpvar_318;
+        tmpvar_318 = (sign((tmpvar_308 + tmpvar_317)) * pow (abs(
+          (tmpvar_308 + tmpvar_317)
+        ), 0.3333333));
+        highp float tmpvar_319;
+        tmpvar_319 = (sign((tmpvar_308 - tmpvar_317)) * pow (abs(
+          (tmpvar_308 - tmpvar_317)
+        ), 0.3333333));
+        highp float tmpvar_320;
+        tmpvar_320 = (((
+          -(tmpvar_318)
+         - tmpvar_319) - (tmpvar_306 * 4.0)) + (2.0 * tmpvar_303));
+        highp float tmpvar_321;
+        tmpvar_321 = ((tmpvar_318 - tmpvar_319) * 1.732051);
+        highp float tmpvar_322;
+        tmpvar_322 = sqrt(((tmpvar_320 * tmpvar_320) + (tmpvar_321 * tmpvar_321)));
+        co_299 = (((
+          (tmpvar_321 / sqrt((tmpvar_322 - tmpvar_320)))
+         + 
+          ((2.0 * tmpvar_310) / tmpvar_322)
+        ) - tmpvar_302) / 2.0);
+      };
+      highp vec2 tmpvar_323;
+      tmpvar_323.x = co_299;
+      tmpvar_323.y = sqrt((1.0 - (co_299 * co_299)));
+      highp vec2 tmpvar_324;
+      tmpvar_324 = (ab_298 * tmpvar_323);
+      highp vec2 x_325;
+      x_325 = (tmpvar_324 - p_297);
+      highp float tmpvar_326;
+      tmpvar_326 = clamp ((abs(
+        (sqrt(dot (x_325, x_325)) * sign((p_297.y - tmpvar_324.y)))
+      ) / 0.25), 0.0, 1.0);
+      tmpvar_289 = max (min (tmpvar_294, max (
+        (tmpvar_326 * (tmpvar_326 * (3.0 - (2.0 * tmpvar_326))))
+      , 
+        float((0.0 >= p_288.x))
+      )), (1.0 - float(
+        ((-(p_288.x) + 0.24) >= (0.25 - (0.25 * tmpvar_290)))
+      )));
+    };
+  };
+  d_232 = min (d_232, tmpvar_289);
+  animx_231 += -0.25;
+  highp vec2 p_327;
+  p_327 = (uv_2 + vec2(0.305, -0.05));
+  highp float tmpvar_328;
+  if ((animx_231 < 0.0)) {
+    tmpvar_328 = 1.0;
+  } else {
+    float tmpvar_329;
+    float tmpvar_330;
+    tmpvar_330 = clamp (animx_231, 0.0, 1.0);
+    tmpvar_329 = (tmpvar_330 * (tmpvar_330 * (3.0 - 
+      (2.0 * tmpvar_330)
+    )));
+    highp vec2 tmpvar_331;
+    tmpvar_331 = (p_327 - vec2(0.0, 0.05));
+    highp vec2 x_332;
+    x_332 = (tmpvar_331 - (vec2(0.0, -0.2) * clamp (
+      (dot (tmpvar_331, vec2(0.0, -0.2)) / 0.04)
+    , 0.0, 1.0)));
+    highp float tmpvar_333;
+    tmpvar_333 = clamp ((sqrt(
+      dot (x_332, x_332)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_334;
+    tmpvar_334 = (p_327 - vec2(0.0, -0.15));
+    highp vec2 x_335;
+    x_335 = (tmpvar_334 - (vec2(0.13, 0.0) * clamp (
+      (dot (tmpvar_334, vec2(0.13, 0.0)) / 0.0169)
+    , 0.0, 1.0)));
+    highp float tmpvar_336;
+    tmpvar_336 = clamp ((sqrt(
+      dot (x_335, x_335)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_337;
+    tmpvar_337 = (p_327 - vec2(0.0, 0.05));
+    highp vec2 x_338;
+    x_338 = (tmpvar_337 - (vec2(0.13, 0.0) * clamp (
+      (dot (tmpvar_337, vec2(0.13, 0.0)) / 0.0169)
+    , 0.0, 1.0)));
+    highp float tmpvar_339;
+    tmpvar_339 = clamp ((sqrt(
+      dot (x_338, x_338)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_340;
+    tmpvar_340 = (p_327 - vec2(0.0, -0.04));
+    highp vec2 x_341;
+    x_341 = (tmpvar_340 - (vec2(0.1, 0.0) * clamp (
+      (dot (tmpvar_340, vec2(0.1, 0.0)) / 0.01)
+    , 0.0, 1.0)));
+    highp float tmpvar_342;
+    tmpvar_342 = clamp ((sqrt(
+      dot (x_341, x_341)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_343;
+    tmpvar_343 = (p_327 - vec2(0.0, -0.06));
+    highp vec2 x_344;
+    x_344 = (tmpvar_343 - (vec2(0.1, 0.0) * clamp (
+      (dot (tmpvar_343, vec2(0.1, 0.0)) / 0.01)
+    , 0.0, 1.0)));
+    highp float tmpvar_345;
+    tmpvar_345 = clamp ((sqrt(
+      dot (x_344, x_344)
+    ) / 0.25), 0.0, 1.0);
+    tmpvar_328 = max (min (max (
+      (tmpvar_333 * (tmpvar_333 * (3.0 - (2.0 * tmpvar_333))))
+    , 
+      float(((p_327.y + 0.2) >= (0.28 * tmpvar_329)))
+    ), max (
+      min (min (min ((tmpvar_336 * 
+        (tmpvar_336 * (3.0 - (2.0 * tmpvar_336)))
+      ), (tmpvar_339 * 
+        (tmpvar_339 * (3.0 - (2.0 * tmpvar_339)))
+      )), (tmpvar_342 * (tmpvar_342 * 
+        (3.0 - (2.0 * tmpvar_342))
+      ))), (tmpvar_345 * (tmpvar_345 * (3.0 - 
+        (2.0 * tmpvar_345)
+      ))))
+    , 
+      (1.0 - float(((
+        -(p_327.x)
+       + 0.2) >= (0.25 - 
+        (0.25 * tmpvar_329)
+      ))))
+    )), (1.0 - float(
+      ((-(p_327.x) + 0.2) >= (0.25 - (0.25 * tmpvar_329)))
+    )));
+  };
+  animx_231 += -0.25;
+  highp vec2 p_346;
+  p_346 = (uv_2 + vec2(0.135, -0.05));
+  float tmpvar_347;
+  float tmpvar_348;
+  tmpvar_348 = clamp (animx_231, 0.0, 1.0);
+  tmpvar_347 = (tmpvar_348 * (tmpvar_348 * (3.0 - 
+    (2.0 * tmpvar_348)
+  )));
+  highp vec2 tmpvar_349;
+  tmpvar_349 = (p_346 - vec2(0.0, 0.05));
+  highp vec2 x_350;
+  x_350 = (tmpvar_349 - (vec2(0.0, -0.2) * clamp (
+    (dot (tmpvar_349, vec2(0.0, -0.2)) / 0.04)
+  , 0.0, 1.0)));
+  highp float tmpvar_351;
+  tmpvar_351 = clamp ((sqrt(
+    dot (x_350, x_350)
+  ) / 0.25), 0.0, 1.0);
+  highp vec2 tmpvar_352;
+  tmpvar_352 = (p_346 - vec2(0.0, 0.05));
+  highp vec2 x_353;
+  x_353 = (tmpvar_352 - (vec2(0.13, 0.0) * clamp (
+    (dot (tmpvar_352, vec2(0.13, 0.0)) / 0.0169)
+  , 0.0, 1.0)));
+  highp float tmpvar_354;
+  tmpvar_354 = clamp ((sqrt(
+    dot (x_353, x_353)
+  ) / 0.25), 0.0, 1.0);
+  highp vec2 tmpvar_355;
+  tmpvar_355 = (p_346 - vec2(0.0, -0.04));
+  highp vec2 x_356;
+  x_356 = (tmpvar_355 - (vec2(0.1, 0.0) * clamp (
+    (dot (tmpvar_355, vec2(0.1, 0.0)) / 0.01)
+  , 0.0, 1.0)));
+  highp float tmpvar_357;
+  tmpvar_357 = clamp ((sqrt(
+    dot (x_356, x_356)
+  ) / 0.25), 0.0, 1.0);
+  highp vec2 tmpvar_358;
+  tmpvar_358 = (p_346 - vec2(0.0, -0.06));
+  highp vec2 x_359;
+  x_359 = (tmpvar_358 - (vec2(0.1, 0.0) * clamp (
+    (dot (tmpvar_358, vec2(0.1, 0.0)) / 0.01)
+  , 0.0, 1.0)));
+  highp float tmpvar_360;
+  tmpvar_360 = clamp ((sqrt(
+    dot (x_359, x_359)
+  ) / 0.25), 0.0, 1.0);
+  d_232 = min (min (d_232, tmpvar_328), max (min (
+    max ((tmpvar_351 * (tmpvar_351 * (3.0 - 
+      (2.0 * tmpvar_351)
+    ))), float(((p_346.y + 0.2) >= (0.28 * tmpvar_347))))
+  , 
+    max (min (min ((tmpvar_354 * 
+      (tmpvar_354 * (3.0 - (2.0 * tmpvar_354)))
+    ), (tmpvar_357 * 
+      (tmpvar_357 * (3.0 - (2.0 * tmpvar_357)))
+    )), (tmpvar_360 * (tmpvar_360 * 
+      (3.0 - (2.0 * tmpvar_360))
+    ))), (1.0 - float((
+      (-(p_346.x) + 0.2)
+     >= 
+      (0.25 - (0.25 * tmpvar_347))
+    ))))
+  ), (1.0 - 
+    float(((-(p_346.x) + 0.2) >= (0.25 - (0.25 * tmpvar_347))))
+  )));
+  animx_231 += -0.25;
+  highp vec2 p_361;
+  p_361 = (uv_2 + vec2(-0.04500002, -0.05));
+  highp float tmpvar_362;
+  if ((animx_231 < 0.0)) {
+    tmpvar_362 = 1.0;
+  } else {
+    float tmpvar_363;
+    float tmpvar_364;
+    tmpvar_364 = clamp (animx_231, 0.0, 1.0);
+    tmpvar_363 = (tmpvar_364 * (tmpvar_364 * (3.0 - 
+      (2.0 * tmpvar_364)
+    )));
+    highp vec2 x_365;
+    x_365 = (p_361 - (vec2(0.1, -0.15) * clamp (
+      (dot (p_361, vec2(0.1, -0.15)) / 0.0325)
+    , 0.0, 1.0)));
+    highp float tmpvar_366;
+    tmpvar_366 = clamp ((sqrt(
+      dot (x_365, x_365)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 x_367;
+    x_367 = (p_361 - (vec2(0.0, -0.15) * clamp (
+      (dot (p_361, vec2(0.0, -0.15)) / 0.0225)
+    , 0.0, 1.0)));
+    highp float tmpvar_368;
+    tmpvar_368 = clamp ((sqrt(
+      dot (x_367, x_367)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_369;
+    tmpvar_369 = (p_361 - vec2(0.0, 0.05));
+    highp vec2 x_370;
+    x_370 = (tmpvar_369 - (vec2(0.135, -0.2) * clamp (
+      (dot (tmpvar_369, vec2(0.135, -0.2)) / 0.05822501)
+    , 0.0, 1.0)));
+    highp float tmpvar_371;
+    tmpvar_371 = clamp ((sqrt(
+      dot (x_370, x_370)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_372;
+    tmpvar_372 = (p_361 - vec2(0.135, -0.15));
+    highp vec2 x_373;
+    x_373 = (tmpvar_372 - (vec2(0.0, 0.2) * clamp (
+      (dot (tmpvar_372, vec2(0.0, 0.2)) / 0.04)
+    , 0.0, 1.0)));
+    highp float tmpvar_374;
+    tmpvar_374 = clamp ((sqrt(
+      dot (x_373, x_373)
+    ) / 0.25), 0.0, 1.0);
+    tmpvar_362 = min (max (min (
+      (tmpvar_366 * (tmpvar_366 * (3.0 - (2.0 * tmpvar_366))))
+    , 
+      (tmpvar_368 * (tmpvar_368 * (3.0 - (2.0 * tmpvar_368))))
+    ), float(
+      ((p_361.y + 0.2) >= (0.25 * tmpvar_363))
+    )), max (min (
+      (tmpvar_371 * (tmpvar_371 * (3.0 - (2.0 * tmpvar_371))))
+    , 
+      (tmpvar_374 * (tmpvar_374 * (3.0 - (2.0 * tmpvar_374))))
+    ), float(
+      ((-(p_361.y) + 0.1) >= (0.28 * tmpvar_363))
+    )));
+  };
+  highp float tmpvar_375;
+  tmpvar_375 = min (d_232, tmpvar_362);
+  d_232 = tmpvar_375;
+  animx_231 += -0.25;
+  highp vec2 p_376;
+  p_376 = (uv_2 + vec2(-0.265, -0.05));
+  float tmpvar_377;
+  float tmpvar_378;
+  tmpvar_378 = clamp (animx_231, 0.0, 1.0);
+  tmpvar_377 = (tmpvar_378 * (tmpvar_378 * (3.0 - 
+    (2.0 * tmpvar_378)
+  )));
+  highp float tmpvar_379;
+  if ((tmpvar_377 > 0.0)) {
+    mat2 tmpvar_380;
+    tmpvar_380[uint(0)].x = cos((-0.7853949 + (3.14158 * tmpvar_377)));
+    tmpvar_380[uint(0)].y = -(sin((-0.7853949 + 
+      (3.14158 * tmpvar_377)
+    )));
+    tmpvar_380[1u].x = sin((-0.7853949 + (3.14158 * tmpvar_377)));
+    tmpvar_380[1u].y = cos((-0.7853949 + (3.14158 * tmpvar_377)));
+    vec2 tmpvar_381;
+    tmpvar_381.x = 0.0;
+    tmpvar_381.y = (0.1 - (0.2 * tmpvar_377));
+    highp vec2 tmpvar_382;
+    tmpvar_382 = (((p_376 + vec2(-0.05, 0.05)) * tmpvar_380) - vec2(0.0, 0.1));
+    vec2 tmpvar_383;
+    tmpvar_383 = (tmpvar_381 - vec2(0.0, 0.1));
+    highp vec2 x_384;
+    x_384 = (tmpvar_382 - (tmpvar_383 * clamp (
+      (dot (tmpvar_382, tmpvar_383) / dot (tmpvar_383, tmpvar_383))
+    , 0.0, 1.0)));
+    highp float tmpvar_385;
+    tmpvar_385 = clamp ((sqrt(
+      dot (x_384, x_384)
+    ) / 0.25), 0.0, 1.0);
+    tmpvar_379 = (tmpvar_385 * (tmpvar_385 * (3.0 - 
+      (2.0 * tmpvar_385)
+    )));
+  } else {
+    tmpvar_379 = 1.0;
+  };
+  highp vec2 p_386;
+  p_386 = (p_376 + vec2(-0.05, 0.05));
+  highp float tmpvar_387;
+  highp float tmpvar_388;
+  tmpvar_388 = clamp ((abs(
+    (sqrt(dot (p_386, p_386)) - 0.1)
+  ) / 0.25), 0.0, 1.0);
+  tmpvar_387 = (tmpvar_388 * (tmpvar_388 * (3.0 - 
+    (2.0 * tmpvar_388)
+  )));
+  highp vec2 tmpvar_389;
+  tmpvar_389 = ((p_376 + vec2(-0.05, 0.05)) * mat2(-0.7070999, -0.7071137, 0.7071137, -0.7070999));
+  highp float tmpvar_390;
+  highp float tmpvar_391;
+  tmpvar_391 = (min (abs(
+    (tmpvar_389.x / tmpvar_389.y)
+  ), 1.0) / max (abs(
+    (tmpvar_389.x / tmpvar_389.y)
+  ), 1.0));
+  highp float tmpvar_392;
+  tmpvar_392 = (tmpvar_391 * tmpvar_391);
+  tmpvar_392 = (((
+    ((((
+      ((((-0.01213232 * tmpvar_392) + 0.05368138) * tmpvar_392) - 0.1173503)
+     * tmpvar_392) + 0.1938925) * tmpvar_392) - 0.3326756)
+   * tmpvar_392) + 0.9999793) * tmpvar_391);
+  tmpvar_392 = (tmpvar_392 + (float(
+    (abs((tmpvar_389.x / tmpvar_389.y)) > 1.0)
+  ) * (
+    (tmpvar_392 * -2.0)
+   + 1.570796)));
+  tmpvar_390 = (tmpvar_392 * sign((tmpvar_389.x / tmpvar_389.y)));
+  if ((abs(tmpvar_389.y) > (1e-08 * abs(tmpvar_389.x)))) {
+    if ((tmpvar_389.y < 0.0)) {
+      if ((tmpvar_389.x >= 0.0)) {
+        tmpvar_390 += 3.141593;
+      } else {
+        tmpvar_390 = (tmpvar_390 - 3.141593);
+      };
+    };
+  } else {
+    tmpvar_390 = (sign(tmpvar_389.x) * 1.570796);
+  };
+  highp vec2 tmpvar_393;
+  tmpvar_393.x = (tmpvar_390 / 6.283159);
+  tmpvar_393.y = sqrt(dot (tmpvar_389, tmpvar_389));
+  vec2 tmpvar_394;
+  tmpvar_394.y = 0.0;
+  tmpvar_394.x = (0.5 - (1.001 * tmpvar_377));
+  d_232 = min (tmpvar_375, min (tmpvar_379, max (tmpvar_387, 
+    float(((tmpvar_393 + tmpvar_394).x >= 0.0))
+  )));
+  animx_231 += -0.25;
+  highp vec2 p_395;
+  p_395 = (uv_2 + vec2(-0.465, -0.05));
+  highp float tmpvar_396;
+  highp float d2_397;
+  highp float d1_398;
+  if ((animx_231 < 0.0)) {
+    tmpvar_396 = 1.0;
+  } else {
+    float tmpvar_399;
+    float tmpvar_400;
+    tmpvar_400 = clamp (animx_231, 0.0, 1.0);
+    tmpvar_399 = (tmpvar_400 * (tmpvar_400 * (3.0 - 
+      (2.0 * tmpvar_400)
+    )));
+    highp vec2 tmpvar_401;
+    tmpvar_401 = (p_395 - vec2(-0.025, 0.0));
+    highp vec2 x_402;
+    x_402 = (tmpvar_401 - (vec2(0.05, -0.0) * clamp (
+      (dot (tmpvar_401, vec2(0.05, -0.0)) / 0.0025)
+    , 0.0, 1.0)));
+    highp float tmpvar_403;
+    tmpvar_403 = clamp ((sqrt(
+      dot (x_402, x_402)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_404;
+    tmpvar_404 = (p_395 - vec2(-0.025, -0.02));
+    highp vec2 x_405;
+    x_405 = (tmpvar_404 - (vec2(0.05, 0.0) * clamp (
+      (dot (tmpvar_404, vec2(0.05, 0.0)) / 0.0025)
+    , 0.0, 1.0)));
+    highp float tmpvar_406;
+    tmpvar_406 = clamp ((sqrt(
+      dot (x_405, x_405)
+    ) / 0.25), 0.0, 1.0);
+    highp float tmpvar_407;
+    tmpvar_407 = min ((tmpvar_403 * (tmpvar_403 * 
+      (3.0 - (2.0 * tmpvar_403))
+    )), (tmpvar_406 * (tmpvar_406 * 
+      (3.0 - (2.0 * tmpvar_406))
+    )));
+    d1_398 = tmpvar_407;
+    if ((animx_231 < 1.0)) {
+      d1_398 = max (tmpvar_407, float((
+        ((p_395 * mat2(-0.7070999, -0.7071137, 0.7071137, -0.7070999)).y + 0.2)
+       >= 
+        (0.28 * tmpvar_399)
+      )));
+    };
+    highp vec2 tmpvar_408;
+    tmpvar_408 = (p_395 - vec2(0.0, 0.05));
+    highp vec2 x_409;
+    x_409 = (tmpvar_408 - (vec2(0.0, -0.2) * clamp (
+      (dot (tmpvar_408, vec2(0.0, -0.2)) / 0.04)
+    , 0.0, 1.0)));
+    highp float tmpvar_410;
+    highp float tmpvar_411;
+    tmpvar_411 = clamp ((sqrt(
+      dot (x_409, x_409)
+    ) / 0.25), 0.0, 1.0);
+    tmpvar_410 = (tmpvar_411 * (tmpvar_411 * (3.0 - 
+      (2.0 * tmpvar_411)
+    )));
+    d2_397 = tmpvar_410;
+    if ((animx_231 < 1.0)) {
+      d2_397 = max (tmpvar_410, float((
+        (p_395.y + 0.2)
+       >= 
+        (0.28 * tmpvar_399)
+      )));
+    };
+    tmpvar_396 = min (d1_398, d2_397);
+  };
+  d_232 = min (d_232, tmpvar_396);
+  animx_231 += -0.25;
+  highp vec2 p_412;
+  p_412 = (uv_2 + vec2(-0.565, -0.05));
+  highp float tmpvar_413;
+  highp float d_414;
+  if ((animx_231 < 0.0)) {
+    tmpvar_413 = 1.0;
+  } else {
+    float tmpvar_415;
+    float tmpvar_416;
+    tmpvar_416 = clamp (animx_231, 0.0, 1.0);
+    tmpvar_415 = (tmpvar_416 * (tmpvar_416 * (3.0 - 
+      (2.0 * tmpvar_416)
+    )));
+    highp vec2 tmpvar_417;
+    tmpvar_417 = (p_412 - vec2(-0.05, 0.05));
+    highp vec2 x_418;
+    x_418 = (tmpvar_417 - (vec2(0.1, 0.0) * clamp (
+      (dot (tmpvar_417, vec2(0.1, 0.0)) / 0.01)
+    , 0.0, 1.0)));
+    highp float tmpvar_419;
+    tmpvar_419 = clamp ((sqrt(
+      dot (x_418, x_418)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_420;
+    tmpvar_420 = (p_412 - vec2(-0.05, 0.03));
+    highp vec2 x_421;
+    x_421 = (tmpvar_420 - (vec2(0.1, 0.0) * clamp (
+      (dot (tmpvar_420, vec2(0.1, 0.0)) / 0.01)
+    , 0.0, 1.0)));
+    highp float tmpvar_422;
+    tmpvar_422 = clamp ((sqrt(
+      dot (x_421, x_421)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_423;
+    tmpvar_423 = (p_412 - vec2(0.0, 0.03));
+    highp vec2 x_424;
+    x_424 = (tmpvar_423 - (vec2(0.0, -0.18) * clamp (
+      (dot (tmpvar_423, vec2(0.0, -0.18)) / 0.0324)
+    , 0.0, 1.0)));
+    highp float tmpvar_425;
+    tmpvar_425 = clamp ((sqrt(
+      dot (x_424, x_424)
+    ) / 0.25), 0.0, 1.0);
+    highp float tmpvar_426;
+    tmpvar_426 = min (min ((tmpvar_419 * 
+      (tmpvar_419 * (3.0 - (2.0 * tmpvar_419)))
+    ), (tmpvar_422 * 
+      (tmpvar_422 * (3.0 - (2.0 * tmpvar_422)))
+    )), (tmpvar_425 * (tmpvar_425 * 
+      (3.0 - (2.0 * tmpvar_425))
+    )));
+    d_414 = tmpvar_426;
+    if ((animx_231 < 1.0)) {
+      d_414 = max (tmpvar_426, (1.0 - float(
+        (((abs(
+          (p_412 - vec2(0.0, -0.2))
+        ) * mat2(-0.7070999, -0.7071137, 0.7071137, -0.7070999)).x + 0.28) >= (0.28 - (0.28 * tmpvar_415)))
+      )));
+    };
+    tmpvar_413 = d_414;
+  };
+  d_232 = min (d_232, tmpvar_413);
+  animx_231 += -0.25;
+  highp vec2 p_427;
+  p_427 = (uv_2 + vec2(-0.645, -0.05));
+  highp float tmpvar_428;
+  highp float d1_429;
+  if ((animx_231 < 0.0)) {
+    tmpvar_428 = 1.0;
+  } else {
+    float tmpvar_430;
+    float tmpvar_431;
+    tmpvar_431 = clamp (animx_231, 0.0, 1.0);
+    tmpvar_430 = (tmpvar_431 * (tmpvar_431 * (3.0 - 
+      (2.0 * tmpvar_431)
+    )));
+    highp vec2 tmpvar_432;
+    tmpvar_432 = (p_427 - vec2(0.0, 0.05));
+    highp vec2 x_433;
+    x_433 = (tmpvar_432 - (vec2(0.0, -0.2) * clamp (
+      (dot (tmpvar_432, vec2(0.0, -0.2)) / 0.04)
+    , 0.0, 1.0)));
+    highp float tmpvar_434;
+    tmpvar_434 = clamp ((sqrt(
+      dot (x_433, x_433)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_435;
+    tmpvar_435 = (p_427 - vec2(0.02, 0.05));
+    highp vec2 x_436;
+    x_436 = (tmpvar_435 - (vec2(0.0, -0.2) * clamp (
+      (dot (tmpvar_435, vec2(0.0, -0.2)) / 0.04)
+    , 0.0, 1.0)));
+    highp float tmpvar_437;
+    tmpvar_437 = clamp ((sqrt(
+      dot (x_436, x_436)
+    ) / 0.25), 0.0, 1.0);
+    highp float tmpvar_438;
+    tmpvar_438 = min ((tmpvar_434 * (tmpvar_434 * 
+      (3.0 - (2.0 * tmpvar_434))
+    )), (tmpvar_437 * (tmpvar_437 * 
+      (3.0 - (2.0 * tmpvar_437))
+    )));
+    d1_429 = tmpvar_438;
+    if ((animx_231 < 1.0)) {
+      d1_429 = max (tmpvar_438, float((
+        (p_427.y + 0.2)
+       >= 
+        (0.28 * tmpvar_430)
+      )));
+    };
+    highp vec2 tmpvar_439;
+    tmpvar_439 = (p_427 - vec2(0.0, -0.15));
+    highp vec2 x_440;
+    x_440 = (tmpvar_439 - (vec2(0.13, 0.0) * clamp (
+      (dot (tmpvar_439, vec2(0.13, 0.0)) / 0.0169)
+    , 0.0, 1.0)));
+    highp float tmpvar_441;
+    tmpvar_441 = clamp ((sqrt(
+      dot (x_440, x_440)
+    ) / 0.25), 0.0, 1.0);
+    tmpvar_428 = min (d1_429, max ((tmpvar_441 * 
+      (tmpvar_441 * (3.0 - (2.0 * tmpvar_441)))
+    ), (1.0 - 
+      float(((-(p_427.x) + 0.2) >= (0.25 - (0.25 * tmpvar_430))))
+    )));
+  };
+  animx_231 += -0.25;
+  highp vec2 p_442;
+  p_442 = (uv_2 + vec2(-0.845, -0.05));
+  highp vec2 tmpvar_443;
+  tmpvar_443.x = p_442.x;
+  tmpvar_443.y = -(p_442.y);
+  p_442 = (tmpvar_443 + vec2(0.05, -0.1));
+  float tmpvar_444;
+  float tmpvar_445;
+  tmpvar_445 = clamp (animx_231, 0.0, 1.0);
+  tmpvar_444 = (tmpvar_445 * (tmpvar_445 * (3.0 - 
+    (2.0 * tmpvar_445)
+  )));
+  highp vec2 tmpvar_446;
+  tmpvar_446 = (p_442 - vec2(0.08, 0.05));
+  highp vec2 x_447;
+  x_447 = (tmpvar_446 - (vec2(-0.08, -0.2) * clamp (
+    (dot (tmpvar_446, vec2(-0.08, -0.2)) / 0.0464)
+  , 0.0, 1.0)));
+  highp float tmpvar_448;
+  tmpvar_448 = clamp ((sqrt(
+    dot (x_447, x_447)
+  ) / 0.25), 0.0, 1.0);
+  highp vec2 tmpvar_449;
+  tmpvar_449 = (p_442 - vec2(0.08, 0.05));
+  highp vec2 x_450;
+  x_450 = (tmpvar_449 - (vec2(0.08, -0.2) * clamp (
+    (dot (tmpvar_449, vec2(0.08, -0.2)) / 0.0464)
+  , 0.0, 1.0)));
+  highp float tmpvar_451;
+  tmpvar_451 = clamp ((sqrt(
+    dot (x_450, x_450)
+  ) / 0.25), 0.0, 1.0);
+  highp vec2 tmpvar_452;
+  tmpvar_452 = (p_442 - vec2(0.07, 0.02));
+  highp vec2 x_453;
+  x_453 = (tmpvar_452 - (vec2(0.068, -0.17) * clamp (
+    (dot (tmpvar_452, vec2(0.068, -0.17)) / 0.033524)
+  , 0.0, 1.0)));
+  highp float tmpvar_454;
+  tmpvar_454 = clamp ((sqrt(
+    dot (x_453, x_453)
+  ) / 0.25), 0.0, 1.0);
+  d_232 = min (min (d_232, tmpvar_428), min (max (
+    (tmpvar_448 * (tmpvar_448 * (3.0 - (2.0 * tmpvar_448))))
+  , 
+    float(((p_442.y + 0.2) >= (0.28 * tmpvar_444)))
+  ), max (
+    min ((tmpvar_451 * (tmpvar_451 * (3.0 - 
+      (2.0 * tmpvar_451)
+    ))), (tmpvar_454 * (tmpvar_454 * (3.0 - 
+      (2.0 * tmpvar_454)
+    ))))
+  , 
+    (1.0 - float(((p_442.y + 0.2) >= (0.28 - 
+      (0.28 * tmpvar_444)
+    ))))
+  )));
+  animx_231 += -0.25;
+  ax_5 += -0.15;
+  highp float tmpvar_455;
+  float animx_456;
+  animx_456 = ax_5;
+  highp float d_457;
+  float tmpvar_458;
+  tmpvar_458 = clamp (ax_5, 0.0, 1.0);
+  float tmpvar_459;
+  tmpvar_459 = clamp (((ax_5 - 6000.0) / -1000.0), 0.0, 1.0);
+  vec2 tmpvar_460;
+  tmpvar_460.y = -0.15;
+  tmpvar_460.x = (-1.0 + (2.0 * (tmpvar_458 * 
+    (tmpvar_458 * (3.0 - (2.0 * tmpvar_458)))
+  )));
+  vec2 tmpvar_461;
+  tmpvar_461.y = -0.15;
+  tmpvar_461.x = (1.0 - (2.0 * (tmpvar_459 * 
+    (tmpvar_459 * (3.0 - (2.0 * tmpvar_459)))
+  )));
+  highp vec2 tmpvar_462;
+  tmpvar_462 = (uv_2 - tmpvar_460);
+  vec2 tmpvar_463;
+  tmpvar_463 = (tmpvar_461 - tmpvar_460);
+  highp vec2 x_464;
+  x_464 = (tmpvar_462 - (tmpvar_463 * clamp (
+    (dot (tmpvar_462, tmpvar_463) / dot (tmpvar_463, tmpvar_463))
+  , 0.0, 1.0)));
+  highp float tmpvar_465;
+  tmpvar_465 = clamp ((sqrt(
+    dot (x_464, x_464)
+  ) / 0.25), 0.0, 1.0);
+  d_457 = (tmpvar_465 * (tmpvar_465 * (3.0 - 
+    (2.0 * tmpvar_465)
+  )));
+  highp vec2 p_466;
+  p_466 = (uv_2 + vec2(0.955, -0.05));
+  highp float tmpvar_467;
+  if ((ax_5 < 0.0)) {
+    tmpvar_467 = 1.0;
+  } else {
+    float tmpvar_468;
+    float tmpvar_469;
+    tmpvar_469 = clamp (ax_5, 0.0, 1.0);
+    tmpvar_468 = (tmpvar_469 * (tmpvar_469 * (3.0 - 
+      (2.0 * tmpvar_469)
+    )));
+    highp vec2 tmpvar_470;
+    tmpvar_470 = (p_466 - vec2(0.08, 0.05));
+    highp vec2 x_471;
+    x_471 = (tmpvar_470 - (vec2(-0.08, -0.2) * clamp (
+      (dot (tmpvar_470, vec2(-0.08, -0.2)) / 0.0464)
+    , 0.0, 1.0)));
+    highp float tmpvar_472;
+    tmpvar_472 = clamp ((sqrt(
+      dot (x_471, x_471)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_473;
+    tmpvar_473 = (p_466 - vec2(0.08, 0.05));
+    highp vec2 x_474;
+    x_474 = (tmpvar_473 - (vec2(0.08, -0.2) * clamp (
+      (dot (tmpvar_473, vec2(0.08, -0.2)) / 0.0464)
+    , 0.0, 1.0)));
+    highp float tmpvar_475;
+    tmpvar_475 = clamp ((sqrt(
+      dot (x_474, x_474)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_476;
+    tmpvar_476 = (p_466 - vec2(0.07, 0.02));
+    highp vec2 x_477;
+    x_477 = (tmpvar_476 - (vec2(0.068, -0.17) * clamp (
+      (dot (tmpvar_476, vec2(0.068, -0.17)) / 0.033524)
+    , 0.0, 1.0)));
+    highp float tmpvar_478;
+    tmpvar_478 = clamp ((sqrt(
+      dot (x_477, x_477)
+    ) / 0.25), 0.0, 1.0);
+    tmpvar_467 = min (max ((tmpvar_472 * 
+      (tmpvar_472 * (3.0 - (2.0 * tmpvar_472)))
+    ), float(
+      ((p_466.y + 0.2) >= (0.28 * tmpvar_468))
+    )), max (min (
+      (tmpvar_475 * (tmpvar_475 * (3.0 - (2.0 * tmpvar_475))))
+    , 
+      (tmpvar_478 * (tmpvar_478 * (3.0 - (2.0 * tmpvar_478))))
+    ), (1.0 - 
+      float(((p_466.y + 0.2) >= (0.28 - (0.28 * tmpvar_468))))
+    )));
+  };
+  d_457 = min (d_457, tmpvar_467);
+  animx_456 = (ax_5 + -0.25);
+  highp vec2 p_479;
+  p_479 = (uv_2 + vec2(0.755, -0.05));
+  highp float tmpvar_480;
+  if ((animx_456 < 0.0)) {
+    tmpvar_480 = 1.0;
+  } else {
+    float tmpvar_481;
+    float tmpvar_482;
+    tmpvar_482 = clamp (animx_456, 0.0, 1.0);
+    tmpvar_481 = (tmpvar_482 * (tmpvar_482 * (3.0 - 
+      (2.0 * tmpvar_482)
+    )));
+    highp vec2 tmpvar_483;
+    tmpvar_483 = (p_479 - vec2(0.0, 0.05));
+    highp vec2 x_484;
+    x_484 = (tmpvar_483 - (vec2(0.0, -0.2) * clamp (
+      (dot (tmpvar_483, vec2(0.0, -0.2)) / 0.04)
+    , 0.0, 1.0)));
+    highp float tmpvar_485;
+    tmpvar_485 = clamp ((sqrt(
+      dot (x_484, x_484)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_486;
+    tmpvar_486 = (p_479 - vec2(0.02, 0.05));
+    highp vec2 x_487;
+    x_487 = (tmpvar_486 - (vec2(0.0, -0.07) * clamp (
+      (dot (tmpvar_486, vec2(0.0, -0.07)) / 0.0049)
+    , 0.0, 1.0)));
+    highp float tmpvar_488;
+    tmpvar_488 = clamp ((sqrt(
+      dot (x_487, x_487)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 p_489;
+    p_489 = (p_479 + vec2(-0.05, -0.015));
+    highp float tmpvar_490;
+    tmpvar_490 = clamp ((abs(
+      (sqrt(dot (p_489, p_489)) - 0.035)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 p_491;
+    p_491 = (p_479 + vec2(-0.05, 0.085));
+    highp float tmpvar_492;
+    tmpvar_492 = clamp ((abs(
+      (sqrt(dot (p_491, p_491)) - 0.065)
+    ) / 0.25), 0.0, 1.0);
+    highp float tmpvar_493;
+    tmpvar_493 = clamp (((p_479.x - 0.055) / -0.1), 0.0, 1.0);
+    highp vec2 p_494;
+    p_494 = (p_479 + vec2(-0.05, 0.085));
+    highp float tmpvar_495;
+    tmpvar_495 = clamp ((abs(
+      (sqrt(dot (p_494, p_494)) - 0.025)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_496;
+    tmpvar_496 = (p_479 - vec2(0.0, 0.05));
+    highp vec2 x_497;
+    x_497 = (tmpvar_496 - (vec2(0.05, 0.0) * clamp (
+      (dot (tmpvar_496, vec2(0.05, 0.0)) / 0.0025)
+    , 0.0, 1.0)));
+    highp float tmpvar_498;
+    tmpvar_498 = clamp ((sqrt(
+      dot (x_497, x_497)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_499;
+    tmpvar_499 = (p_479 - vec2(0.0, -0.02));
+    highp vec2 x_500;
+    x_500 = (tmpvar_499 - (vec2(0.05, 0.0) * clamp (
+      (dot (tmpvar_499, vec2(0.05, 0.0)) / 0.0025)
+    , 0.0, 1.0)));
+    highp float tmpvar_501;
+    tmpvar_501 = clamp ((sqrt(
+      dot (x_500, x_500)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_502;
+    tmpvar_502 = (p_479 - vec2(0.0, -0.15));
+    highp vec2 x_503;
+    x_503 = (tmpvar_502 - (vec2(0.05, 0.0) * clamp (
+      (dot (tmpvar_502, vec2(0.05, 0.0)) / 0.0025)
+    , 0.0, 1.0)));
+    highp float tmpvar_504;
+    tmpvar_504 = clamp ((sqrt(
+      dot (x_503, x_503)
+    ) / 0.25), 0.0, 1.0);
+    tmpvar_480 = min (max (min (
+      min ((tmpvar_485 * (tmpvar_485 * (3.0 - 
+        (2.0 * tmpvar_485)
+      ))), (tmpvar_488 * (tmpvar_488 * (3.0 - 
+        (2.0 * tmpvar_488)
+      ))))
+    , 
+      min (min (max (float(
+        (0.05 >= p_479.x)
+      ), (tmpvar_490 * 
+        (tmpvar_490 * (3.0 - (2.0 * tmpvar_490)))
+      )), max (float(
+        (0.05 >= p_479.x)
+      ), (tmpvar_492 * 
+        (tmpvar_492 * (3.0 - (2.0 * tmpvar_492)))
+      ))), max ((tmpvar_493 * (tmpvar_493 * 
+        (3.0 - (2.0 * tmpvar_493))
+      )), (tmpvar_495 * (tmpvar_495 * 
+        (3.0 - (2.0 * tmpvar_495))
+      ))))
+    ), float(
+      ((-(p_479.y) + 0.1) >= (0.28 * tmpvar_481))
+    )), max (min (
+      min ((tmpvar_498 * (tmpvar_498 * (3.0 - 
+        (2.0 * tmpvar_498)
+      ))), (tmpvar_501 * (tmpvar_501 * (3.0 - 
+        (2.0 * tmpvar_501)
+      ))))
+    , 
+      (tmpvar_504 * (tmpvar_504 * (3.0 - (2.0 * tmpvar_504))))
+    ), float(
+      (((p_479 * mat2(-0.7070999, -0.7071137, 0.7071137, -0.7070999)).y + 0.05) >= (0.28 * tmpvar_481))
+    )));
+  };
+  animx_456 += -0.25;
+  highp vec2 p_505;
+  p_505 = (uv_2 + vec2(0.555, -0.05));
+  float tmpvar_506;
+  float tmpvar_507;
+  tmpvar_507 = clamp (animx_456, 0.0, 1.0);
+  tmpvar_506 = (tmpvar_507 * (tmpvar_507 * (3.0 - 
+    (2.0 * tmpvar_507)
+  )));
+  highp vec2 p_508;
+  p_508 = (p_505 + vec2(-0.05, 0.05));
+  highp float tmpvar_509;
+  tmpvar_509 = clamp ((abs(
+    (sqrt(dot (p_508, p_508)) - 0.08)
+  ) / 0.25), 0.0, 1.0);
+  highp vec2 p_510;
+  p_510 = (p_505 + vec2(-0.05, 0.05));
+  highp float tmpvar_511;
+  tmpvar_511 = clamp ((abs(
+    (sqrt(dot (p_510, p_510)) - 0.1)
+  ) / 0.25), 0.0, 1.0);
+  highp float tmpvar_512;
+  tmpvar_512 = clamp (((p_505.x - 0.045) / 0.055), 0.0, 1.0);
+  d_457 = min (min (d_457, tmpvar_480), max (min (
+    max ((tmpvar_509 * (tmpvar_509 * (3.0 - 
+      (2.0 * tmpvar_509)
+    ))), float(((p_505.y + 0.2) >= (0.28 * tmpvar_506))))
+  , 
+    max ((tmpvar_511 * (tmpvar_511 * (3.0 - 
+      (2.0 * tmpvar_511)
+    ))), float(((
+      -(p_505.y)
+     + 0.1) >= (0.28 * tmpvar_506))))
+  ), (tmpvar_512 * 
+    (tmpvar_512 * (3.0 - (2.0 * tmpvar_512)))
+  )));
+  animx_456 += -0.25;
+  highp vec2 p_513;
+  p_513 = (uv_2 + vec2(0.45, -0.05));
+  highp float tmpvar_514;
+  if ((animx_456 < 0.0)) {
+    tmpvar_514 = 1.0;
+  } else {
+    if ((animx_456 < 0.0)) {
+      tmpvar_514 = 1.0;
+    } else {
+      float tmpvar_515;
+      float tmpvar_516;
+      tmpvar_516 = clamp (animx_456, 0.0, 1.0);
+      tmpvar_515 = (tmpvar_516 * (tmpvar_516 * (3.0 - 
+        (2.0 * tmpvar_516)
+      )));
+      highp vec2 tmpvar_517;
+      tmpvar_517 = (p_513 - vec2(0.0, 0.05));
+      highp vec2 x_518;
+      x_518 = (tmpvar_517 - (vec2(0.0, -0.2) * clamp (
+        (dot (tmpvar_517, vec2(0.0, -0.2)) / 0.04)
+      , 0.0, 1.0)));
+      highp float tmpvar_519;
+      highp float tmpvar_520;
+      tmpvar_520 = clamp ((sqrt(
+        dot (x_518, x_518)
+      ) / 0.25), 0.0, 1.0);
+      tmpvar_519 = (tmpvar_520 * (tmpvar_520 * (3.0 - 
+        (2.0 * tmpvar_520)
+      )));
+      vec2 tmpvar_521;
+      tmpvar_521.y = 0.1;
+      tmpvar_521.x = (0.001 + (0.09 * tmpvar_515));
+      highp vec2 p_522;
+      p_522 = (p_513 + vec2(0.0, 0.05));
+      vec2 ab_523;
+      ab_523 = tmpvar_521;
+      highp float co_524;
+      highp vec2 tmpvar_525;
+      tmpvar_525 = abs(p_522);
+      p_522 = tmpvar_525;
+      if ((tmpvar_525.x > tmpvar_525.y)) {
+        p_522 = tmpvar_525.yx;
+        ab_523 = tmpvar_521.yx;
+      };
+      float tmpvar_526;
+      tmpvar_526 = ((ab_523.y * ab_523.y) - (ab_523.x * ab_523.x));
+      highp float tmpvar_527;
+      tmpvar_527 = ((ab_523.x * p_522.x) / tmpvar_526);
+      highp float tmpvar_528;
+      tmpvar_528 = (tmpvar_527 * tmpvar_527);
+      highp float tmpvar_529;
+      tmpvar_529 = ((ab_523.y * p_522.y) / tmpvar_526);
+      highp float tmpvar_530;
+      tmpvar_530 = (tmpvar_529 * tmpvar_529);
+      highp float tmpvar_531;
+      tmpvar_531 = (((tmpvar_528 + tmpvar_530) - 1.0) / 3.0);
+      highp float tmpvar_532;
+      tmpvar_532 = ((tmpvar_531 * tmpvar_531) * tmpvar_531);
+      highp float tmpvar_533;
+      tmpvar_533 = (tmpvar_532 + ((tmpvar_528 * tmpvar_530) * 2.0));
+      highp float tmpvar_534;
+      tmpvar_534 = (tmpvar_532 + (tmpvar_528 * tmpvar_530));
+      highp float tmpvar_535;
+      tmpvar_535 = (tmpvar_527 + (tmpvar_527 * tmpvar_530));
+      if ((tmpvar_534 < 0.0)) {
+        highp float x_536;
+        x_536 = (tmpvar_533 / tmpvar_532);
+        highp float tmpvar_537;
+        tmpvar_537 = ((1.570796 - (
+          sign(x_536)
+         * 
+          (1.570796 - (sqrt((1.0 - 
+            abs(x_536)
+          )) * (1.570796 + (
+            abs(x_536)
+           * 
+            (-0.2146018 + (abs(x_536) * (0.08656672 + (
+              abs(x_536)
+             * -0.03102955))))
+          ))))
+        )) / 3.0);
+        highp float tmpvar_538;
+        tmpvar_538 = cos(tmpvar_537);
+        highp float tmpvar_539;
+        tmpvar_539 = (sin(tmpvar_537) * 1.732051);
+        highp float tmpvar_540;
+        tmpvar_540 = sqrt(((
+          -(tmpvar_531)
+         * 
+          ((tmpvar_538 + tmpvar_539) + 2.0)
+        ) + tmpvar_528));
+        highp float tmpvar_541;
+        tmpvar_541 = sqrt(((
+          -(tmpvar_531)
+         * 
+          ((tmpvar_538 - tmpvar_539) + 2.0)
+        ) + tmpvar_528));
+        co_524 = (((
+          (tmpvar_541 + (sign(tmpvar_526) * tmpvar_540))
+         + 
+          (abs(tmpvar_535) / (tmpvar_540 * tmpvar_541))
+        ) - tmpvar_527) / 2.0);
+      } else {
+        highp float tmpvar_542;
+        tmpvar_542 = (((2.0 * tmpvar_527) * tmpvar_529) * sqrt(tmpvar_534));
+        highp float tmpvar_543;
+        tmpvar_543 = (sign((tmpvar_533 + tmpvar_542)) * pow (abs(
+          (tmpvar_533 + tmpvar_542)
+        ), 0.3333333));
+        highp float tmpvar_544;
+        tmpvar_544 = (sign((tmpvar_533 - tmpvar_542)) * pow (abs(
+          (tmpvar_533 - tmpvar_542)
+        ), 0.3333333));
+        highp float tmpvar_545;
+        tmpvar_545 = (((
+          -(tmpvar_543)
+         - tmpvar_544) - (tmpvar_531 * 4.0)) + (2.0 * tmpvar_528));
+        highp float tmpvar_546;
+        tmpvar_546 = ((tmpvar_543 - tmpvar_544) * 1.732051);
+        highp float tmpvar_547;
+        tmpvar_547 = sqrt(((tmpvar_545 * tmpvar_545) + (tmpvar_546 * tmpvar_546)));
+        co_524 = (((
+          (tmpvar_546 / sqrt((tmpvar_547 - tmpvar_545)))
+         + 
+          ((2.0 * tmpvar_535) / tmpvar_547)
+        ) - tmpvar_527) / 2.0);
+      };
+      highp vec2 tmpvar_548;
+      tmpvar_548.x = co_524;
+      tmpvar_548.y = sqrt((1.0 - (co_524 * co_524)));
+      highp vec2 tmpvar_549;
+      tmpvar_549 = (ab_523 * tmpvar_548);
+      highp vec2 x_550;
+      x_550 = (tmpvar_549 - p_522);
+      highp float tmpvar_551;
+      tmpvar_551 = clamp ((abs(
+        (sqrt(dot (x_550, x_550)) * sign((p_522.y - tmpvar_549.y)))
+      ) / 0.25), 0.0, 1.0);
+      tmpvar_514 = max (min (tmpvar_519, max (
+        (tmpvar_551 * (tmpvar_551 * (3.0 - (2.0 * tmpvar_551))))
+      , 
+        float((0.0 >= p_513.x))
+      )), (1.0 - float(
+        ((-(p_513.x) + 0.24) >= (0.25 - (0.25 * tmpvar_515)))
+      )));
+    };
+  };
+  d_457 = min (d_457, tmpvar_514);
+  animx_456 += -0.25;
+  highp vec2 p_552;
+  p_552 = (uv_2 + vec2(0.305, -0.05));
+  highp float tmpvar_553;
+  if ((animx_456 < 0.0)) {
+    tmpvar_553 = 1.0;
+  } else {
+    float tmpvar_554;
+    float tmpvar_555;
+    tmpvar_555 = clamp (animx_456, 0.0, 1.0);
+    tmpvar_554 = (tmpvar_555 * (tmpvar_555 * (3.0 - 
+      (2.0 * tmpvar_555)
+    )));
+    highp vec2 tmpvar_556;
+    tmpvar_556 = (p_552 - vec2(0.0, 0.05));
+    highp vec2 x_557;
+    x_557 = (tmpvar_556 - (vec2(0.0, -0.2) * clamp (
+      (dot (tmpvar_556, vec2(0.0, -0.2)) / 0.04)
+    , 0.0, 1.0)));
+    highp float tmpvar_558;
+    tmpvar_558 = clamp ((sqrt(
+      dot (x_557, x_557)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_559;
+    tmpvar_559 = (p_552 - vec2(0.0, -0.15));
+    highp vec2 x_560;
+    x_560 = (tmpvar_559 - (vec2(0.13, 0.0) * clamp (
+      (dot (tmpvar_559, vec2(0.13, 0.0)) / 0.0169)
+    , 0.0, 1.0)));
+    highp float tmpvar_561;
+    tmpvar_561 = clamp ((sqrt(
+      dot (x_560, x_560)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_562;
+    tmpvar_562 = (p_552 - vec2(0.0, 0.05));
+    highp vec2 x_563;
+    x_563 = (tmpvar_562 - (vec2(0.13, 0.0) * clamp (
+      (dot (tmpvar_562, vec2(0.13, 0.0)) / 0.0169)
+    , 0.0, 1.0)));
+    highp float tmpvar_564;
+    tmpvar_564 = clamp ((sqrt(
+      dot (x_563, x_563)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_565;
+    tmpvar_565 = (p_552 - vec2(0.0, -0.04));
+    highp vec2 x_566;
+    x_566 = (tmpvar_565 - (vec2(0.1, 0.0) * clamp (
+      (dot (tmpvar_565, vec2(0.1, 0.0)) / 0.01)
+    , 0.0, 1.0)));
+    highp float tmpvar_567;
+    tmpvar_567 = clamp ((sqrt(
+      dot (x_566, x_566)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_568;
+    tmpvar_568 = (p_552 - vec2(0.0, -0.06));
+    highp vec2 x_569;
+    x_569 = (tmpvar_568 - (vec2(0.1, 0.0) * clamp (
+      (dot (tmpvar_568, vec2(0.1, 0.0)) / 0.01)
+    , 0.0, 1.0)));
+    highp float tmpvar_570;
+    tmpvar_570 = clamp ((sqrt(
+      dot (x_569, x_569)
+    ) / 0.25), 0.0, 1.0);
+    tmpvar_553 = max (min (max (
+      (tmpvar_558 * (tmpvar_558 * (3.0 - (2.0 * tmpvar_558))))
+    , 
+      float(((p_552.y + 0.2) >= (0.28 * tmpvar_554)))
+    ), max (
+      min (min (min ((tmpvar_561 * 
+        (tmpvar_561 * (3.0 - (2.0 * tmpvar_561)))
+      ), (tmpvar_564 * 
+        (tmpvar_564 * (3.0 - (2.0 * tmpvar_564)))
+      )), (tmpvar_567 * (tmpvar_567 * 
+        (3.0 - (2.0 * tmpvar_567))
+      ))), (tmpvar_570 * (tmpvar_570 * (3.0 - 
+        (2.0 * tmpvar_570)
+      ))))
+    , 
+      (1.0 - float(((
+        -(p_552.x)
+       + 0.2) >= (0.25 - 
+        (0.25 * tmpvar_554)
+      ))))
+    )), (1.0 - float(
+      ((-(p_552.x) + 0.2) >= (0.25 - (0.25 * tmpvar_554)))
+    )));
+  };
+  animx_456 += -0.25;
+  highp vec2 p_571;
+  p_571 = (uv_2 + vec2(0.135, -0.05));
+  float tmpvar_572;
+  float tmpvar_573;
+  tmpvar_573 = clamp (animx_456, 0.0, 1.0);
+  tmpvar_572 = (tmpvar_573 * (tmpvar_573 * (3.0 - 
+    (2.0 * tmpvar_573)
+  )));
+  highp vec2 tmpvar_574;
+  tmpvar_574 = (p_571 - vec2(0.0, 0.05));
+  highp vec2 x_575;
+  x_575 = (tmpvar_574 - (vec2(0.0, -0.2) * clamp (
+    (dot (tmpvar_574, vec2(0.0, -0.2)) / 0.04)
+  , 0.0, 1.0)));
+  highp float tmpvar_576;
+  tmpvar_576 = clamp ((sqrt(
+    dot (x_575, x_575)
+  ) / 0.25), 0.0, 1.0);
+  highp vec2 tmpvar_577;
+  tmpvar_577 = (p_571 - vec2(0.0, 0.05));
+  highp vec2 x_578;
+  x_578 = (tmpvar_577 - (vec2(0.13, 0.0) * clamp (
+    (dot (tmpvar_577, vec2(0.13, 0.0)) / 0.0169)
+  , 0.0, 1.0)));
+  highp float tmpvar_579;
+  tmpvar_579 = clamp ((sqrt(
+    dot (x_578, x_578)
+  ) / 0.25), 0.0, 1.0);
+  highp vec2 tmpvar_580;
+  tmpvar_580 = (p_571 - vec2(0.0, -0.04));
+  highp vec2 x_581;
+  x_581 = (tmpvar_580 - (vec2(0.1, 0.0) * clamp (
+    (dot (tmpvar_580, vec2(0.1, 0.0)) / 0.01)
+  , 0.0, 1.0)));
+  highp float tmpvar_582;
+  tmpvar_582 = clamp ((sqrt(
+    dot (x_581, x_581)
+  ) / 0.25), 0.0, 1.0);
+  highp vec2 tmpvar_583;
+  tmpvar_583 = (p_571 - vec2(0.0, -0.06));
+  highp vec2 x_584;
+  x_584 = (tmpvar_583 - (vec2(0.1, 0.0) * clamp (
+    (dot (tmpvar_583, vec2(0.1, 0.0)) / 0.01)
+  , 0.0, 1.0)));
+  highp float tmpvar_585;
+  tmpvar_585 = clamp ((sqrt(
+    dot (x_584, x_584)
+  ) / 0.25), 0.0, 1.0);
+  d_457 = min (min (d_457, tmpvar_553), max (min (
+    max ((tmpvar_576 * (tmpvar_576 * (3.0 - 
+      (2.0 * tmpvar_576)
+    ))), float(((p_571.y + 0.2) >= (0.28 * tmpvar_572))))
+  , 
+    max (min (min ((tmpvar_579 * 
+      (tmpvar_579 * (3.0 - (2.0 * tmpvar_579)))
+    ), (tmpvar_582 * 
+      (tmpvar_582 * (3.0 - (2.0 * tmpvar_582)))
+    )), (tmpvar_585 * (tmpvar_585 * 
+      (3.0 - (2.0 * tmpvar_585))
+    ))), (1.0 - float((
+      (-(p_571.x) + 0.2)
+     >= 
+      (0.25 - (0.25 * tmpvar_572))
+    ))))
+  ), (1.0 - 
+    float(((-(p_571.x) + 0.2) >= (0.25 - (0.25 * tmpvar_572))))
+  )));
+  animx_456 += -0.25;
+  highp vec2 p_586;
+  p_586 = (uv_2 + vec2(-0.04500002, -0.05));
+  highp float tmpvar_587;
+  if ((animx_456 < 0.0)) {
+    tmpvar_587 = 1.0;
+  } else {
+    float tmpvar_588;
+    float tmpvar_589;
+    tmpvar_589 = clamp (animx_456, 0.0, 1.0);
+    tmpvar_588 = (tmpvar_589 * (tmpvar_589 * (3.0 - 
+      (2.0 * tmpvar_589)
+    )));
+    highp vec2 x_590;
+    x_590 = (p_586 - (vec2(0.1, -0.15) * clamp (
+      (dot (p_586, vec2(0.1, -0.15)) / 0.0325)
+    , 0.0, 1.0)));
+    highp float tmpvar_591;
+    tmpvar_591 = clamp ((sqrt(
+      dot (x_590, x_590)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 x_592;
+    x_592 = (p_586 - (vec2(0.0, -0.15) * clamp (
+      (dot (p_586, vec2(0.0, -0.15)) / 0.0225)
+    , 0.0, 1.0)));
+    highp float tmpvar_593;
+    tmpvar_593 = clamp ((sqrt(
+      dot (x_592, x_592)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_594;
+    tmpvar_594 = (p_586 - vec2(0.0, 0.05));
+    highp vec2 x_595;
+    x_595 = (tmpvar_594 - (vec2(0.135, -0.2) * clamp (
+      (dot (tmpvar_594, vec2(0.135, -0.2)) / 0.05822501)
+    , 0.0, 1.0)));
+    highp float tmpvar_596;
+    tmpvar_596 = clamp ((sqrt(
+      dot (x_595, x_595)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_597;
+    tmpvar_597 = (p_586 - vec2(0.135, -0.15));
+    highp vec2 x_598;
+    x_598 = (tmpvar_597 - (vec2(0.0, 0.2) * clamp (
+      (dot (tmpvar_597, vec2(0.0, 0.2)) / 0.04)
+    , 0.0, 1.0)));
+    highp float tmpvar_599;
+    tmpvar_599 = clamp ((sqrt(
+      dot (x_598, x_598)
+    ) / 0.25), 0.0, 1.0);
+    tmpvar_587 = min (max (min (
+      (tmpvar_591 * (tmpvar_591 * (3.0 - (2.0 * tmpvar_591))))
+    , 
+      (tmpvar_593 * (tmpvar_593 * (3.0 - (2.0 * tmpvar_593))))
+    ), float(
+      ((p_586.y + 0.2) >= (0.25 * tmpvar_588))
+    )), max (min (
+      (tmpvar_596 * (tmpvar_596 * (3.0 - (2.0 * tmpvar_596))))
+    , 
+      (tmpvar_599 * (tmpvar_599 * (3.0 - (2.0 * tmpvar_599))))
+    ), float(
+      ((-(p_586.y) + 0.1) >= (0.28 * tmpvar_588))
+    )));
+  };
+  highp float tmpvar_600;
+  tmpvar_600 = min (d_457, tmpvar_587);
+  d_457 = tmpvar_600;
+  animx_456 += -0.25;
+  highp vec2 p_601;
+  p_601 = (uv_2 + vec2(-0.265, -0.05));
+  float tmpvar_602;
+  float tmpvar_603;
+  tmpvar_603 = clamp (animx_456, 0.0, 1.0);
+  tmpvar_602 = (tmpvar_603 * (tmpvar_603 * (3.0 - 
+    (2.0 * tmpvar_603)
+  )));
+  highp float tmpvar_604;
+  if ((tmpvar_602 > 0.0)) {
+    mat2 tmpvar_605;
+    tmpvar_605[uint(0)].x = cos((-0.7853949 + (3.14158 * tmpvar_602)));
+    tmpvar_605[uint(0)].y = -(sin((-0.7853949 + 
+      (3.14158 * tmpvar_602)
+    )));
+    tmpvar_605[1u].x = sin((-0.7853949 + (3.14158 * tmpvar_602)));
+    tmpvar_605[1u].y = cos((-0.7853949 + (3.14158 * tmpvar_602)));
+    vec2 tmpvar_606;
+    tmpvar_606.x = 0.0;
+    tmpvar_606.y = (0.1 - (0.2 * tmpvar_602));
+    highp vec2 tmpvar_607;
+    tmpvar_607 = (((p_601 + vec2(-0.05, 0.05)) * tmpvar_605) - vec2(0.0, 0.1));
+    vec2 tmpvar_608;
+    tmpvar_608 = (tmpvar_606 - vec2(0.0, 0.1));
+    highp vec2 x_609;
+    x_609 = (tmpvar_607 - (tmpvar_608 * clamp (
+      (dot (tmpvar_607, tmpvar_608) / dot (tmpvar_608, tmpvar_608))
+    , 0.0, 1.0)));
+    highp float tmpvar_610;
+    tmpvar_610 = clamp ((sqrt(
+      dot (x_609, x_609)
+    ) / 0.25), 0.0, 1.0);
+    tmpvar_604 = (tmpvar_610 * (tmpvar_610 * (3.0 - 
+      (2.0 * tmpvar_610)
+    )));
+  } else {
+    tmpvar_604 = 1.0;
+  };
+  highp vec2 p_611;
+  p_611 = (p_601 + vec2(-0.05, 0.05));
+  highp float tmpvar_612;
+  highp float tmpvar_613;
+  tmpvar_613 = clamp ((abs(
+    (sqrt(dot (p_611, p_611)) - 0.1)
+  ) / 0.25), 0.0, 1.0);
+  tmpvar_612 = (tmpvar_613 * (tmpvar_613 * (3.0 - 
+    (2.0 * tmpvar_613)
+  )));
+  highp vec2 tmpvar_614;
+  tmpvar_614 = ((p_601 + vec2(-0.05, 0.05)) * mat2(-0.7070999, -0.7071137, 0.7071137, -0.7070999));
+  highp float tmpvar_615;
+  highp float tmpvar_616;
+  tmpvar_616 = (min (abs(
+    (tmpvar_614.x / tmpvar_614.y)
+  ), 1.0) / max (abs(
+    (tmpvar_614.x / tmpvar_614.y)
+  ), 1.0));
+  highp float tmpvar_617;
+  tmpvar_617 = (tmpvar_616 * tmpvar_616);
+  tmpvar_617 = (((
+    ((((
+      ((((-0.01213232 * tmpvar_617) + 0.05368138) * tmpvar_617) - 0.1173503)
+     * tmpvar_617) + 0.1938925) * tmpvar_617) - 0.3326756)
+   * tmpvar_617) + 0.9999793) * tmpvar_616);
+  tmpvar_617 = (tmpvar_617 + (float(
+    (abs((tmpvar_614.x / tmpvar_614.y)) > 1.0)
+  ) * (
+    (tmpvar_617 * -2.0)
+   + 1.570796)));
+  tmpvar_615 = (tmpvar_617 * sign((tmpvar_614.x / tmpvar_614.y)));
+  if ((abs(tmpvar_614.y) > (1e-08 * abs(tmpvar_614.x)))) {
+    if ((tmpvar_614.y < 0.0)) {
+      if ((tmpvar_614.x >= 0.0)) {
+        tmpvar_615 += 3.141593;
+      } else {
+        tmpvar_615 = (tmpvar_615 - 3.141593);
+      };
+    };
+  } else {
+    tmpvar_615 = (sign(tmpvar_614.x) * 1.570796);
+  };
+  highp vec2 tmpvar_618;
+  tmpvar_618.x = (tmpvar_615 / 6.283159);
+  tmpvar_618.y = sqrt(dot (tmpvar_614, tmpvar_614));
+  vec2 tmpvar_619;
+  tmpvar_619.y = 0.0;
+  tmpvar_619.x = (0.5 - (1.001 * tmpvar_602));
+  d_457 = min (tmpvar_600, min (tmpvar_604, max (tmpvar_612, 
+    float(((tmpvar_618 + tmpvar_619).x >= 0.0))
+  )));
+  animx_456 += -0.25;
+  highp vec2 p_620;
+  p_620 = (uv_2 + vec2(-0.465, -0.05));
+  highp float tmpvar_621;
+  highp float d2_622;
+  highp float d1_623;
+  if ((animx_456 < 0.0)) {
+    tmpvar_621 = 1.0;
+  } else {
+    float tmpvar_624;
+    float tmpvar_625;
+    tmpvar_625 = clamp (animx_456, 0.0, 1.0);
+    tmpvar_624 = (tmpvar_625 * (tmpvar_625 * (3.0 - 
+      (2.0 * tmpvar_625)
+    )));
+    highp vec2 tmpvar_626;
+    tmpvar_626 = (p_620 - vec2(-0.025, 0.0));
+    highp vec2 x_627;
+    x_627 = (tmpvar_626 - (vec2(0.05, -0.0) * clamp (
+      (dot (tmpvar_626, vec2(0.05, -0.0)) / 0.0025)
+    , 0.0, 1.0)));
+    highp float tmpvar_628;
+    tmpvar_628 = clamp ((sqrt(
+      dot (x_627, x_627)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_629;
+    tmpvar_629 = (p_620 - vec2(-0.025, -0.02));
+    highp vec2 x_630;
+    x_630 = (tmpvar_629 - (vec2(0.05, 0.0) * clamp (
+      (dot (tmpvar_629, vec2(0.05, 0.0)) / 0.0025)
+    , 0.0, 1.0)));
+    highp float tmpvar_631;
+    tmpvar_631 = clamp ((sqrt(
+      dot (x_630, x_630)
+    ) / 0.25), 0.0, 1.0);
+    highp float tmpvar_632;
+    tmpvar_632 = min ((tmpvar_628 * (tmpvar_628 * 
+      (3.0 - (2.0 * tmpvar_628))
+    )), (tmpvar_631 * (tmpvar_631 * 
+      (3.0 - (2.0 * tmpvar_631))
+    )));
+    d1_623 = tmpvar_632;
+    if ((animx_456 < 1.0)) {
+      d1_623 = max (tmpvar_632, float((
+        ((p_620 * mat2(-0.7070999, -0.7071137, 0.7071137, -0.7070999)).y + 0.2)
+       >= 
+        (0.28 * tmpvar_624)
+      )));
+    };
+    highp vec2 tmpvar_633;
+    tmpvar_633 = (p_620 - vec2(0.0, 0.05));
+    highp vec2 x_634;
+    x_634 = (tmpvar_633 - (vec2(0.0, -0.2) * clamp (
+      (dot (tmpvar_633, vec2(0.0, -0.2)) / 0.04)
+    , 0.0, 1.0)));
+    highp float tmpvar_635;
+    highp float tmpvar_636;
+    tmpvar_636 = clamp ((sqrt(
+      dot (x_634, x_634)
+    ) / 0.25), 0.0, 1.0);
+    tmpvar_635 = (tmpvar_636 * (tmpvar_636 * (3.0 - 
+      (2.0 * tmpvar_636)
+    )));
+    d2_622 = tmpvar_635;
+    if ((animx_456 < 1.0)) {
+      d2_622 = max (tmpvar_635, float((
+        (p_620.y + 0.2)
+       >= 
+        (0.28 * tmpvar_624)
+      )));
+    };
+    tmpvar_621 = min (d1_623, d2_622);
+  };
+  d_457 = min (d_457, tmpvar_621);
+  animx_456 += -0.25;
+  highp vec2 p_637;
+  p_637 = (uv_2 + vec2(-0.565, -0.05));
+  highp float tmpvar_638;
+  highp float d_639;
+  if ((animx_456 < 0.0)) {
+    tmpvar_638 = 1.0;
+  } else {
+    float tmpvar_640;
+    float tmpvar_641;
+    tmpvar_641 = clamp (animx_456, 0.0, 1.0);
+    tmpvar_640 = (tmpvar_641 * (tmpvar_641 * (3.0 - 
+      (2.0 * tmpvar_641)
+    )));
+    highp vec2 tmpvar_642;
+    tmpvar_642 = (p_637 - vec2(-0.05, 0.05));
+    highp vec2 x_643;
+    x_643 = (tmpvar_642 - (vec2(0.1, 0.0) * clamp (
+      (dot (tmpvar_642, vec2(0.1, 0.0)) / 0.01)
+    , 0.0, 1.0)));
+    highp float tmpvar_644;
+    tmpvar_644 = clamp ((sqrt(
+      dot (x_643, x_643)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_645;
+    tmpvar_645 = (p_637 - vec2(-0.05, 0.03));
+    highp vec2 x_646;
+    x_646 = (tmpvar_645 - (vec2(0.1, 0.0) * clamp (
+      (dot (tmpvar_645, vec2(0.1, 0.0)) / 0.01)
+    , 0.0, 1.0)));
+    highp float tmpvar_647;
+    tmpvar_647 = clamp ((sqrt(
+      dot (x_646, x_646)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_648;
+    tmpvar_648 = (p_637 - vec2(0.0, 0.03));
+    highp vec2 x_649;
+    x_649 = (tmpvar_648 - (vec2(0.0, -0.18) * clamp (
+      (dot (tmpvar_648, vec2(0.0, -0.18)) / 0.0324)
+    , 0.0, 1.0)));
+    highp float tmpvar_650;
+    tmpvar_650 = clamp ((sqrt(
+      dot (x_649, x_649)
+    ) / 0.25), 0.0, 1.0);
+    highp float tmpvar_651;
+    tmpvar_651 = min (min ((tmpvar_644 * 
+      (tmpvar_644 * (3.0 - (2.0 * tmpvar_644)))
+    ), (tmpvar_647 * 
+      (tmpvar_647 * (3.0 - (2.0 * tmpvar_647)))
+    )), (tmpvar_650 * (tmpvar_650 * 
+      (3.0 - (2.0 * tmpvar_650))
+    )));
+    d_639 = tmpvar_651;
+    if ((animx_456 < 1.0)) {
+      d_639 = max (tmpvar_651, (1.0 - float(
+        (((abs(
+          (p_637 - vec2(0.0, -0.2))
+        ) * mat2(-0.7070999, -0.7071137, 0.7071137, -0.7070999)).x + 0.28) >= (0.28 - (0.28 * tmpvar_640)))
+      )));
+    };
+    tmpvar_638 = d_639;
+  };
+  d_457 = min (d_457, tmpvar_638);
+  animx_456 += -0.25;
+  highp vec2 p_652;
+  p_652 = (uv_2 + vec2(-0.645, -0.05));
+  highp float tmpvar_653;
+  highp float d1_654;
+  if ((animx_456 < 0.0)) {
+    tmpvar_653 = 1.0;
+  } else {
+    float tmpvar_655;
+    float tmpvar_656;
+    tmpvar_656 = clamp (animx_456, 0.0, 1.0);
+    tmpvar_655 = (tmpvar_656 * (tmpvar_656 * (3.0 - 
+      (2.0 * tmpvar_656)
+    )));
+    highp vec2 tmpvar_657;
+    tmpvar_657 = (p_652 - vec2(0.0, 0.05));
+    highp vec2 x_658;
+    x_658 = (tmpvar_657 - (vec2(0.0, -0.2) * clamp (
+      (dot (tmpvar_657, vec2(0.0, -0.2)) / 0.04)
+    , 0.0, 1.0)));
+    highp float tmpvar_659;
+    tmpvar_659 = clamp ((sqrt(
+      dot (x_658, x_658)
+    ) / 0.25), 0.0, 1.0);
+    highp vec2 tmpvar_660;
+    tmpvar_660 = (p_652 - vec2(0.02, 0.05));
+    highp vec2 x_661;
+    x_661 = (tmpvar_660 - (vec2(0.0, -0.2) * clamp (
+      (dot (tmpvar_660, vec2(0.0, -0.2)) / 0.04)
+    , 0.0, 1.0)));
+    highp float tmpvar_662;
+    tmpvar_662 = clamp ((sqrt(
+      dot (x_661, x_661)
+    ) / 0.25), 0.0, 1.0);
+    highp float tmpvar_663;
+    tmpvar_663 = min ((tmpvar_659 * (tmpvar_659 * 
+      (3.0 - (2.0 * tmpvar_659))
+    )), (tmpvar_662 * (tmpvar_662 * 
+      (3.0 - (2.0 * tmpvar_662))
+    )));
+    d1_654 = tmpvar_663;
+    if ((animx_456 < 1.0)) {
+      d1_654 = max (tmpvar_663, float((
+        (p_652.y + 0.2)
+       >= 
+        (0.28 * tmpvar_655)
+      )));
+    };
+    highp vec2 tmpvar_664;
+    tmpvar_664 = (p_652 - vec2(0.0, -0.15));
+    highp vec2 x_665;
+    x_665 = (tmpvar_664 - (vec2(0.13, 0.0) * clamp (
+      (dot (tmpvar_664, vec2(0.13, 0.0)) / 0.0169)
+    , 0.0, 1.0)));
+    highp float tmpvar_666;
+    tmpvar_666 = clamp ((sqrt(
+      dot (x_665, x_665)
+    ) / 0.25), 0.0, 1.0);
+    tmpvar_653 = min (d1_654, max ((tmpvar_666 * 
+      (tmpvar_666 * (3.0 - (2.0 * tmpvar_666)))
+    ), (1.0 - 
+      float(((-(p_652.x) + 0.2) >= (0.25 - (0.25 * tmpvar_655))))
+    )));
+  };
+  animx_456 += -0.25;
+  highp vec2 p_667;
+  p_667 = (uv_2 + vec2(-0.845, -0.05));
+  highp vec2 tmpvar_668;
+  tmpvar_668.x = p_667.x;
+  tmpvar_668.y = -(p_667.y);
+  p_667 = (tmpvar_668 + vec2(0.05, -0.1));
+  float tmpvar_669;
+  float tmpvar_670;
+  tmpvar_670 = clamp (animx_456, 0.0, 1.0);
+  tmpvar_669 = (tmpvar_670 * (tmpvar_670 * (3.0 - 
+    (2.0 * tmpvar_670)
+  )));
+  highp vec2 tmpvar_671;
+  tmpvar_671 = (p_667 - vec2(0.08, 0.05));
+  highp vec2 x_672;
+  x_672 = (tmpvar_671 - (vec2(-0.08, -0.2) * clamp (
+    (dot (tmpvar_671, vec2(-0.08, -0.2)) / 0.0464)
+  , 0.0, 1.0)));
+  highp float tmpvar_673;
+  tmpvar_673 = clamp ((sqrt(
+    dot (x_672, x_672)
+  ) / 0.25), 0.0, 1.0);
+  highp vec2 tmpvar_674;
+  tmpvar_674 = (p_667 - vec2(0.08, 0.05));
+  highp vec2 x_675;
+  x_675 = (tmpvar_674 - (vec2(0.08, -0.2) * clamp (
+    (dot (tmpvar_674, vec2(0.08, -0.2)) / 0.0464)
+  , 0.0, 1.0)));
+  highp float tmpvar_676;
+  tmpvar_676 = clamp ((sqrt(
+    dot (x_675, x_675)
+  ) / 0.25), 0.0, 1.0);
+  highp vec2 tmpvar_677;
+  tmpvar_677 = (p_667 - vec2(0.07, 0.02));
+  highp vec2 x_678;
+  x_678 = (tmpvar_677 - (vec2(0.068, -0.17) * clamp (
+    (dot (tmpvar_677, vec2(0.068, -0.17)) / 0.033524)
+  , 0.0, 1.0)));
+  highp float tmpvar_679;
+  tmpvar_679 = clamp ((sqrt(
+    dot (x_678, x_678)
+  ) / 0.25), 0.0, 1.0);
+  highp float tmpvar_680;
+  tmpvar_680 = min (min (d_457, tmpvar_653), min (max (
+    (tmpvar_673 * (tmpvar_673 * (3.0 - (2.0 * tmpvar_673))))
+  , 
+    float(((p_667.y + 0.2) >= (0.28 * tmpvar_669)))
+  ), max (
+    min ((tmpvar_676 * (tmpvar_676 * (3.0 - 
+      (2.0 * tmpvar_676)
+    ))), (tmpvar_679 * (tmpvar_679 * (3.0 - 
+      (2.0 * tmpvar_679)
+    ))))
+  , 
+    (1.0 - float(((p_667.y + 0.2) >= (0.28 - 
+      (0.28 * tmpvar_669)
+    ))))
+  )));
+  d_457 = tmpvar_680;
+  animx_456 += -0.25;
+  tmpvar_455 = (1.0 - tmpvar_680);
+  float tmpvar_681;
+  float tmpvar_682;
+  tmpvar_682 = clamp (((ax_5 - 16.5) / -1.0), 0.0, 1.0);
+  tmpvar_681 = (tmpvar_682 * (tmpvar_682 * (3.0 - 
+    (2.0 * tmpvar_682)
+  )));
+  col_6 = (vec3(0.9921569, 0.9921569, 0.9921569) * tmpvar_455);
+  shade_4 = (0.003 / (1.0 - tmpvar_455));
+  v_3 = float((uv_2.x >= (-1.0 + 
+    (2.0 * tmpvar_681)
+  )));
+  float tmpvar_683;
+  if (((ax_5 - 6.0) > 0.0)) {
+    tmpvar_683 = (ax_5 - 6.0);
+  } else {
+    tmpvar_683 = 0.0;
+  };
+  v_3 = (6.0 + tmpvar_683);
+  highp vec3 theta_684;
+  theta_684 = (((v_3 / 3.0) + (uv_2.xxx / 3.0)) + vec3(0.0, 1.0, 2.0));
+  col_6 = (0.64 - (sin(theta_684) / cos(theta_684)));
+  col_6 = (abs(col_6) * 0.35);
+  col_6 = (col_6 * shade_4);
+  col_6 = (col_6 * (1.0 - float(
+    ((1.0 - (2.0 * tmpvar_681)) >= (uv_2 * mat2(0.7071091, -0.7071045, 0.7071045, 0.7071091)).x)
+  )));
+  vec2 tmpvar_685;
+  tmpvar_685.y = 0.2;
+  tmpvar_685.x = ((u_resolution / u_resolution.y).x - 0.85);
+  highp vec2 tmpvar_686;
+  tmpvar_686 = (abs(uv_2) - tmpvar_685);
+  highp vec2 tmpvar_687;
+  tmpvar_687 = max (tmpvar_686, vec2(0.0, 0.0));
+  highp float tmpvar_688;
+  tmpvar_688 = clamp (((
+    (sqrt(dot (tmpvar_687, tmpvar_687)) + min (max (tmpvar_686.x, tmpvar_686.y), 0.0))
+   - 0.0505) / -0.0485), 0.0, 1.0);
+  col_6 = (col_6 * vec3((tmpvar_688 * (tmpvar_688 * 
+    (3.0 - (2.0 * tmpvar_688))
+  ))));
+  highp vec4 tmpvar_689;
+  tmpvar_689.w = 1.0;
+  tmpvar_689.xyz = col_6;
+  ret_col_1.w = tmpvar_689.w;
+  highp float tmpvar_690;
+  tmpvar_690 = clamp (((0.5 - 
+    max (abs(((float(mod (
+      (uv_2.x * 64.0)
+    , 1.0))) - 0.5)), abs(((float(mod (
+      (uv_2.y * 64.0)
+    , 1.0))) - 0.5)))
+  ) / (64.0 / u_resolution.y)), 0.0, 1.0);
+  ret_col_1.xyz = (col_6 * (0.25 + (
+    (tmpvar_690 * (tmpvar_690 * (3.0 - (2.0 * tmpvar_690))))
+   * 0.75)));
+  glFragColor = ret_col_1;
+}
+
+#version 300 es
+#ifdef GL_ES
+ precision highp float;
+#endif
+uniform float rot;
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+uniform sampler2D u_texture1;
+uniform float u_time;
+uniform vec2 pos;
+out vec4 glFragColor;
+
+#define iTime u_time
+#define iResolution u_resolution
+#define iChannel0 u_texture1
+#define iMouse u_mouse
+
+// License Creative Commons Attribution-NonCommercial-ShareAlike
+// original source github.com/danilw
+
+vec4 getScene(vec2 fc)
+{
+    vec2 uv=fc/iResolution;
+    return texture(iChannel0,uv);
+}
+
+
+void main() {
+    glFragColor=getScene(vec2(gl_FragCoord.x,gl_FragCoord.y));
+//glFragColor=vec4(1.,0.,0.,0.5);
+}
+#version 300 es
+#ifdef GL_ES
+ precision highp float;
+#endif
+uniform float u_time;
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+uniform sampler2D u_texture1;
+uniform sampler2D u_texture2;
+uniform sampler2D u_texture3;
+out vec4 glFragColor;
+
+
+#define iTime u_time
+#define iResolution u_resolution
+#define iMouse u_mouse
+#define iChannel0 u_texture1
+#define iChannel1 u_texture2
+#define iChannel2 u_texture3
+
+
+
+// Final composite/post pass
+
+// License Creative Commons Attribution-NonCommercial-ShareAlike
+// original source github.com/danilw
+
+vec3 hableTonemap(vec3 x)
+{
+    float a = .15;
+    float b = .5;
+    float c = .1;
+    float d = .2;
+    float e = .02;
+    float f = .3;
+
+    return ((x * (x * a + c * b) + d * e) / (x * (x * a + b) + d * f)) - e / f;
+}
+
+vec3 tonemap(vec3 rawColor, float exposure)
+{
+    float w = 1.2;
+
+    vec3 exposedColor = max(rawColor * exposure, 0.0);
+
+    vec3 linear = pow(exposedColor, vec3(1.0 / 2.2));
+
+    vec3 reinhard = pow(exposedColor / (exposedColor + 1.0), vec3(1.0 / 2.2));
+
+    vec3 x = max(exposedColor - .04, 0.0);
+    vec3 hejlBurgessDawson = (x * (x * 6.2 + .85)) / (x * (x * 6.2 +.07) + .56); //bright
+
+    float exposureBias = 2.0;
+    vec3 curr = hableTonemap(exposedColor * exposureBias);
+    float whiteScale = (vec3(1.0) / hableTonemap(vec3(w))).x;
+    vec3 color = curr * whiteScale;
+    vec3 hable = pow(color, vec3(1.0 / 2.2));
+
+    return
+        //linear
+        //reinhard
+        hejlBurgessDawson
+        //hable
+        ;
+}
+
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+    vec2 uv = gl_FragCoord.xy / iResolution.xy;
+    
+    float bloomAmount = 0.07;
+    vec3 original = texture(iChannel0, uv).xyz;
+    vec3 bloom = texture(iChannel1, uv).xyz;
+    vec3 inputColor = original + bloom * bloomAmount;
+    
+    // Vignette
+    float vignetteStrength = 0.9;
+    float vignetteSizeBias = 0.5;
+    float vignettePower = 1.0;
+    float d = clamp(length(uv * 2.0 - 1.0) - vignetteSizeBias, 0.0, 1.0); //edges
+	inputColor *= 1.0 - clamp(pow(d, vignettePower) * vignetteStrength, 0.0, 1.0);
+    
+    // Bring up lows a bit
+    inputColor = inputColor * .995 + .005;
+
+    // Some toy grading :)
+	//inputColor = pow(inputColor, vec3(1.175, 1.05, 1.0));
+    
+    // Tonemap
+    float exposure = 0.0;
+    vec3 tonemappedColor = clamp(tonemap(inputColor, pow(2.0, exposure)), 0.0, 1.0);
+    
+    // Output luma for fxaa
+    float luma = sqrt(dot(tonemappedColor, vec3(0.299, 0.587, 0.114)));
+    
+    fragColor = vec4(tonemappedColor, luma);
+}
+
+
+void main(void) {
+    vec4 fragColor = vec4(0.);
+    mainImage(fragColor,gl_FragCoord.xy);
+    glFragColor = fragColor;
+}
+#version 300 es
+#ifdef GL_ES
+ precision highp float;
+#endif
+uniform float u_time;
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+uniform sampler2D u_texture1;
+uniform sampler2D u_texture2;
+uniform sampler2D u_texture3;
+uniform sampler2D u_texture4;
+out vec4 glFragColor;
+
+
+#define iTime u_time
+#define iResolution u_resolution
+#define iMouse u_mouse
+#define iChannel0 u_texture1
+#define iChannel1 u_texture2
+#define iChannel2 u_texture3
+#define iChannel3 u_texture4
+
+
+// License Creative Commons Attribution-NonCommercial-ShareAlike
+// original source github.com/danilw
+
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+    vec2 res = iResolution.xy / iResolution.y;
+    vec2 uv = (fragCoord.xy) / iResolution.y - res/2.0;
+    
+    vec3 col = 0.5 + 0.5*cos(iTime+uv.xyx+vec3(0,2,4));
+    
+    fragColor = vec4(col,1.0);
+}
+
+void main(void) {
+	discard;
+    vec4 fragColor = vec4(0.);
+    mainImage(fragColor,gl_FragCoord.xy);
+    glFragColor = fragColor;
+}
