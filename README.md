@@ -1,5 +1,5 @@
 
-**what is it** random GLSL tests and basic-step-by-step tutorials/examples that I write or use while codding it GLSL
+**what is it** random GLSL tests and ~~basic-step-by-step tutorials/examples~~ (no, this is just mess of code, and some my templates) that I write or use while codding it GLSL
 ___
 *list:*
 
