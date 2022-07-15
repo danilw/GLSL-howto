@@ -1,0 +1,286 @@
+<html>
+    <head>
+        <title>Minimal GLSL viewer</title>
+        <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+        
+        <!-- WebGL GLES2 template -->
+        
+        <script type = "glsl" id = "standard-vs">precision mediump float;
+            attribute vec4 a_Position;
+            void main() {
+            gl_Position = a_Position;
+            }
+        </script>
+        <script type = "glsl" id = "standard-frag">precision mediump float;
+            uniform float u_time;
+            uniform vec2 u_resolution;
+            
+            #define iResolution u_resolution
+            #define iTime u_time
+            
+            // Created by Danil (2021+) https://twitter.com/AruGL
+
+            // License - CC0 or use as you wish
+
+            // look common
+
+            int get_fvalue(float val, int idx){
+                if(idx==0)for(int i=0;i<0+1;i++){
+                    val=(val-floor(val/10.)*10.)*10.;
+                }
+                if(idx==1)for(int i=0;i<1+1;i++){
+                    val=(val-floor(val/10.)*10.)*10.;
+                }
+                if(idx==2)for(int i=0;i<2+1;i++){
+                    val=(val-floor(val/10.)*10.)*10.;
+                }
+                if(idx==3)for(int i=0;i<3+1;i++){
+                    val=(val-floor(val/10.)*10.)*10.;
+                }
+                if(idx==4)for(int i=0;i<4+1;i++){
+                    val=(val-floor(val/10.)*10.)*10.;
+                }
+                if(idx==5)for(int i=0;i<5+1;i++){
+                    val=(val-floor(val/10.)*10.)*10.;
+                }
+                if(idx==6)for(int i=0;i<6+1;i++){
+                    val=(val-floor(val/10.)*10.)*10.;
+                }
+                if(idx==7)for(int i=0;i<7+1;i++){
+                    val=(val-floor(val/10.)*10.)*10.;
+                }
+                if(idx==8)for(int i=0;i<8+1;i++){
+                    val=(val-floor(val/10.)*10.)*10.;
+                }
+                if(idx==9)for(int i=0;i<9+1;i++){
+                    val=(val-floor(val/10.)*10.)*10.;
+                }
+                if(idx==10)for(int i=0;i<10+1;i++){
+                    val=(val-floor(val/10.)*10.)*10.;
+                }
+                return int(val/10.);
+            }
+
+            float getarr(in mat3 arr, int idx){
+            idx=(idx<0?0:idx);ivec2 ij=ivec2(int(mod(float(idx/3),3.)),mod(float(idx),3.));
+            if(ij==ivec2(0,0))return arr[0][0];
+            if(ij==ivec2(0,1))return arr[0][1];
+            if(ij==ivec2(0,2))return arr[0][2];
+            if(ij==ivec2(1,0))return arr[1][0];
+            if(ij==ivec2(1,1))return arr[1][1];
+            if(ij==ivec2(1,2))return arr[1][2];
+            if(ij==ivec2(2,0))return arr[2][0];
+            if(ij==ivec2(2,1))return arr[2][1];
+            if(ij==ivec2(2,2))return arr[2][2];
+            return arr[0][0];}
+
+            float print_num(vec2 uv, float value, int num) {
+                const mat3 fontb=mat3(vec3(480599.0,139810.0,476951.0),vec3(476999.0,350020.0,464711.0),vec3(464727.0,476228.0,481111.0));
+                const mat3 powers = mat3(vec3(1., 10., 100.), vec3(1000., 10000., 100000.), vec3(1000000., 10000000., 100000000.));
+              if(uv.y < 0.0 || uv.y >= 1.0) return 0.0;
+                if(uv.x < -6.0 || uv.x >= 10.0) return 0.0;
+              float bits = 0.0;
+              int di = - int(floor(uv.x))+ 1;
+              if(-di <= num) {
+                float pw = getarr(powers,di);
+                float val = abs(value);
+                float pivot = max(val, 1.5) * 10.0;
+                if(pivot < pw) {
+                  if(value < 0.0 && pivot >= pw * 0.1) bits = 1792.0;
+                } else {
+                        if(di == 0) {
+                            if(num > 0) bits = 2.0;
+                        } else {
+                            int idx=0;
+                            if(di < 0)idx=get_fvalue(val,int(-di));else idx=int(mod(float((int(val*10.) / int(pw))),10.));
+                            if(idx<=9 && idx>=0)bits = idx<9?getarr(fontb,idx):481095.0;
+                        }
+                    }
+              } else return 0.;
+              return floor(mod(bits / exp2(floor(fract(uv.x) * 4.0) + floor(uv.y * 5.0) * 4.0), 2.0));
+            }
+
+            vec3 print_n(in vec2 uv ,float val){
+                int numbers = 6;
+                    vec2 font = vec2(50.)/vec2(1280,720);
+                float d = print_num(uv/font, val, numbers);
+                    return vec3(1.0, 1.0, 1.0)* d;
+            }
+
+
+            void mainImage( out vec4 fragColor, in vec2 fragCoord )
+            {
+                vec2 uv = fragCoord/iResolution.xy;
+                vec3 val=vec3(0.);
+                val.x = iResolution.x;
+                val.y = iResolution.y;
+                val.z = iTime;
+                fragColor=vec4(print_n(uv+vec2(-0.5+0.15,-0.5-0.05),val.x),1.);
+                fragColor+=vec4(print_n(uv+vec2(-0.5+0.15,-0.5+0.05),val.y),1.);
+                fragColor+=vec4(print_n(uv+vec2(-0.5+0.15,-0.5+0.15),val.z),1.);
+                fragColor.a=1.;
+                
+            }
+
+            void main( void ) {
+              mainImage( gl_FragColor, gl_FragCoord.xy );
+            }
+        </script>
+        
+    </head>
+    <body style = "background: #202020; padding: 32px;">
+        <input type="button" value="Fullscreen" onclick="document.getElementById('gl').requestFullscreen();"></p>
+        <canvas id = "gl" width = "800" height = "600"></canvas>
+        <script type = "text/javascript">
+            "use strict";
+            var width = 800;
+            var height = 600;
+            var width_init = 800;
+            var height_init = 600;
+            
+            var gl = null;
+            var Shader = null;
+            var time_start = null;
+            
+            function InitializeShader(gl, source_vs, source_frag, fv, ff)
+            {
+                var ErrorMessage = "Initializing Shader Program: <" + fv + ">, <" + ff + ">";
+                var shader_vs = gl.createShader(gl.VERTEX_SHADER);
+                var shader_frag = gl.createShader(gl.FRAGMENT_SHADER);
+                gl.shaderSource(shader_vs, source_vs);
+                gl.shaderSource(shader_frag, source_frag);
+                gl.compileShader(shader_vs);
+                gl.compileShader(shader_frag);
+                var error = false;
+                if (!gl.getShaderParameter(shader_vs, gl.COMPILE_STATUS)) {
+                    ErrorMessage += gl.getShaderInfoLog(shader_vs);
+                    error = true;
+                }
+                if (!gl.getShaderParameter(shader_frag, gl.COMPILE_STATUS)) {
+                    ErrorMessage += gl.getShaderInfoLog(shader_frag);
+                    error = true;
+                }
+                var program = gl.createProgram();
+                var ret = gl.getProgramInfoLog(program);
+                if (ret != "")
+                    ErrorMessage += ret;
+                gl.attachShader(program, shader_vs);
+                gl.attachShader(program, shader_frag);
+                if (gl.linkProgram(program) == 0) {
+                    ErrorMessage += "\r\ngl.linkProgram(program) failed with error code 0.";
+                    error = true;
+                }
+                gl.validateProgram(program);
+                if ( !gl.getProgramParameter( program, gl.LINK_STATUS) ) {
+                  var info = gl.getProgramInfoLog(program);
+                  ErrorMessage += "Could not compile WebGL program."+'\n\n' + info+'\n\n';
+                  ErrorMessage += gl.getExtension('WEBGL_debug_shaders').getTranslatedShaderSource(shader_frag)+'\n\n';
+                  error = true;
+                }
+                if (error) {
+                    console.log(ErrorMessage + ' ...failed to initialize shader.');
+                    return false;
+                } else {
+                    console.log(ErrorMessage + ' ...shader successfully created.');
+                    return program;
+                }
+            }
+            
+            function exitHandler() {
+               if (document.webkitIsFullScreen === false)
+               {
+                  resizeCanvasToDisplaySize(true);
+               }
+               else if (document.mozFullScreen === false)
+               {
+                  resizeCanvasToDisplaySize(true);
+               }
+               else if (document.msFullscreenElement === false)
+               {
+                  resizeCanvasToDisplaySize(true);
+               }
+            } 
+            
+            function resizeCanvasToDisplaySize(init) {
+                var canvas = document.getElementById('gl');
+                var w = canvas.clientWidth;
+                var h = canvas.clientHeight;
+                if(init)w=width_init;
+                if(init)h=height_init;
+
+                if ( parseInt(canvas.width) !== parseInt(w) || parseInt(canvas.height) !== parseInt(h)) {
+                    canvas.width = w;
+                    canvas.height = h;
+                    width = w;
+                    height = h;
+                    gl.viewport(0, 0, width, height);
+                    console.log("canvas size "+ width + " " + height);
+                }
+            }
+            
+            function animation_frame(T) {
+                if (!time_start)
+                    time_start = T;
+                if (!gl) {
+                    console.log("ERROR: webgl lost");
+                    return;
+                }
+                var iTime = (T - time_start) / 1000;
+                gl.clearColor(0.0, 0.0, 0.0, 1.0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+                gl.useProgram(Shader);
+                gl.uniform1f(gl.getUniformLocation(Shader, "u_time"), iTime);
+                gl.uniform2f(gl.getUniformLocation(Shader, "u_resolution"), width, height);
+                gl.drawElements(gl.TRIANGLES, 3, gl.UNSIGNED_SHORT, 0);
+                window.requestAnimationFrame(animation_frame);
+                resizeCanvasToDisplaySize(false);
+            }
+            
+            document.addEventListener("DOMContentLoaded", function (event) {
+                document.addEventListener('fullscreenchange', exitHandler, false);
+                document.addEventListener('mozfullscreenchange', exitHandler, false);
+                document.addEventListener('MSFullscreenChange', exitHandler, false);
+                document.addEventListener('webkitfullscreenchange', exitHandler, false);
+
+                var canvas = document.getElementById('gl');
+                gl = canvas.getContext("webgl2");
+                if (!gl) {
+                    console.log('webgl2 not supported, trying webgl');
+                    gl = canvas.getContext("webgl")|| canvas.getContext("experimental-webgl") || canvas.getContext("moz-webgl") || canvas.getContext("webkit-3d");
+                    if (!gl) {
+                        console.log('webgl not suported');
+                        return;
+                    } else {
+                        console.log('continue using webgl');
+                    }
+                } else {
+                    console.log('continue with webgl2');
+                }
+                    var vs = document.getElementById("standard-vs").innerHTML;
+                    var fs = document.getElementById("standard-frag").innerHTML;
+                    Shader = InitializeShader(gl, vs, fs);
+                    var vertices = new Float32Array([
+                        -1.001, 3.001, 0.0,
+                        -1.001, -1.001, 0.0,
+                        3.001, -1.001, 0.0,
+                    ]);
+                    var indices = [0, 1, 2];
+                    var vertexbuffer = gl.createBuffer();
+                    var indexbuffer = gl.createBuffer();
+                    gl.bindBuffer(gl.ARRAY_BUFFER, vertexbuffer);
+                    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+                    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+                    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexbuffer);
+                    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+                    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+                    gl.bindBuffer(gl.ARRAY_BUFFER, vertexbuffer);
+                    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexbuffer);
+                    gl.viewport(0, 0, width, height);
+                    var coords = gl.getAttribLocation(Shader, "a_Position");
+                    gl.vertexAttribPointer(coords, 3, gl.FLOAT, false, 0, 0);
+                    gl.enableVertexAttribArray(coords);
+                    window.requestAnimationFrame(animation_frame);
+            });
+        </script>
+    </body>
+</html>
