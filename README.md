@@ -67,6 +67,8 @@ Source advansed, for web only, loading shaders from html file without recompilin
 
 **Float precision on GPU, bugs/features** [medium blog post link](https://arugl.medium.com/float-precision-on-gpu-bugs-features-178ddd030f), info about float bits on GPU.
 
+**List of my shader templates** - [useful shader templates](https://github.com/danilw/danilw.github.io/blob/master/blog/my_shader_templates_list/README.md)
+
 
 ### Contact: [**Join discord server**](https://discord.gg/JKyqWgt)
 
