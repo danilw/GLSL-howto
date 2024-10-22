@@ -47,6 +47,8 @@ ___
 
 **Cubemap to panorama** convertor [live link](https://danilw.github.io/GLSL-howto/cubemap_to_panorama_js/cubemap_to_panorama.html) 
 
+Related to **Cubemap to panorama** - **example_glsl_to_c_panorama_lX2BDm** - look [TEMPLATE cubemap tools](https://www.shadertoy.com/view/NttGWr) - and **example_glsl_to_c_panorama_lX2BDm** is just example of projection textures on sphere-panorama, and this is C-CPU-code port from shader, shader linked in code.
+
 **Thousands of indexed particles** copy from my shadertoy https://www.shadertoy.com/view/tstSz7
 
 **More likes GLSL** copy from my shadertoy https://www.shadertoy.com/view/3syXDD or [itch](https://danilw.itch.io/we-need-more-likes)
