@@ -143,7 +143,7 @@ vec4 project_texture_on_cube(uint8_t *rgba_ich, int w, int h, vec3 rd, float prj
 }
 
 vec2 panorama_rd_to_pan_uv(vec3 rd);
-vec4 project_texture_on_sphere(uint8_t *rgba_ich, int w, int h, vec3 rd, vec2 pos){
+vec4 project_texture_on_sphere(uint8_t *rgba_ich, int w, int h, vec3 rd, vec2 pos, float scale){
     vec2 im = (vec2){pos.x-0.5,pos.y-0.5};
     im.x*=3.14159263;im.y*=3.14159263;
     im.y = -im.y;
@@ -155,6 +155,7 @@ vec4 project_texture_on_sphere(uint8_t *rgba_ich, int w, int h, vec3 rd, vec2 po
     mat3_multiply(tmat, rotxm, rotym);
     rd = vec3_multiply_mat3(rd, tmat);
     vec2 tuv = panorama_rd_to_pan_uv(rd);
+    tuv.x=(tuv.x-0.5)*scale+0.5;tuv.y=(tuv.y-0.5)*scale+0.5;
     if((fabs(tuv.x-0.5)<0.5)&&(fabs(tuv.y-0.5)<0.5))return textureFetch(rgba_ich, w, h, tuv); //fabs because C
     return (vec4){0,0,0,0};
 }
@@ -179,7 +180,8 @@ vec4 mainCubemap(vec3 rayOri, vec3 rayDir, uint8_t *texture_1_rgba, uint8_t *tex
     fragColor_rgb = vec3_mix(fragColor_rgb, texture_3_rgb, texture_3.w);
     alpha = max(alpha, texture_3.w);
     
-    vec4 texture_4 = project_texture_on_sphere(texture_3_rgba, w3, h3, rayDir, (vec2){0.0,-0.5});
+    //vec4 texture_4 = project_texture_on_sphere(texture_3_rgba, w3, h3, rayDir, (vec2){-0.5,-0.5}, 2.5); //(vec2){-0.5,-0.5} first -0.5 flipped to shadertoy idk why
+    vec4 texture_4 = project_texture_on_sphere(texture_3_rgba, w3, h3, rayDir, (vec2){-1.0,-0.5}, 1.0); //(vec2){-1.0,-0.5} -1.0 because shadertoy 0==-1 idk why
     vec3 texture_4_rgb = (vec3){texture_4.x,texture_4.y,texture_4.z};
     fragColor_rgb = vec3_mix(fragColor_rgb, texture_4_rgb, texture_4.w*0.65);
     alpha = max(alpha, texture_4.w*0.65);
