@@ -142,6 +142,23 @@ vec4 project_texture_on_cube(uint8_t *rgba_ich, int w, int h, vec3 rd, float prj
     return (vec4){0,0,0,0};
 }
 
+vec2 panorama_rd_to_pan_uv(vec3 rd);
+vec4 project_texture_on_sphere(uint8_t *rgba_ich, int w, int h, vec3 rd, vec2 pos){
+    vec2 im = (vec2){pos.x-0.5,pos.y-0.5};
+    im.x*=3.14159263;im.y*=3.14159263;
+    im.y = -im.y;
+    mat3 rotym;
+    roty(-im.x, rotym);
+    mat3 rotxm;
+    rotx(im.y, rotxm);
+    mat3 tmat;
+    mat3_multiply(tmat, rotxm, rotym);
+    rd = vec3_multiply_mat3(rd, tmat);
+    vec2 tuv = panorama_rd_to_pan_uv(rd);
+    if((fabs(tuv.x-0.5)<0.5)&&(fabs(tuv.y-0.5)<0.5))return textureFetch(rgba_ich, w, h, tuv); //fabs because C
+    return (vec4){0,0,0,0};
+}
+
 vec4 mainCubemap(vec3 rayOri, vec3 rayDir, uint8_t *texture_1_rgba, uint8_t *texture_2_rgba, uint8_t *texture_3_rgba, int w1, int h1, int w2, int h2, int w3, int h3 )
 {
     vec3 fragColor_rgb = (vec3){0,0,0};
@@ -161,6 +178,11 @@ vec4 mainCubemap(vec3 rayOri, vec3 rayDir, uint8_t *texture_1_rgba, uint8_t *tex
     vec3 texture_3_rgb = (vec3){texture_3.x,texture_3.y,texture_3.z};
     fragColor_rgb = vec3_mix(fragColor_rgb, texture_3_rgb, texture_3.w);
     alpha = max(alpha, texture_3.w);
+    
+    vec4 texture_4 = project_texture_on_sphere(texture_3_rgba, w3, h3, rayDir, (vec2){0.0,-0.5});
+    vec3 texture_4_rgb = (vec3){texture_4.x,texture_4.y,texture_4.z};
+    fragColor_rgb = vec3_mix(fragColor_rgb, texture_4_rgb, texture_4.w*0.65);
+    alpha = max(alpha, texture_4.w*0.65);
     
     vec4 fragColor = (vec4){0,0,0,0};
     fragColor.x = fragColor_rgb.x;
@@ -187,6 +209,16 @@ vec3 panorama_screen_uv_to_rd(vec2 uv){
     rd = vec3_normalize(rd);
     return rd;
 
+}
+
+vec2 panorama_rd_to_pan_uv(vec3 rd){
+    if(vec3_length(rd)<0.0001)rd.x+=0.0001;
+    rd = vec3_normalize(rd);
+    //float M_PI = 3.1415926535;
+    float theta = atan2f(rd.z,rd.x);
+    float r = max(vec3_length(rd),0.0001);
+    float phi =  asin(rd.y/r);
+    return (vec2){0.5+theta/(M_PI*2.), 0.5-phi/M_PI};
 }
 
 // pos - position vector on sphere(0-1), aspect texture aspect, fov - degres fov project
