@@ -72,7 +72,13 @@ Source advansed, for web only, loading shaders from html file without recompilin
 **List of my shader templates** - [useful shader templates](https://github.com/danilw/danilw.github.io/blob/master/blog/my_shader_templates_list/README.md)
 
 
-### Contact: [**Join discord server**](https://discord.gg/JKyqWgt)
+___
+
+### Contact with me:
+
+**Matrix-chat room `#Shadertoy:envs.net` invite link** [matrix.to](https://matrix.to/#/#Shadertoy:envs.net) *(use web UI Element if you dont have acc)*
+
+___
 
 ### Graphic
 
