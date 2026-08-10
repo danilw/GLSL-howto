@@ -1,6 +1,15 @@
 
 **what is it** random GLSL tests and ~~basic-step-by-step tutorials/examples~~ (no, this is just mess of code, and some my templates) that I write or use while codding it GLSL
 ___
+
+New:
+
+### Collection of useful Shadertoy web-scripts:
+
+- [image to Shadertoy glsl or C array code](https://danilw.github.io/GLSL-howto/Shadertoy_scripts/img2shadertoy.html)
+
+___
+
 *list:*
 
 **basic glsl math** - very basic glsl math to C code translation, C code return step by step GLSL color for pixel-coordinates
