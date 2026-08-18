@@ -4,6 +4,8 @@ ___
 
 New:
 
+- Shadertoy new pathtracing shaders - in [my pathtracing playlist](https://www.shadertoy.com/playlist/cX3SDf) - Pathtrace Apollonian Glow and others
+
 - Shadertoy [Dragonspine particle tracking](https://www.shadertoy.com/view/sc3SRH) and [vertex shader Dragonspine](https://www.vertexshaderart.com/art/Xd5epjbiRgPE2cwK8/)
 
 ### Collection of useful Shadertoy web-scripts:
