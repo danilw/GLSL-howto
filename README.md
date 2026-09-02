@@ -8,9 +8,10 @@ New:
 
 - Shadertoy [Dragonspine particle tracking](https://www.shadertoy.com/view/sc3SRH) and [vertex shader Dragonspine](https://www.vertexshaderart.com/art/Xd5epjbiRgPE2cwK8/)
 
-### Collection of useful Shadertoy web-scripts:
+### Collection of useful Shadertoy (mostly web) - scripts:
 
-- [image to Shadertoy glsl or C array code](https://danilw.github.io/GLSL-howto/Shadertoy_scripts/img2shadertoy.html)
+- **Web** [image to Shadertoy glsl or C array code](https://danilw.github.io/GLSL-howto/Shadertoy_scripts/img2shadertoy.html)
+- *not web* [ShadertoyMIDI_in_C convert midi to shadertoy audio](https://github.com/danilw/ShadertoyMIDI_in_C)
 
 ___
 
