@@ -12,6 +12,7 @@ New:
 
 - **Web** [image to Shadertoy glsl or C array code](https://danilw.github.io/GLSL-howto/Shadertoy_scripts/img2shadertoy.html)
 - *not web* [ShadertoyMIDI_in_C convert midi to shadertoy audio](https://github.com/danilw/ShadertoyMIDI_in_C)
+- *not web* [Godot tool wav2data2Shadertoy](https://github.com/danilw/wav2data2Shadertoy) - part of https://www.shadertoy.com/view/WctcWf
 
 ___
 
